@@ -1,0 +1,19 @@
+{
+  "name": "vibeone-design-prototype",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "prototype": "vite prototype --host 127.0.0.1 --port 4173",
+    "prototype:build": "vite build prototype --outDir ../prototype-dist"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "vite": "^6.0.0"
+  }
+}

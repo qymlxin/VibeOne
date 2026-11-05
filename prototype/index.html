@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f7fb" />
+    <script>
+      // Resolve appearance before the UI paints; storage may be unavailable.
+      (() => {
+        let preference = 'system';
+        try { preference = localStorage.getItem('vibeone-theme') || 'system'; } catch {}
+        const dark = preference === 'dark' || (preference !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.querySelector('meta[name="theme-color"]').content = dark ? '#18191b' : '#f3f3f1';
+      })();
+    </script>
+    <title>VibeOne · 工作台原型</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+node_modules/
+prototype-dist/
+.impeccable/review/
+
+# Platform-specific Impeccable engine; skill sources remain portable.
+.agents/skills/impeccable/scripts/bin/
+
+# Local credentials and generated caches.
+.DS_Store
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]

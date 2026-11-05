@@ -1,0 +1,112 @@
+/* Compact working density. Preserve text sizes and touch targets. */
+.prototype-page { padding:0 12px 64px; }
+.prototype-heading { height:44px; }
+.app-shell { height:calc(100dvh - 108px);min-height:min(560px,calc(100dvh - 108px));grid-template-columns:188px minmax(0,1fr); }
+.navigation { padding:15px 10px 10px; }
+.nav-links { margin:18px 0 18px;gap:3px; }
+.nav-item { height:34px;padding:0 10px;gap:9px; }
+.workspace-caption { padding:0 10px 4px; }
+.workspace { padding:8px 10px; }
+.all-workspaces { margin-top:4px; }
+.host-mini { padding:12px 6px 0; }
+.nav-bottom>p { padding:10px 6px 0; }
+.connection-bar { height:30px;min-height:30px;padding:0 20px; }
+.conversation-header,.variant-focus .conversation-header,.variant-workbench .conversation-header { min-height:66px;padding:12px 20px;gap:12px; }
+.breadcrumbs { margin-top:4px; }
+.header-actions { gap:10px; }
+.timeline,.variant-workbench .timeline { padding:16px 20px; }
+.variant-focus .timeline { padding:16px max(20px,calc((100% - 940px)/2)); }
+.day-divider { margin-bottom:16px; }
+.user-message,.agent-message { margin-bottom:18px;line-height:1.7; }
+.message-byline { margin-bottom:6px; }
+.plan-list { padding:10px 0 12px;gap:6px; }
+.tool-call { margin-bottom:12px; }
+.tool-call summary { padding:8px 10px; }
+.approval { padding:12px 14px; }
+.approval-top p { margin-top:3px; }
+.command-block { margin:10px 0 9px; }
+.command-label { padding:7px 10px 0; }
+.command-block pre { padding:6px 10px 9px; }
+.approval-actions { margin-top:11px; }
+.composer-area,.variant-workbench .composer-area { padding:8px 20px 10px; }
+.variant-focus .composer-area { padding:8px max(20px,calc((100% - 940px)/2)) 10px; }
+.composer { padding:9px 11px 8px; }
+.composer textarea { min-height:36px;line-height:1.6; }
+.composer-controls { padding-top:4px; }
+.composer-note { margin-top:5px; }
+
+/* The focus sidebar now uses normal flow instead of an offset overlay. */
+.focus-sessions { position:static;display:flex;flex-direction:column;flex:1;min-height:0;margin:16px 0 12px;overflow:hidden;pointer-events:auto; }
+.focus-sessions .session-column { min-height:0;flex:1;height:auto; }
+.session-heading { height:48px;min-height:48px;padding:0 12px; }
+.focus-sessions .session-heading { height:36px;min-height:36px;padding:0 8px; }
+.focus-sessions .search-box { margin:0 3px; }
+.focus-sessions .session-items { padding:0; }
+.focus-sessions .list-heading { padding:12px 8px 6px; }
+.session-row,.focus-sessions .session-row { padding:10px 8px;margin-bottom:3px;gap:6px; }
+.session-row-title { line-height:1.5; }
+.session-foot { padding:10px 12px; }
+.inspector-heading { padding:16px 14px 7px; }
+.inspector-description { padding:0 14px 12px; }
+.file-list { padding-bottom:12px; }
+.inspector.is-open,.drawer-backdrop { top:30px; }
+
+.overview { padding:24px 26px; }
+.overview-heading h1 { font-size:20px; }
+.overview-heading p { margin-top:6px; }
+.attention-strip { margin:18px 0 20px;padding:13px 2px; }
+.attention-strip>span:nth-child(2) { gap:5px; }
+.overview-list-top { margin-bottom:14px; }
+.task-table-head { padding-bottom:10px; }
+.task-table-row { padding:14px; }
+.task-cell>span:last-child { gap:6px; }
+.task-agent { gap:5px; }
+.overview-bottom { margin-top:20px; }
+.prototype-toolbar { bottom:12px;padding:4px 10px;gap:14px; }
+
+@media(min-width:1600px) {
+  .app-shell { grid-template-columns:204px minmax(0,1fr); }
+  .variant-workbench { grid-template-columns:174px 220px minmax(0,1fr); }
+}
+@media(min-width:1001px) and (max-width:1599px) {
+  .variant-workbench { grid-template-columns:174px 210px minmax(0,1fr); }
+}
+@media(min-width:720px) and (max-width:1000px) {
+  .variant-workbench { grid-template-columns:172px minmax(0,1fr); }
+}
+
+/* Phone layouts compact spacing while keeping 44–48px actions. */
+.mobile-preview .app-shell { height:790px; }
+.mobile-preview .conversation-header { min-height:68px;padding:10px 16px; }
+.mobile-preview .timeline { padding:14px 16px; }
+.mobile-preview .user-message,.mobile-preview .agent-message { margin-bottom:16px; }
+.mobile-preview .approval:not(.approval-full) { padding:12px; }
+.mobile-preview .composer-area { padding:8px 14px; }
+.mobile-preview .approval-page { padding:12px 16px 18px; }
+.mobile-preview .approval-context { margin:18px 0 16px;padding-bottom:12px;gap:4px; }
+.mobile-preview .approval-context>strong { margin-bottom:5px; }
+.mobile-preview .return-link { margin-bottom:12px; }
+.mobile-preview .reason { margin-top:18px; }
+.mobile-preview .inspector.is-open { top:40px; }
+.mobile-list { padding-top:16px; }
+.mobile-list-heading { padding:0 20px 16px; }
+.mobile-list-heading p { margin-top:5px; }
+.mobile-attention { margin-bottom:16px;padding:11px 12px; }
+.mobile-list .list-heading { padding-top:16px; }
+.mobile-list .session-row { padding:13px 10px;margin-bottom:3px;gap:8px; }
+@media(max-width:719px) {
+  .prototype-page { padding:0 0 104px; }
+  .prototype-heading { height:48px; }
+  .app-shell,.mobile-preview .app-shell { height:calc(100dvh - 148px);min-height:540px; }
+  .conversation-header,.variant-focus .conversation-header,.variant-workbench .conversation-header { min-height:68px;padding:10px 16px;gap:5px; }
+  .timeline,.variant-focus .timeline,.variant-workbench .timeline { padding:14px 16px; }
+  .composer-area,.variant-focus .composer-area,.variant-workbench .composer-area { padding:8px 14px; }
+  .approval:not(.approval-full) { padding:12px; }
+  .approval-page { padding:12px 16px 18px; }
+  .approval-context { margin:18px 0 16px;padding-bottom:12px;gap:4px; }
+  .approval-context>strong { margin-bottom:5px; }
+  .reason { margin-top:18px; }
+  .return-link { margin-bottom:12px; }
+  .prototype-toolbar { bottom:8px;padding:7px 10px;gap:5px; }
+  .inspector.is-open { top:40px; }
+}

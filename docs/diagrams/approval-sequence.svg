@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="1110" viewBox="0 0 1480 1110" role="img" aria-labelledby="title desc">
+<title id="title">跨设备审批与唯一决定</title><desc id="desc">Host 保存原始请求；桌面与手机提交意图；原子版本检查决定谁先成功。</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L8 4.5 L1 8" fill="none" stroke="#64748B" stroke-width="1.5"/></marker></defs>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}</style>
+<rect x="0" y="0" width="1480" height="1110" rx="0" fill="#F6F7FB" stroke="none"/>
+<text x="40" y="43" font-size="12" font-weight="600" fill="#536174" text-anchor="start">VIBEONE  /  DESIGN SPECIFICATION</text>
+<text x="40" y="88" font-size="30" font-weight="600" fill="#172033" text-anchor="start">跨设备审批与唯一决定</text>
+<text x="40" y="119" font-size="16" font-weight="400" fill="#536174" text-anchor="start">Host 保存原始请求；桌面与手机提交意图；原子版本检查决定谁先成功。</text>
+<rect x="60" y="164" width="180" height="54" rx="10" fill="white" stroke="#E2E8F0"/>
+<text x="150" y="197" font-size="17" font-weight="600" fill="#172033" text-anchor="middle">Agent</text>
+<line x1="150" y1="228" x2="150" y2="880" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="5 5"/>
+<rect x="360" y="164" width="180" height="54" rx="10" fill="white" stroke="#E2E8F0"/>
+<text x="450" y="197" font-size="17" font-weight="600" fill="#172033" text-anchor="middle">Rust Host</text>
+<line x1="450" y1="228" x2="450" y2="880" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="5 5"/>
+<rect x="660" y="164" width="180" height="54" rx="10" fill="white" stroke="#E2E8F0"/>
+<text x="750" y="197" font-size="17" font-weight="600" fill="#172033" text-anchor="middle">SQLite / Outbox</text>
+<line x1="750" y1="228" x2="750" y2="880" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="5 5"/>
+<rect x="960" y="164" width="180" height="54" rx="10" fill="white" stroke="#E2E8F0"/>
+<text x="1050" y="197" font-size="17" font-weight="600" fill="#172033" text-anchor="middle">桌面</text>
+<line x1="1050" y1="228" x2="1050" y2="880" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="5 5"/>
+<rect x="1250" y="164" width="180" height="54" rx="10" fill="white" stroke="#E2E8F0"/>
+<text x="1340" y="197" font-size="17" font-weight="600" fill="#172033" text-anchor="middle">手机</text>
+<line x1="1340" y1="228" x2="1340" y2="880" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="5 5"/>
+<path d="M150,273 L441,273" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M433.0,269.0 L441,273 L433.0,277.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="300.0" y="261" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">请求工具权限 + 原始选项</text>
+<path d="M450,343 L741,343" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M733.0,339.0 L741,343 L733.0,347.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="600.0" y="331" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">事务：pending + event + outbox</text>
+<path d="M750,400 L459,400" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="6 5"/>
+<path d="M467.0,404.0 L459,400 L467.0,396.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="600.0" y="388" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">提交成功</text>
+<path d="M450,465 L1041,465" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="6 5"/>
+<path d="M1033.0,461.0 L1041,465 L1033.0,469.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="750.0" y="453" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">广播待审批事件</text>
+<path d="M450,523 L1331,523" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="6 5"/>
+<path d="M1323.0,519.0 L1331,523 L1323.0,527.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="895.0" y="511" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">广播待审批事件</text>
+<path d="M1340,590 L459,590" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M467.0,594.0 L459,590 L467.0,586.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="895.0" y="578" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">允许一次 · request version=1</text>
+<path d="M450,657 L741,657" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M733.0,653.0 L741,657 L733.0,661.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="600.0" y="645" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">CAS：pending → decision_recorded</text>
+<path d="M750,713 L459,713" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="6 5"/>
+<path d="M467.0,717.0 L459,713 L467.0,709.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="600.0" y="701" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">唯一决定提交成功</text>
+<path d="M1050,773 L459,773" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M467.0,777.0 L459,773 L467.0,769.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="750.0" y="761" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">晚到拒绝 · version=1</text>
+<path d="M450,825 L1041,825" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="6 5"/>
+<path d="M1033.0,821.0 L1041,825 L1033.0,829.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="750.0" y="813" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">冲突：展示已生效决定</text>
+<path d="M450,883 L159,883" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M167.0,887.0 L159,883 L167.0,879.0" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="300.0" y="871" font-size="14" font-weight="400" fill="#536174" text-anchor="middle">返回上游选项 · 记录 response_sent</text>
+<rect x="60" y="920" width="650" height="76" rx="10" fill="#EEF2FF" stroke="none"/>
+<text x="76" y="948" font-size="16" font-weight="600" fill="#172033" text-anchor="start">竞争与投递分开记录</text>
+<text x="76" y="973" font-size="14" font-weight="400" fill="#536174" text-anchor="start">先提交的决定生效；本地写出成功不代表工具执行成功。</text>
+<rect x="740" y="920" width="680" height="76" rx="10" fill="#FFF7ED" stroke="none"/>
+<text x="756" y="948" font-size="16" font-weight="600" fill="#172033" text-anchor="start">重启或连接 epoch 改变</text>
+<text x="756" y="973" font-size="14" font-weight="400" fill="#536174" text-anchor="start">旧请求失效；回传前崩溃记录 delivery_unknown，不重放。</text>
+<line x1="40" y1="1067" x2="1440" y2="1067" stroke="#CBD5E1" stroke-width="1.5"/>
+<text x="40" y="1091" font-size="12" font-weight="400" fill="#536174" text-anchor="start">目标设计 · 2026-11-05 · 状态与数据均为示例</text>
+<text x="1440" y="1091" font-size="12" font-weight="400" fill="#536174" text-anchor="end">approval-sequence</text>
+</svg>

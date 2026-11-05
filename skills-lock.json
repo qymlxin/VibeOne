@@ -1,0 +1,217 @@
+{
+  "version": 1,
+  "scope": "project",
+  "installedAt": "2026-11-05",
+  "skills": {
+    "ask-matt": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/ask-matt",
+      "skillPath": "skills/engineering/ask-matt/SKILL.md",
+      "manifestSha256": "1371f5ce005de0992a44b137748bfb960a56948aa9871b405fe9d90b24332e3c"
+    },
+    "code-review": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/code-review",
+      "skillPath": "skills/engineering/code-review/SKILL.md",
+      "manifestSha256": "9c921a8d88138a41401d8897ca1bb852088ab1b7b605cdd04edc13e3e8aab6dd"
+    },
+    "codebase-design": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/codebase-design",
+      "skillPath": "skills/engineering/codebase-design/SKILL.md",
+      "manifestSha256": "2c20617f87ec8af6a434859f381b2f061a69b530444e74eb39e78bb016a6d1e2"
+    },
+    "diagnosing-bugs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/diagnosing-bugs",
+      "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
+      "manifestSha256": "849198df88cdb65fd0d97236604c1fca7ff2f22d2f705f9724a800d0266b118d"
+    },
+    "domain-modeling": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/domain-modeling",
+      "skillPath": "skills/engineering/domain-modeling/SKILL.md",
+      "manifestSha256": "7b925d7b1e341a2eeae33ad68a8a8c0ab889a38ddd22a7598e4c240e5a7556a3"
+    },
+    "grill-with-docs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/grill-with-docs",
+      "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
+      "manifestSha256": "7de372c13488f1ee96cc11cd8907b56b6809cc93eef776eeddd37de6b6cbe3fe"
+    },
+    "implement-spec": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/implement-spec",
+      "skillPath": "skills/engineering/implement-spec/SKILL.md",
+      "manifestSha256": "1993a473cec40ac85d081c112cdffdc63ec3267c2e412055ad09e013a2f623d1"
+    },
+    "implement": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/implement",
+      "skillPath": "skills/engineering/implement/SKILL.md",
+      "manifestSha256": "483bdc4ccf4ac31d86ac7beeaa0d0db80313e71e120bb8c59b3196ae5decd53d"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/improve-codebase-architecture",
+      "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "manifestSha256": "35b03a3db61e0f5aa333ea59b54963e45a3d2ace6649b2ef4f9576603e2582a6"
+    },
+    "pr": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/pr",
+      "skillPath": "skills/engineering/pr/SKILL.md",
+      "manifestSha256": "ab63f1cf78647389edcd386c9427c5dfca27ed2836930c24773ffee834c19bcd"
+    },
+    "prototype": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/prototype",
+      "skillPath": "skills/engineering/prototype/SKILL.md",
+      "manifestSha256": "714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3"
+    },
+    "research": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/research",
+      "skillPath": "skills/engineering/research/SKILL.md",
+      "manifestSha256": "1f629e18ab899412683bc6a1c4efb4339999e27c2fdac328f26ee10a8c031d33"
+    },
+    "retro": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/retro",
+      "skillPath": "skills/engineering/retro/SKILL.md",
+      "manifestSha256": "33fbc28568e3146f20fd908b12998bc0ab30aa4f4c87288199a40793efa94696"
+    },
+    "setup-matt-pocock-skills": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/setup-matt-pocock-skills",
+      "skillPath": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
+      "manifestSha256": "b01e05bfe8c323171275c6ceec78b12f1bd4c62dfd26c2cfe8be806d3883f1ed"
+    },
+    "tdd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/tdd",
+      "skillPath": "skills/engineering/tdd/SKILL.md",
+      "manifestSha256": "5505d25bbaa8fc14a79e4d20163936958992a2995b7f1dd1d6197edc9ed722e0"
+    },
+    "to-spec": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/to-spec",
+      "skillPath": "skills/engineering/to-spec/SKILL.md",
+      "manifestSha256": "43ad9cf318e5e7d3d1fa360253a37021796dc87a0c2e595ad262661a10f85088"
+    },
+    "to-tickets": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/to-tickets",
+      "skillPath": "skills/engineering/to-tickets/SKILL.md",
+      "manifestSha256": "56ec23c5b2782785d4e65bff9e315b6d3aeb4ef977c174a219e99489fada1995"
+    },
+    "triage": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/triage",
+      "skillPath": "skills/engineering/triage/SKILL.md",
+      "manifestSha256": "917b0baf74be583e74f110857ed45df2766617f75c00baf61fd136d7af515edf"
+    },
+    "wayfinder": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/wayfinder",
+      "skillPath": "skills/engineering/wayfinder/SKILL.md",
+      "manifestSha256": "0c9fa96791aebf3b7d654cf35c6aadde97d81f57c17b07d13b27c14d9c46561f"
+    },
+    "wizard": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/wizard",
+      "skillPath": "skills/engineering/wizard/SKILL.md",
+      "manifestSha256": "bdf31d48211ea559878f95a4f344aeabf8d85897488ba564382bab0b000daac1"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/grill-me",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "manifestSha256": "caaf8b8de1684f96e26b28f3c29189db5c89cce4b73e1c93d86164f66ef88637"
+    },
+    "grilling": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/grilling",
+      "skillPath": "skills/productivity/grilling/SKILL.md",
+      "manifestSha256": "a146842ed93ca43d833550fa9adf02e58cb63c83fea9d4b4522995b82242d4e2"
+    },
+    "handoff": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/handoff",
+      "skillPath": "skills/productivity/handoff/SKILL.md",
+      "manifestSha256": "4cbb043950dad2ffd3662ff1a5a0b51ae676004b5cae10e3787e8ee7a4ee69d3"
+    },
+    "to-questionnaire": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/to-questionnaire",
+      "skillPath": "skills/productivity/to-questionnaire/SKILL.md",
+      "manifestSha256": "b5eb929842ee0e93d867c5e906d183d350f2f2d149eaeaa86967d94d8eda1d3b"
+    },
+    "wait-what": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/wait-what",
+      "skillPath": "skills/productivity/wait-what/SKILL.md",
+      "manifestSha256": "d961bb37defd975c539427edb8f450cdbccdcdd552e213c1ece46676a7970905"
+    },
+    "writing-for-agents": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/writing-for-agents",
+      "skillPath": "skills/productivity/writing-for-agents/SKILL.md",
+      "manifestSha256": "551adca942227b44192edba88acd4e8db911f0121ce58ad16944ccf6a896a74a"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/impeccable",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "manifestSha256": "fab04b31f946573b00a8559db1fc070f8ea5825254d491c2b13156e5661a86d7"
+    },
+    "react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/react-best-practices",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "manifestSha256": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355"
+    },
+    "composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/composition-patterns",
+      "skillPath": "skills/composition-patterns/SKILL.md",
+      "manifestSha256": "e38e0eaa609316b10423a9a138ed95e35099accd3f735585295c8a8f165c28a3"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "installedPath": ".agents/skills/web-design-guidelines",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "manifestSha256": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f"
+    }
+  }
+}

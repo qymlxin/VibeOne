@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="269 275 277 237" width="277" height="237" fill="currentColor" role="img" aria-labelledby="title">
+  <title id="title">VibeOne</title>
+  <g id="vibeone-symbol">
+    <path id="v" d="M 282 288 C 278 285 273 288 275 294 L 353 501 Q 355 506 360 506 H 416 Q 420 506 422 501 L 473 371 C 475 365 472 362 467 365 L 413 391 Q 409 393 407 398 L 389 436 L 350 339 Q 349 335 345 332 Z"/>
+    <path id="one" d="M 529 282 Q 539 278 540 288 V 500 Q 540 507 534 507 H 489 Q 483 507 483 501 V 343 L 422 371 Q 415 374 417 367 L 431 331 Q 433 325 439 322 Z"/>
+  </g>
+</svg>
