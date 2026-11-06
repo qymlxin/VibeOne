@@ -126,14 +126,18 @@ test(
     assert.equal(await firstProcess.getByRole('button').getAttribute('aria-expanded'),'false');
     await firstProcess.getByRole('button').click();
     await firstProcess.locator('.desktop-activity-item.thought summary').click();
-    assert.equal(await firstProcess.locator('.desktop-activity-item.thought > pre').innerText(),'演示进度摘要：正在准备回复。');
+    assert.equal(await firstProcess.locator('.desktop-process-thought').innerText(),'演示进度摘要：正在准备回复。');
     await firstProcess.getByRole('button').click();
+    await page.emulateMedia({reducedMotion:'no-preference'});
     await page.getByRole('textbox',{name:'发送任务'}).fill('/activity');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
     const liveProcess=page.locator('.desktop-activity[data-live="true"]');
     await liveProcess.getByText('演示：整理执行结果',{exact:true}).waitFor();
-    assert.deepEqual(await page.locator('.desktop-turn').last().evaluate(turn=>[...turn.querySelectorAll('.desktop-message.assistant,.desktop-activity')].map(node=>node.classList.contains('desktop-activity')?'activity':'message')),['message','activity'],'execution commentary must precede the tool activity');
+    assert.equal(await page.locator('.desktop-turn').last().locator('.desktop-message.assistant').count(),0,'intermediate commentary belongs inside the turn process');
+    assert.equal(await page.locator('.desktop-turn').last().locator('.desktop-activity').count(),1);
+    await page.waitForFunction(()=>[...document.querySelectorAll('.desktop-activity[data-live="true"] .thinking-shimmer')].some(element=>getComputedStyle(element).animationName==='thinking-sweep'));
 
+    assert.ok(await liveProcess.locator('.thinking-shimmer').first().evaluate(async element=>{const before=getComputedStyle(element).backgroundPosition;await new Promise(resolve=>setTimeout(resolve,160));return getComputedStyle(element).backgroundPosition!==before;}),'the light sweep must actually move');
     assert.ok(await liveProcess.locator('.desktop-activity-preview-row').count()<=3);
     assert.equal(await liveProcess.locator('.desktop-activity-preview').innerText().then(text=>text.includes('演示：梳理任务范围')),false,'old activity rolls out of bounded preview');
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-light.png')});
@@ -141,21 +145,30 @@ test(
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-dark.png')});
     await page.setViewportSize({width:960,height:640});
     await page.emulateMedia({reducedMotion:'reduce'});
+    assert.ok(await liveProcess.locator('.thinking-shimmer').evaluateAll(elements=>elements.every(element=>getComputedStyle(element).animationName==='none' && getComputedStyle(element).color!=='rgba(0, 0, 0, 0)')));
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'minimum desktop activity must not overflow');
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-minimum.png')});
+    await page.locator('.desktop-timeline').evaluate(element=>{element.scrollTop=0;element.dispatchEvent(new Event('scroll'));});
+    await page.waitForFunction(()=>document.querySelectorAll('.desktop-activity[data-live="true"] .thinking-shimmer').length===0);
+    await page.getByRole('button',{name:'回到最新消息',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelectorAll('.desktop-activity[data-live="true"] .thinking-shimmer').length>0);
+
     await page.setViewportSize({width:1360,height:900});
     await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('light');
 
     await liveProcess.getByRole('button').click();
     assert.equal(await liveProcess.getByRole('button').getAttribute('aria-expanded'),'true');
-    assert.equal(await liveProcess.locator('details[open]').count(),0,'activity details remain collapsed until requested');
+    assert.equal(await liveProcess.locator('details[open]').count(),0,'nested groups remain collapsed until requested');
+    assert.deepEqual(await liveProcess.locator('.desktop-activity-history').evaluate(body=>[...body.children].map(node=>node.classList.contains('desktop-process-note')?'note':node.classList.contains('thought')?'thought':'tools')),['note','thought','tools']);
     await liveProcess.getByRole('button').click();
     await page.getByText('演示处理已完成。以上思考摘要与工具事件用于验证实时活动视图，没有读取文件或执行命令。',{exact:true}).waitFor();
     await page.getByText('本轮执行结束',{exact:true}).waitFor();
-    assert.deepEqual(await page.locator('.desktop-turn').last().evaluate(turn=>[...turn.querySelectorAll('.desktop-message.assistant,.desktop-activity')].map(node=>node.classList.contains('desktop-activity')?'activity':'message')),['message','activity','message'],'final response must follow the tools');
+    assert.deepEqual(await page.locator('.desktop-turn').last().evaluate(turn=>[...turn.querySelectorAll('.desktop-message.assistant,.desktop-activity')].map(node=>node.classList.contains('desktop-activity')?'activity':'message')),['activity','message'],'the final reply stays outside the single process disclosure');
     const latestProcess=page.getByRole('region',{name:'Agent 处理过程'}).last();
     assert.equal(await latestProcess.getByRole('button').getAttribute('aria-expanded'),'false');
     await latestProcess.getByRole('button').click();
+    assert.equal(await page.locator('.desktop-activity[data-live="false"] .thinking-shimmer').count(),0);
+    await latestProcess.locator('.desktop-tool-group > summary').click();
     const firstTool=latestProcess.locator('.desktop-activity-item.tool').first();
     await firstTool.locator(':scope > summary').click();
     await firstTool.getByText('输入',{exact:true}).waitFor();
@@ -325,6 +338,7 @@ test(
     await page.getByText('本轮执行结束',{exact:true}).waitFor();
     const rich=page.locator('.desktop-turn').last().getByRole('region',{name:'Agent 处理过程'});
     await rich.getByRole('button').click();
+    await rich.locator('.desktop-tool-group').first().locator(':scope > summary').click();
     const richTools=rich.locator('.desktop-activity-item.tool');
     await richTools.nth(0).locator(':scope > summary').click();
     await richTools.nth(0).getByText('测试查询一',{exact:true}).waitFor();
@@ -338,6 +352,7 @@ test(
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-tool-search-rendered.png')});
     await richTools.nth(1).locator(':scope > summary').click();
     assert.equal(await richTools.nth(1).getByRole('link').getAttribute('href'),'https://example.com/docs');
+    await rich.locator('.desktop-tool-group').last().locator(':scope > summary').click();
     await richTools.nth(2).locator(':scope > summary').click();
     await richTools.nth(2).getByText('退出码',{exact:true}).waitFor();
     await richTools.nth(2).getByText('hello',{exact:true}).waitFor();

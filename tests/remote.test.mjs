@@ -181,6 +181,7 @@ test(
     await page.getByText('本轮执行结束',{exact:true}).waitFor();
     const mobileTool=page.locator('.desktop-turn').last().getByRole('region',{name:'Agent 处理过程'});
     await mobileTool.getByRole('button').click();
+    await mobileTool.locator('.desktop-tool-group').first().locator(':scope > summary').click();
     await mobileTool.locator('.desktop-activity-item.tool').first().locator(':scope > summary').click();
     await mobileTool.getByText('测试查询一',{exact:true}).waitFor();
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

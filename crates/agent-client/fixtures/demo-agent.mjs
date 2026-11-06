@@ -46,7 +46,7 @@ async function run(sessionId, prompt, userId, epoch) {
         await sleep(700);if(!active())return;
         update(sessionId,{sessionUpdate:'tool_call_update',toolCallId,status:'completed',rawOutput:{demo:true,result:'模拟步骤完成，没有执行实际工具'}});
       }
-      await sleep(3200);if(!active())return;
+      await sleep(6000);if(!active())return;
       response='演示处理已完成。以上思考摘要与工具事件用于验证实时活动视图，没有读取文件或执行命令。';
     }
     if (prompt.includes('/wait')) {

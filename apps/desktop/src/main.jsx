@@ -26,7 +26,7 @@ import { InputRequest } from "./InputRequest.jsx";
 import { SessionTools, Queue } from "./SessionTools.jsx";
 import { usePlugins, PluginManager } from "./plugins.jsx";
 import { Management } from "./Management.jsx";
-import { ChatMessage, ActivityFeed } from "./ChatTimeline.jsx";
+import { ChatMessage, AgentResponse } from "./ChatTimeline.jsx";
 import { buildTurns } from "./chat-timeline.js";
 import mark from "../../../assets/brand/vibeone-logo-mark.svg";
 import "../../../prototype/src/theme.css";
@@ -634,10 +634,7 @@ function Conversation({ session, workbench, online, act }) {
         {turns.map(turn => (
           <div className="desktop-turn" key={turn.id}>
             {turn.user && <ChatMessage message={turn.user} name={name}/>}
-            {turn.blocks.map(block=>block.kind==='message'
-              ? <ChatMessage key={block.id} message={block.message} name={name}/>
-              : <ActivityFeed key={block.id} turn={{...turn,...block}} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
-            )}
+            <AgentResponse turn={turn} name={name} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
           </div>
         ))}
         {(session.inputs ?? []).map((request) => (
