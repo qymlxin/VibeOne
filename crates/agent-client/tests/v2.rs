@@ -120,3 +120,45 @@ async fn malformed_handshake_and_crashed_agent_fail_without_hanging() {
     assert!(result.is_err());
     until(&mut events, |event| event["type"] == "disconnected").await;
 }
+
+#[tokio::test]
+async fn permission_and_input_expire_and_reject_late_answers() {
+    let (session, mut events) = open(&[]).await;
+    for (prompt, request_type, resolved_type) in [
+        ("/approve", "permission", "permission_resolved"),
+        ("/input", "input", "input_resolved"),
+    ] {
+        session.prompt(prompt).await.unwrap();
+        let request = until(&mut events, |event| event["type"] == request_type).await;
+        let id = request["id"].as_str().unwrap();
+        tokio::time::pause();
+        // Let the receiving handler finish registering its timeout first.
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_secs(601)).await;
+        tokio::time::resume();
+        let resolved = until(&mut events, |event| {
+            event["type"] == resolved_type && event["id"] == id
+        })
+        .await;
+        if request_type == "permission" {
+            assert!(resolved["selected"].is_null());
+            assert!(session.decide(id, "allow").is_err());
+        } else {
+            assert!(
+                session
+                    .answer(
+                        id,
+                        serde_json::json!({
+                            "action":"accept", "content":{"name":"late-answer"}
+                        })
+                    )
+                    .is_err()
+            );
+        }
+        until(&mut events, |event| {
+            event["notification"]["update"]["stopReason"] == "end_turn"
+        })
+        .await;
+    }
+    session.shutdown().await;
+}

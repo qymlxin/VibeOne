@@ -13,6 +13,8 @@ npm run desktop
 
 当前macOS包要求10.15或更高版本；从源码构建需要Rust工具链和Xcode Command Line Tools。启动后选择 Agent 即可创建会话；目录留空会在 `~/.vibeone/projects/` 自动创建新项目，也可选择已有目录。默认“本地演示”不调用模型，可发送 `/approve` 体验审批、`/wait` 体验停止；Codex 和 Claude Code 使用本机已有认证。桥接器启动入口可用不代表已认证，缺少认证或网络失败会显示在会话中。
 
+如果出现Authentication required，请在工作主机上使用相应官方CLI完成登录，再回到VibeOne新建会话重试。本机已安装官方CLI时，Codex使用 `codex login`，Claude Code使用 `claude auth login`；这些入口已用本机CLI的help核对。登录由用户在官方流程中完成，VibeOne不要求把令牌填入聊天或插件配置。仅从源码安装依赖而没有全局Codex命令时，也可在仓库目录运行 `node node_modules/@openai/codex/bin/codex.js login`。
+
 构建不依赖 Vite 开发服务器的本地 `.app`：`npm run desktop:bundle`。产物位于 `apps/desktop/src-tauri/target/debug/bundle/macos/VibeOne.app`；这是本地开发包，尚未做正式签名、公证和分发验收。`npm run desktop:build` 构建 release 包。包内包含锁定ACP桥接器、生产依赖和本平台CLI，不依赖源码目录；`npm run bundle:smoke` 从仓库外副本验证。资源与边界见[桌面打包说明](docs/desktop-bundle.md)。
 
 桌面通过 loopback HTTP/WS 与 Host 通信；手机使用另行开启的私有地址 HTTPS/WSS 入口和可撤销设备凭据。关闭窗口隐藏到托盘，退出桌面与停止 Host 分开。会话、消息、审批决定、队列、配置、插件目录和通知 outbox 保存在本机 SQLite 中。正常执行结束后继续下一条，失败或取消后暂停；重启不自动续跑旧任务。历史可显式点击“在新上下文继续”后发送，恢复队列也需明确选择新的 Agent 上下文；不冒充原 Agent 的上下文恢复。

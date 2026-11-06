@@ -1,6 +1,6 @@
 # 04 · 真实权限审批与补充输入
 
-Status: needs-triage
+Status: resolved
 Type: task
 Batch: A
 Blocked by: 03
@@ -11,7 +11,7 @@ Blocked by: 03
 
 ## 依赖
 
-[03](./03-first-agent-cli.md)。本任务为待评审计划，尚未开始实现。
+[03](./03-first-agent-cli.md)。真实交互与超时的实现证据见下文。
 
 ## 验收
 
@@ -29,3 +29,7 @@ Blocked by: 03
 ## Comments
 
 58/59已通过真实Codex的CLI交互审批、批准/拒绝、取消待审批、旧请求失效与进程清理。独立的结构化补充输入亦实际通过elicitation/create，并验证Schema拒绝非法答案和合法结果返回。仍不把10分钟自然超时视为已实测；该项需要可控时间回归，故本票暂不标记resolved。
+
+## Answer
+
+58/59给出真实工具往返与选项语义证据；60补齐真实stdio请求等待后的可控时间超时回归，超时解除请求并拒绝合法但已迟到的审批/答案。默认审批等待仍为600秒。进程退出、取消与恢复另有ACP/Host回归，真实Codex停止已核对工具子进程退出。独立补充输入已通过真实Codex计划模式验证，并非从日志推断。由此完成本票验收；不代表Claude、原生窗口或物理手机也已验收。

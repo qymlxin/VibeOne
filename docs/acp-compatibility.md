@@ -53,3 +53,5 @@ npm run desktop
 ## 本轮完整原型补齐后的真实工具复验
 
 `npm run agent:smoke -- codex claude` 中，Codex返回目标文本并以end_turn结束，Claude仍返回Authentication required。随后显式运行 `npm run agent:controls` 验证真实批准、拒绝、取消待审批、旧请求失效、实际工具进程退出和只读配置恢复；另以 `npm run agent:controls -- --input-only` 验证计划模式的真实结构化补充输入、非法答案拒绝和结果返回。停止行为与SVG见 [停止执行与进程排空](cancellation.md)。这些是独立Host验证，不替代原生窗口或物理手机验收。
+
+人工请求超时另有可控时间回归：真实stdio权限/输入请求进入等待后推进Tokio时钟601秒，检查请求解除和迟到答案拒绝。生产600秒时限不变，test-util仅在测试中启用；这不是墙钟十分钟实测。

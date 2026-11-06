@@ -87,6 +87,7 @@
 | `npm run bundle:smoke` | 通过：复制全部资源到仓库外，两个桥接器v2握手和原生CLI启动、可信HTTPS网页、Worker反向调用、插件Provider及历史 |
 | `npm run agent:smoke -- codex claude` | Codex目标文本/end_turn通过；Claude失败，Authentication required，未冒充双工具完成 |
 | `npm run agent:controls` / `-- --input-only` | 真实Codex批准/拒绝、取消待审批、旧请求失效、进程退出、只读恢复及结构化输入通过 |
+| `cargo test -p vibeone-agent-client` | 全5项通过，新增真实stdio请求配合可控时钟验证600秒超时及迟到答案失效；客户端Clippy通过 |
 
 包内Host SHA-256：`7ca41a9a19c810c5134fd6d8c4afb11965d6e1a55c7738bdbfd93b6b119ecdbd`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
 
