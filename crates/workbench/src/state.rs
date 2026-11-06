@@ -153,6 +153,9 @@ impl Workbench {
             .cloned()
             .collect();
         for entry in entries {
+            if let Some(cancel) = entry.cancel.lock().expect("cancel poisoned").as_ref() {
+                let _ = cancel.send(true);
+            }
             if let Some(connection) = entry.connection.lock().expect("connection poisoned").take() {
                 let _ = connection.cancel();
             }
@@ -379,7 +382,7 @@ impl Workbench {
                 Ok(connection) => {
                     *entry.connection.lock().expect("connection poisoned") =
                         Some(connection.clone());
-                    if *cancelled.borrow() {
+                    if *cancelled.borrow() || workbench.available().is_err() {
                         let _ = connection.cancel();
                         Err("执行已取消".into())
                     } else {
@@ -533,5 +536,39 @@ impl Workbench {
     }
     pub async fn close(&self) {
         self.store.close().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn failed_storage_never_publishes_a_session_or_accepts_another_run() {
+        let directory = tempfile::tempdir().unwrap();
+        let provider = Provider {
+            id: "test".into(),
+            name: "test".into(),
+            available: true,
+            description: String::new(),
+            command: PathBuf::from("unused"),
+            args: vec![],
+        };
+        let workbench = Workbench::open(directory.path(), vec![provider])
+            .await
+            .unwrap();
+        workbench.store.close().await;
+        let error = workbench
+            .create("test", directory.path().to_str().unwrap())
+            .await
+            .unwrap_err();
+        assert!(error.contains("存储失败"));
+        assert_eq!(workbench.snapshot()["sessions"], json!([]));
+        assert!(workbench.snapshot()["storageError"].is_string());
+        assert!(
+            workbench
+                .create("test", directory.path().to_str().unwrap())
+                .await
+                .is_err()
+        );
     }
 }
