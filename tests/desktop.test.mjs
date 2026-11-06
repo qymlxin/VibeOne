@@ -357,6 +357,32 @@ test(
     await richTools.nth(2).getByText('退出码',{exact:true}).waitFor();
     await richTools.nth(2).getByText('hello',{exact:true}).waitFor();
 
+    await page.getByRole('textbox',{name:'发送任务'}).fill('/read-tools');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    await page.getByText('文件读取视图演示完成。没有实际读取文件。',{exact:true}).waitFor();
+    const reads=page.locator('.desktop-turn').last();
+    await reads.locator('.desktop-activity-toggle').click();
+    await reads.getByText('已读取文件',{exact:true}).click();
+    await reads.getByText('已读取 main.rs',{exact:true}).click();
+    await reads.locator('.desktop-tool-files code').getByText('/demo/src/main.rs',{exact:true}).waitFor();
+    assert.equal(await reads.locator('.desktop-tool-raw[open]').count(),0);
+    const navigation=page.getByRole('navigation',{name:'对话导航'});
+    assert.equal(await navigation.getByRole('button').count(),await page.locator('.desktop-turn[data-turn-id]').count());
+    await navigation.getByRole('button').last().focus();
+    await navigation.getByRole('tooltip').waitFor();
+    await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('light');
+    await navigation.getByRole('button').first().focus();
+    await navigation.getByRole('button').first().press('End');
+    assert.equal(await navigation.getByRole('button').last().evaluate(button=>button===document.activeElement),true);
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-navigation-events-light.png')});
+    await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('dark');
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-navigation-events-dark.png')});
+    await navigation.getByRole('button').first().click();
+    await page.waitForFunction(()=>document.querySelector('.desktop-conversation-marks button')?.getAttribute('aria-current')==='location');
+    assert.ok(await page.locator('.desktop-timeline').evaluate(root=>root.scrollTop<60));
+    await page.getByRole('button',{name:'回到最新消息',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('.desktop-conversation-marks button:last-child')?.getAttribute('aria-current')==='location');
+
     await page.getByRole("button", { name: "连接与设置", exact: true }).click();
     await page
       .getByRole("button", { name: "选择内置示例插件", exact: true })

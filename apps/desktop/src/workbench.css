@@ -1276,3 +1276,32 @@ p {
 .desktop-agent-turn > .desktop-activity { margin-top: 0; margin-bottom: 10px; }
 .desktop-agent-reply { margin-left: 41px; }
 @media (max-width: 600px) { .desktop-agent-reply { margin-left: 0; } }
+
+/* A reading index for the loaded conversation, independent from Agent memory. */
+.desktop-timeline-shell { position: relative; display: flex; flex: 1; min-height: 0; }
+.desktop-timeline-shell[hidden] { display: none; }
+.desktop-conversation-nav { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); z-index: 3; }
+.desktop-conversation-marks { display: flex; flex-direction: column; max-height: min(60vh, 460px); overflow-y: auto; scrollbar-width: none; }
+.desktop-conversation-marks::-webkit-scrollbar { display: none; }
+.desktop-conversation-marks button { display: grid; place-items: center end; flex: none; width: 32px; height: 20px; border: 0; padding: 0 4px; background: transparent; cursor: pointer; }
+.desktop-conversation-marks button span { width: 12px; height: 2px; background: var(--muted); opacity: .55; transition: width 120ms ease-out, opacity 120ms ease-out; }
+.desktop-conversation-marks button[aria-current] span { width: 24px; background: var(--ink); opacity: 1; }
+.desktop-conversation-marks button:hover span, .desktop-conversation-marks button:focus-visible span { width: 24px; opacity: 1; }
+.desktop-conversation-marks button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.desktop-conversation-preview { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); width: min(300px, calc(100vw - 84px)); padding: 14px 16px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--ink); font-size: 12px; pointer-events: none; overflow-wrap: anywhere; }
+.desktop-conversation-preview strong, .desktop-conversation-preview p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.desktop-conversation-preview p { color: var(--muted); margin: 8px 0 0; }
+.desktop-tool-files > div { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.desktop-tool-files code { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .desktop-conversation-nav { right: 2px; }
+  .desktop-conversation-marks { max-height: 45vh; }
+  .desktop-conversation-marks button { width: 28px; height: 32px; }
+  .desktop-conversation-marks button[aria-current] span { width: 20px; }
+  .desktop-timeline-shell .desktop-timeline { padding-right: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktop-conversation-marks button span { transition: none; }
+}
+.desktop-tool-detail.command { padding: 12px 14px; margin: 4px 0 12px; background: var(--hover); border: 1px solid var(--line); border-radius: 12px; }
+.desktop-tool-result { margin: 10px 0 0; text-align: right; color: var(--muted); }

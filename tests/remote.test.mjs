@@ -186,6 +186,15 @@ test(
     await mobileTool.getByText('测试查询一',{exact:true}).waitFor();
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-tool-details-mobile.png')});
+    const nav=page.getByRole('navigation',{name:'对话导航'});
+    await nav.getByRole('button').last().focus();
+    await nav.getByRole('tooltip').waitFor();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-navigation-mobile.png')});
+    await nav.getByRole('button').first().click();
+    await page.waitForFunction(()=>document.querySelector('.desktop-conversation-marks button')?.getAttribute('aria-current')==='location');
+    await page.getByRole('button',{name:'回到最新消息',exact:true}).click();
+
     await page.getByRole("textbox", { name: "发送任务" }).fill("/approve");
     await page.getByRole("button", { name: "发送消息", exact: true }).click();
     await page.getByRole("button", { name: "允许一次", exact: true }).click();

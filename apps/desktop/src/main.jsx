@@ -27,6 +27,7 @@ import { SessionTools, Queue } from "./SessionTools.jsx";
 import { usePlugins, PluginManager } from "./plugins.jsx";
 import { Management } from "./Management.jsx";
 import { ChatMessage, AgentResponse } from "./ChatTimeline.jsx";
+import { ConversationNav } from "./ConversationNav.jsx";
 import { buildTurns } from "./chat-timeline.js";
 import mark from "../../../assets/brand/vibeone-logo-mark.svg";
 import "../../../prototype/src/theme.css";
@@ -607,6 +608,7 @@ function Conversation({ session, workbench, online, act }) {
           act={act}
         />
       )}
+      <div className="desktop-timeline-shell" hidden={tab !== "chat"}>
       <div
         hidden={tab !== "chat"}
         className="desktop-timeline"
@@ -632,7 +634,7 @@ function Conversation({ session, workbench, online, act }) {
           </div>
         )}
         {turns.map(turn => (
-          <div className="desktop-turn" key={turn.id}>
+          <div className="desktop-turn" key={turn.id} data-turn-id={turn.user?turn.id:undefined}>
             {turn.user && <ChatMessage message={turn.user} name={name}/>}
             <AgentResponse turn={turn} name={name} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
           </div>
@@ -719,6 +721,8 @@ function Conversation({ session, workbench, online, act }) {
                 : `本轮已结束 · ${session.stopReason}`}
           </p>
         ) : null}
+      </div>
+      <ConversationNav turns={turns} timeline={timeline} onNavigate={()=>{followLatest.current=false;setFollowing(false);}}/>
       </div>
       {!following && (
         <div className="desktop-jump">
