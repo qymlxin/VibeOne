@@ -15,3 +15,10 @@ test('failed App candidates dispose resources and preserve published generations
   await assert.rejects(async()=>runtime.publish(first));
   await runtime.unload('demo');assert.equal(runtime.snapshot().length,0);
 });
+
+test('asynchronous App hook errors are reported without rejecting the host event',async()=>{
+  const failures=[];const runtime=new AppRuntime(error=>failures.push(String(error)));
+  const app=await runtime.prepare({pluginId:'async',generation:1,version:'1'},defineApp(ctx=>{ctx.hooks.on('changed',async()=>{throw Error('async hook failed');});}),services,[]);
+  runtime.publish(app);runtime.emit('changed',null);await Promise.resolve();await Promise.resolve();
+  assert.equal(failures.length,1);assert.ok(failures[0].includes('async hook failed'));await runtime.unload('async');
+});

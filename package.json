@@ -15,7 +15,7 @@
     "build": "npm run build -w @vibeone/plugin-sdk && npm run build -w @vibeone/plugin-runtime && npm run build -w @vibeone/example-workspace-tools",
     "test": "npm run build && node --test packages/*/test/*.test.mjs",
     "check": "npm test && cargo test --workspace && npm run host:test && npm run storage:test",
-    "host:test": "cargo build -p vibeone-host && node --test tests/workbench.test.mjs tests/execution.test.mjs tests/workspace.test.mjs",
+    "host:test": "cargo build -p vibeone-host && node --test tests/workbench.test.mjs tests/execution.test.mjs tests/workspace.test.mjs tests/plugins.test.mjs",
     "desktop:test": "cargo build -p vibeone-host && node --test tests/desktop.test.mjs",
     "agent:smoke": "cargo build -p vibeone-host && node scripts/smoke-real-agents.mjs",
     "plugin:scan": "npm run build && cargo run -p vibeone-host -- plugin scan --workspace .",
@@ -24,12 +24,17 @@
     "desktop:build": "node scripts/prepare-desktop.mjs --release && npm run desktop:build -w @vibeone/desktop",
     "prototype": "vite prototype --host 127.0.0.1 --port 4173",
     "prototype:build": "vite build prototype --outDir ../prototype-dist",
-    "storage:test": "cargo build -p vibeone-host && node --test tests/recovery.test.mjs"
+    "storage:test": "cargo build -p vibeone-host && node --test tests/recovery.test.mjs",
+    "remote:test": "npm run build:web -w @vibeone/desktop && cargo build -p vibeone-host && node --test tests/remote.test.mjs",
+    "plugin:dev": "node scripts/plugin.mjs"
   },
   "dependencies": {
+    "@tauri-apps/plugin-notification": "^2.8.0",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@agentclientprotocol/claude-agent-acp": "0.101.0",
@@ -38,6 +43,7 @@
     "@tauri-apps/api": "2.12.4",
     "@tauri-apps/cli": "2.12.4",
     "@types/node": "22.19.0",
+    "esbuild": "^0.25.12",
     "typescript": "5.9.3",
     "vite": "^6.0.0"
   }

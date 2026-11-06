@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "dependencies": { "@vibeone/plugin-sdk": "0.1.0" },
-  "scripts": { "build": "tsc -p tsconfig.json" }
+  "dependencies": {
+    "@vibeone/plugin-sdk": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node ../../../scripts/build-example-assets.mjs"
+  }
 }

@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
   "id": "dev.vibeone.workspace-tools",
-  "name": "\u5de5\u4f5c\u533a\u5de5\u5177",
+  "name": "工作区工具",
   "version": "0.1.0",
   "engines": {
     "pluginApi": ">=0.1 <0.2"
@@ -33,9 +33,43 @@
       "binding": {
         "type": "app"
       }
+    },
+    {
+      "id": "workspace-settings",
+      "kind": "settings.section",
+      "kindVersion": 1,
+      "binding": {
+        "type": "app"
+      }
+    },
+    {
+      "id": "notify",
+      "kind": "notification.channel",
+      "kindVersion": 1,
+      "binding": {
+        "type": "worker",
+        "handler": "notifications.receive"
+      }
+    },
+    {
+      "id": "demo-agent",
+      "kind": "agent.provider",
+      "kindVersion": 1,
+      "binding": {
+        "type": "declarative",
+        "descriptor": {
+          "name": "插件示例 Agent（不调用模型）",
+          "command": "$node",
+          "args": [
+            "$package/dist/demo-agent.mjs"
+          ]
+        }
+      }
     }
   ],
   "hostRequirements": [
-    "workspace.read"
+    "workspace.read",
+    "notifications.send",
+    "agent.spawn"
   ]
 }
