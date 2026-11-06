@@ -55,6 +55,8 @@
 
 - [47-composer-agent-config](issues/47-composer-agent-config.md)：输入区/侧栏共享ACP原生配置控件与失败回退，补齐Profile恢复默认入口和常规跳转，桌面与HTTPS手机回归通过。
 
+- [48-manual-queue-pause](issues/48-manual-queue-pause.md)：补齐显式暂停/恢复队列、Host能力标记及冲突校验，4项执行集成与桌面回归通过；SVG链路已更新。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。

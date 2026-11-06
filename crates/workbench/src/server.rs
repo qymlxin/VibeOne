@@ -574,6 +574,8 @@ async fn cancel(State(state): State<Server>, Path(id): Path<String>) -> ApiResul
 struct Queue {
     withdraw: Option<String>,
     #[serde(default)]
+    pause: bool,
+    #[serde(default)]
     resume: bool,
     #[serde(default)]
     fresh_context: bool,
@@ -586,7 +588,13 @@ async fn queue(
     command(async move {
         state
             .workbench
-            .queue_action(&id, body.withdraw, body.resume, body.fresh_context)
+            .queue_action(
+                &id,
+                body.withdraw,
+                body.pause,
+                body.resume,
+                body.fresh_context,
+            )
             .await
     })
     .await

@@ -90,6 +90,8 @@ function SessionToolsDetail({ session, workbench, tab, act, onLocateRun, availab
 }
 
 export function Queue({ session, workbench, online, act }) {
+  const [busy,setBusy]=useState(false);
+  const change=async body=>{if(busy||!online)return;setBusy(true);try{await act(()=>workbench.call(`/sessions/${session.id}/queue`,body));}finally{setBusy(false);}};
   if (!(session.queue ?? []).length) return null;
   return (
     <section className="desktop-queue">
@@ -98,22 +100,17 @@ export function Queue({ session, workbench, online, act }) {
           下一轮 · {session.queue.length} 条
           {session.queuePaused ? " · 已暂停" : ""}
         </strong>
+        {!session.queuePaused&&<button disabled={!online||busy||!workbench.features?.includes('queuePause')} title={workbench.features?.includes('queuePause')?'当前任务继续，只暂停下一轮':'结束执行后在设置中重启主机以启用暂停'} onClick={()=>void change({pause:true})}>暂停队列</button>}
         {session.queuePaused && (
           <button
-            disabled={!online}
-            onClick={() =>
-              void act(() =>
-                workbench.call(`/sessions/${session.id}/queue`, {
-                  resume: true,
-                  freshContext: !!session.historyOnly,
-                }),
-              )
-            }
+            disabled={!online||busy}
+            onClick={()=>void change({resume:true,freshContext:!!session.historyOnly})}
           >
             {session.historyOnly ? "在新 Agent 上下文执行队列" : "继续队列"}
           </button>
         )}
       </header>
+      {session.queuePaused&&<p>排队消息已暂停；正在执行的任务继续，恢复后再开始下一轮。</p>}
       {session.historyOnly && (
         <p>继续会建立新的 Agent 上下文，不会恢复上一轮的思考或工具状态。</p>
       )}
@@ -121,14 +118,8 @@ export function Queue({ session, workbench, online, act }) {
         <div key={run.id}>
           <span>{run.text}</span>
           <button
-            disabled={!online}
-            onClick={() =>
-              void act(() =>
-                workbench.call(`/sessions/${session.id}/queue`, {
-                  withdraw: run.id,
-                }),
-              )
-            }
+            disabled={!online||busy}
+            onClick={()=>void change({withdraw:run.id})}
           >
             撤回
           </button>

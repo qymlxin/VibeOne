@@ -18,6 +18,7 @@ async function run(sessionId, prompt, userId, epoch) {
   if (prompt.includes('/preview')) response='预览演示：[工作区文件](preview.txt)\n\n[网页预览](https://example.com/docs)。';
   if (prompt.includes('/long')) response = '这是一段用于验证流式消息滚动位置的演示内容。\n'.repeat(90);
   try {
+    if (prompt.includes('/pause-test')) {await sleep(700);if(!active())return;}
     if (prompt.includes('/thought')) {
       const messageId = `thought:${userId}`;
       const text = '演示进度摘要：正在准备回复。';

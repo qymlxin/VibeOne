@@ -122,3 +122,20 @@ test("request-scoped input can be answered before ACP session creation completes
   await call(`/sessions/${id}/inputs/${attention.inputs[0].id}`,{action:"accept",content:{name:"initialized"}});
   await wait(id,session=>session.stopReason==="end_turn");
 });
+
+test('manual queue pause survives normal completion and resume does not overlap a running task',{timeout:15000},async t=>{
+ const {directory,call,wait}=await host(t);
+ const {id}=await call('/sessions',{provider:'demo',workspace:directory});
+ await call(`/sessions/${id}/messages`,{text:'/pause-test',key:'first'});
+ await wait(id,session=>session.status==='running');
+ const queued=await call(`/sessions/${id}/messages`,{text:'after manual pause',key:'second'});
+ await call(`/sessions/${id}/queue`,{pause:true,resume:true},false);
+ await call(`/sessions/${id}/queue`,{pause:true});
+ const ended=await wait(id,session=>session.runs[0].status==='completed');
+ assert.equal(ended.queuePaused,true);
+ assert.equal(ended.queue[0].id,queued.operationId);
+ assert.equal(ended.runs.find(run=>run.id===queued.operationId).status,'queued');
+ await call(`/sessions/${id}/queue`,{resume:true});
+ await wait(id,session=>session.runs.find(run=>run.id===queued.operationId)?.status==='completed');
+ await call(`/sessions/${id}/queue`,{pause:true},false);
+});

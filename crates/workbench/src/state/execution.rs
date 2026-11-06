@@ -580,6 +580,7 @@ impl Workbench {
         self: &Arc<Self>,
         id: &str,
         withdraw: Option<String>,
+        pause: bool,
         resume: bool,
         fresh_context: bool,
     ) -> Result<(), String> {
@@ -587,6 +588,15 @@ impl Workbench {
         let entry = self.entry(id)?;
         let _gate = entry.gate.lock().await;
         let mut view = entry.view.lock().expect("view poisoned").clone();
+        if pause && (resume || fresh_context || withdraw.is_some()) {
+            return Err("暂停不能与恢复或撤回同时提交".into());
+        }
+        if pause {
+            if view.queue.is_empty() {
+                return Err("没有待暂停的排队消息，消息可能已经开始执行".into());
+            }
+            view.queue_paused = true;
+        }
         if let Some(withdraw) = withdraw {
             let position = view
                 .queue
@@ -600,7 +610,7 @@ impl Workbench {
             }
         }
         if resume {
-            if view.active || view.archived {
+            if view.archived || (view.active && fresh_context) {
                 return Err("当前会话不能恢复队列".into());
             }
             if view.history_only && !fresh_context {
@@ -614,8 +624,13 @@ impl Workbench {
             }
             view.queue_paused = false;
         }
-        self.commit(&entry, view, "queue.updated", &json!({"resume":resume}))
-            .await?;
+        self.commit(
+            &entry,
+            view,
+            "queue.updated",
+            &json!({"pause":pause,"resume":resume}),
+        )
+        .await?;
         self.driver(entry.clone());
         Ok(())
     }

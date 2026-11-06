@@ -112,6 +112,7 @@ test(
     await page.getByRole('textbox',{name:'发送任务'}).waitFor();
     const managed=await (await fetch(`${connection.url}/v1/snapshot`,{headers:{Authorization:`Bearer ${connection.token}`}})).json();
     assert.ok(managed.sessions.some(s=>s.workspace.includes('/projects/project-')));
+    assert.ok(managed.features.includes('queuePause'));
     await page.getByRole('button',{name:'新建会话',exact:true}).click();
     await page.getByRole("button", { name: "选择工作区目录" }).click();
     await page
@@ -182,6 +183,7 @@ test(
     await config.locator(':scope > summary').click();
     await page.getByRole('combobox',{name:'输入区配置：演示模式',exact:true}).selectOption('normal');
     await config.getByRole('status').getByText('已应用演示模式',{exact:true}).waitFor();
+    await page.screenshot({path:join(tmpdir(),'vibeone-agent-config-composer.png')});
     assert.equal(await page.getByRole('combobox',{name:'输入区配置：演示模式',exact:true}).inputValue(),'normal');
     await page.route('**/v1/sessions/*/configure',route=>route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Agent 拒绝测试配置'})}));
     await page.getByRole('combobox',{name:'输入区配置：演示模式',exact:true}).selectOption('safe');
@@ -201,6 +203,14 @@ test(
     await page.emulateMedia({reducedMotion:'no-preference'});
     await page.getByRole('textbox',{name:'发送任务'}).fill('/activity');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    await page.getByRole('textbox',{name:'发送任务'}).fill('排队控制测试消息');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    const queue=page.locator('.desktop-queue');
+    await queue.getByRole('button',{name:'暂停队列',exact:true}).click();
+    await queue.getByText('排队消息已暂停；正在执行的任务继续，恢复后再开始下一轮。',{exact:true}).waitFor();
+    await queue.getByRole('button',{name:'继续队列',exact:true}).click();
+    await queue.getByRole('button',{name:'暂停队列',exact:true}).click();
+    await queue.getByRole('button',{name:'撤回',exact:true}).click();
     const liveProcess=page.locator('.desktop-activity[data-live="true"]');
     await liveProcess.getByText('演示：整理执行结果',{exact:true}).waitFor();
     assert.equal(await page.locator('.desktop-turn').last().locator('.desktop-message.assistant').count(),0,'intermediate commentary belongs inside the turn process');
