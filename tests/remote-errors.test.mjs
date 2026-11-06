@@ -83,11 +83,17 @@ test('remote configuration preserves confirmed address and automatic port after 
  const active=await local('/remote',{enabled:true,ip:'127.0.0.1',port:0});
  let state=await local('/devices');
  assert.equal(state.url,active.url);
+ assert.equal(state.qr,active.qr);assert.match(state.qr,/<svg/);
+ assert.equal((await local('/devices')).qr,active.qr);
  assert.deepEqual(state.configuration,{enabled:true,ip:'127.0.0.1',port:0});
  await local('/remote',{enabled:false,ip:'not-a-config',port:99999});
  state=await local('/devices');
- assert.equal(state.url,null);
+ assert.equal(state.url,null);assert.equal(state.qr,null);
  assert.deepEqual(state.configuration,{enabled:false,ip:'127.0.0.1',port:0});
  await local('/remote',{enabled:true,ip:'not-an-ip',port:0},400,'INVALID_INPUT');
  assert.deepEqual((await local('/devices')).configuration,state.configuration);
+ const replacement=await local('/remote',{enabled:true,ip:'127.0.0.1',port:0});
+ const restarted=await local('/devices');
+ assert.equal(restarted.url,replacement.url);assert.equal(restarted.qr,replacement.qr);
+ assert.match(restarted.qr,/<svg/);
 });

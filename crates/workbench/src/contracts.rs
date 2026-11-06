@@ -20,6 +20,7 @@ pub struct RemoteClaimSummary {
 #[serde(rename_all = "camelCase")]
 pub struct RemoteStatusResponse {
     pub url: Option<String>,
+    pub qr: Option<String>,
     pub configuration: RemoteConfiguration,
     pub devices: Vec<Value>,
     pub claims: Vec<RemoteClaimSummary>,

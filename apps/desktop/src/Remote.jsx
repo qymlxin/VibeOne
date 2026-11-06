@@ -82,7 +82,7 @@ export function RemoteSettings({ workbench }) {
                 ip,
                 port: Number(port),
               });
-              setQr(result.qr);
+              setQr({url:result.url,svg:result.qr});
             }, true)
           }
         >
@@ -107,11 +107,11 @@ export function RemoteSettings({ workbench }) {
               导出 CA 证书
             </button>
             <p>证书文件：{state.certificatePath}</p>
-            {qr && (
+            {(state.qr || (qr?.url===state.url&&qr.svg)) && (
               <img
                 className="desktop-remote-qr"
                 alt="手机入口二维码"
-                src={`data:image/svg+xml,${encodeURIComponent(qr)}`}
+                src={`data:image/svg+xml,${encodeURIComponent(state.qr || qr.svg)}`}
               />
             )}
             <button

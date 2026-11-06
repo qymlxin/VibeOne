@@ -810,6 +810,7 @@ test(
     await page.getByRole('button',{name:'关闭手机入口',exact:true}).waitFor();
     assert.equal(await remoteIp.inputValue(),'127.0.0.1');
     assert.equal(await remotePort.inputValue(),'0');
+    await page.getByRole('img',{name:'手机入口二维码',exact:true}).waitFor();
     await page.screenshot({path:join(tmpdir(),'vibeone-remote-preferences-dark.png')});
     await page.getByRole('button',{name:'关闭手机入口',exact:true}).click();
     await page.waitForFunction(()=>!document.querySelector('[aria-label="远程入口 IP"]')?.disabled);

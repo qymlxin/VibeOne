@@ -278,3 +278,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 ## 远程配置回显（89）
 
 关闭入口保留IP和端口，自动端口保留为0；实际URL单独表示运行中的地址。正式页面验证未提交编辑经过轮询不丢失、开启后重新进入显示正确配置、关闭后重新进入仍保留。完整check通过（55项Node、46项Workbench、37项Host及崩溃恢复），Clippy通过；桌面69.0秒及HTTPS手机23.7秒回归通过。设计说明与SVG见 [远程配置](remote-configuration.md)。本次没有重启用户实际Host，原生窗口和物理手机验收仍保留。
+
+## 二维码恢复（90）
+
+当前监听的SVG二维码通过Host状态恢复；正式桌面回归验证重新进入设置后二维码存在，关闭与重新开启由真实Host验证清除和替换。55项Node、46项Workbench、3项远程Host、Clippy通过；桌面69.1秒、HTTPS手机23.4秒通过。新截图已查看，不把它等同于物理手机扫码/证书信任验收。

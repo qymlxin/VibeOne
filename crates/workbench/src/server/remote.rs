@@ -39,6 +39,7 @@ struct Claim {
 struct Running {
     id: String,
     url: String,
+    qr: String,
     handle: axum_server::Handle<SocketAddr>,
 }
 pub(super) struct Remote {
@@ -72,6 +73,13 @@ impl Remote {
             .expect("remote poisoned")
             .as_ref()
             .map(|running| running.url.clone())
+    }
+    fn qr(&self) -> Option<String> {
+        self.running
+            .lock()
+            .expect("remote poisoned")
+            .as_ref()
+            .map(|running| running.qr.clone())
     }
     pub async fn stop(&self) {
         let _gate = self.gate.lock().await;
@@ -207,6 +215,7 @@ impl Remote {
         *self.running.lock().expect("remote poisoned") = Some(Running {
             id: id.clone(),
             url: url.clone(),
+            qr: qr.clone(),
             handle: handle.clone(),
         });
         let mut stopped = state.stop.subscribe();
@@ -451,6 +460,7 @@ pub(super) async fn status(State(state): State<Server>) -> Json<RemoteStatusResp
         .collect::<Vec<_>>();
     Json(RemoteStatusResponse {
         url: state.remote.url(),
+        qr: state.remote.qr(),
         configuration: saved_configuration(&state),
         devices,
         claims,
@@ -876,6 +886,7 @@ mod remote_failure_tests {
         *state.remote.running.lock().unwrap() = Some(Running {
             id: "fixture".into(),
             url: "https://127.0.0.1:1".into(),
+            qr: "fixture".into(),
             handle: axum_server::Handle::new(),
         });
         state.remote.claims.lock().unwrap().insert(
