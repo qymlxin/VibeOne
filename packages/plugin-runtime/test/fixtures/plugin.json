@@ -1,0 +1,10 @@
+{
+  "manifestVersion": 1,
+  "id": "dev.vibeone.fixture",
+  "version": "0.1.0",
+  "engines": { "pluginApi": ">=0.1 <0.2" },
+  "entrypoints": { "worker": { "path": "worker.mjs", "runtime": "node", "protocolVersion": 1 } },
+  "contributions": [
+    { "id": "inspect", "kind": "app.command", "kindVersion": 1, "binding": { "type": "worker", "handler": "inspect" } }
+  ]
+}

@@ -253,16 +253,16 @@ Agent 接入的 `prepare` 返回经过 Host 再校验的 `LaunchSpec`，Host 负
 ## 9. Worker SDK 与双向通信
 
 ```js
-import { defineWorker, serveStdio } from '@vibeone/plugin-sdk/worker';
+import { defineWorker } from '@vibeone/plugin-sdk/worker';
 
-const worker = defineWorker(({ handle }) => {
+export default defineWorker(({ handle }) => {
   handle('workspace.scan', async (input, ctx) => {
     return ctx.host.call('workspace.read', 'scan', input);
   });
 });
-
-await serveStdio(worker);
 ```
+
+Node runner 加载该默认导出并持有共享 stdio 通道；插件不自行读取 stdin 或向 stdout 写业务日志。P0 SDK 版本为 `0.1.0`，Worker 定义 `apiVersion` 为 `0.1`，清单暂只接受明确的 `>=0.1 <0.2` 范围，完整 semver 兼容解析后续实现。
 
 JS 与编译后的 TS Worker 使用同一个协议。Rust 原生 Worker 可实现同一协议，也可后续使用辅助 Rust SDK；无需借助 Rust 动态库 ABI。
 

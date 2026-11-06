@@ -1,0 +1,10 @@
+{
+  "name": "@vibeone/plugin-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": { "types": "./dist/engine.d.ts", "default": "./dist/engine.js" } },
+  "bin": { "vibeone-plugin-runtime": "dist/main.js" },
+  "dependencies": { "@vibeone/plugin-sdk": "0.1.0" },
+  "scripts": { "build": "tsc -p tsconfig.json" }
+}

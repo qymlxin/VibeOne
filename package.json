@@ -11,7 +11,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w @vibeone/plugin-sdk && npm run build -w @vibeone/plugin-runtime",
     "test": "npm run build && node --test packages/*/test/*.test.mjs",
     "check": "npm test && cargo test --workspace",
     "prototype": "vite prototype --host 127.0.0.1 --port 4173",
