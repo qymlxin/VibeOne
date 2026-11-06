@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/plugin-host", "crates/agent-client", "crates/host"]
+members = ["crates/plugin-host", "crates/agent-client", "crates/workbench", "crates/host"]
 exclude = ["apps/desktop/src-tauri"]
 resolver = "2"
 

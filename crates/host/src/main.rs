@@ -20,6 +20,11 @@ async fn main() {
 
 async fn run() -> Result<()> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    if args.len() == 3 && args[0] == "serve" && args[1] == "--data-dir" {
+        return vibeone_workbench::serve(PathBuf::from(&args[2]))
+            .await
+            .map_err(|error| Error::Invalid(error.to_string()));
+    }
     if args.is_empty() || args[0] == "--help" {
         println!(
             "VibeOne Host (P0)\n\n  vibeone-host plugin scan --workspace <directory>\n\nRuns the local workspace-tools plugin through Rust → Node → Rust."
