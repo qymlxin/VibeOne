@@ -284,6 +284,45 @@ Plugin RPC 采用版本化 JSON-RPC，stdio 按 UTF-8 JSON 行分帧。stdout �
 
 SDK 管理帧限制、取消信号、并发与背压；错误区分版本不兼容、handler 缺失、权限不足、配置无效、超时、崩溃、旧代失效与外部执行不确定。
 
+### 9.1 扩展点、注册与 RPC 的关系
+
+插件机制采用“宿主预置扩展点，插件注册实现”。Registry 保存面板、命令、Hook、服务等贡献；Worker handler 注册表保存后台操作。消费者通过贡献标识找到实现，再决定本地执行还是跨进程调用。RPC 是传输机制，不替代扩展点契约。
+
+App 的 `activate(ctx)` 由客户端加载器调用；客户端 SDK 在本地创建注册器、Scope 和宿主调用代理，再组成 ctx。React 组件、回调和 disposer 留在客户端，不经 RPC 传给 Rust 或 Node。
+
+### 9.2 Node 上下文的创建与注入
+
+以下为待实现契约。RPC 只传可序列化的数据，不传函数、服务对象、数据库连接或 AbortSignal。Node runner / SDK 在本地创建这些运行时对象，并显式传给插件。
+
+上下文分为两个生命周期：
+
+| 范围 | 内容 | 创建与释放 |
+| --- | --- | --- |
+| 插件实例及 generation | 身份元数据、有效配置、宿主代理、作用域服务、日志、资源清理 Scope、实例取消信号 | 激活时创建；该代次排空并停用时释放 |
+| 单次调用 | requestId、调用授权范围、截止时间、进度发送器、调用取消信号 | 每次 invoke 创建；成功、失败或取消完成后释放 |
+
+Node 收到 `plugin/activate` 后，用 Host 已绑定的实例身份和消息中的配置创建实例上下文，再执行插件初始化与 handler 注册。收到 `plugin/invoke` 后，查找该实例、generation 和 handler，为本次调用创建上下文，最后执行 `handler(input, ctx)`。ctx 暴露实例能力及本次调用字段；共享实例对象不保存可被并发调用覆盖的 requestId、工作区范围或取消控制器。
+
+```text
+Rust Host ── plugin/activate：身份元数据、配置 ──→ Node runner
+                                                   │ 本地创建实例上下文
+                                                   └→ 插件初始化、注册 handler
+
+Rust Host ── plugin/invoke：调用 ID、输入、范围 ─→ Node runner
+                                                   │ 本地创建调用上下文
+                                                   └→ handler(input, ctx)
+                                                          │ await ctx.host.call(...)
+Rust Host ←── host/call：关联调用的能力请求 ────────────────┘
+    │ 校验身份与授权，执行业务
+    └──── RPC 响应 ──→ 完成 Node 代理的 Promise ──→ handler 继续执行
+```
+
+`ctx.host` 是 Node 本地代理。代理生成 RPC 请求 ID，将 Promise 的完成回调保存在 pending 表中，发送 `host/call`；收到响应后按 ID resolve / reject，并清理超时计时器。该反向请求还需关联父调用；Host 以已绑定的实例身份及父调用授权范围校验请求，不能仅相信 Worker 自报的 plugin ID 或工作区 ID。
+
+共享 Node runner 使用 `AsyncLocalStorage` 关联当前插件实例、generation 和调用。模块加载、激活及 handler 分发都进入相应执行范围；需要恢复上下文的消息回调显式绑定该范围。插件作者使用显式 ctx，内部日志与路由可读取异步上下文；不能用可变全局“当前插件”变量代替。跨进程不会自动传播异步上下文，必须通过协议关联信息在接收端重新建立。
+
+实例停止会取消其未完成调用；单次取消只影响目标调用。调用信号综合实例停用、显式取消和截止时间，SDK 在调用结束时释放监听器。超时或取消只能表示已发出终止请求，不能保证外部副作用已撤销。停用时拒绝未完成的宿主调用 Promise，并清理注册、订阅和服务。AsyncLocalStorage 用于执行归属和路由，不构成安全沙箱。
+
 ## 10. 配置、数据与信任模型
 
 配置由 Host 校验、版本化并保存，Worker 和 App 读取同一已确认的有效修订。支持配置变更通知；是否无需重新激活取决于插件声明和实际确认。重配置失败保留旧有效配置；升级的候选配置先在副本准备。
