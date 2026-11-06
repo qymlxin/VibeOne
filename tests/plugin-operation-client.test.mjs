@@ -26,3 +26,12 @@ test('legacy operation metadata has clear labels without fabricated dates or sta
  assert.equal(operationPresentation({state:'running',error:{code:'OPERATION_RECORD_INVALID'}}).state,'记录异常');
  assert.equal(operationPresentation({createdAt:null,state:'succeeded'}).time,'时间未知');
 });
+
+import {managePluginLifecycle} from '../apps/desktop/src/plugin-operations.js';
+test('lifecycle client waits on durable receipts and preserves old Host calls',async()=>{
+ const calls=[];let refreshed=0;
+ const result=await managePluginLifecycle({call:async(path,body)=>{calls.push([path,body]);return {operationId:'life'};},read:async path=>{assert.equal(path,'/operations/life');return {state:'succeeded',result:{ticket:'candidate'}};},refresh:async()=>{refreshed++;}},true,'prepare',{path:'/plugin',trusted:true},{key:'stable'});
+ assert.deepEqual(result,{ticket:'candidate'});assert.equal(refreshed,1);assert.deepEqual(calls,[['/plugin-lifecycle/operations',{key:'stable',action:'prepare',input:{path:'/plugin',trusted:true}}]]);
+ for(const action of ['inspect','prepare','commit','discard'])await managePluginLifecycle({call:async(path,body)=>{assert.equal(path,`/plugins/${action}`);assert.deepEqual(body,{ticket:'same'});return true;}},false,action,{ticket:'same'});
+ await managePluginLifecycle({call:async(path,body)=>{assert.equal(path,'/plugins/plugin%20id/disable');assert.deepEqual(body,{});}},false,'disable',{id:'plugin id'});
+});

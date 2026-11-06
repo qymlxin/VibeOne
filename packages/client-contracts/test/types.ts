@@ -87,3 +87,10 @@ const resultInSummary:PluginOperationSummary={id:'operation',state:'succeeded',r
 // @ts-expect-error storage fingerprints never belong to public operation details
 const privateOperationField:PluginOperationRecord={id:'operation',state:'succeeded',fingerprint:'private'};
 void [operationReceipt,legacyOperation,nullOperation,falseOperation,noOperationIdentity,badOperationTime,resultInSummary,privateOperationField];
+
+import {pluginLifecycleOperation} from '../src/index.js';
+pluginLifecycleOperation('prepare',{path:'/plugin',trusted:true},'key');
+// @ts-expect-error lifecycle actions are explicit supported protocol names
+pluginLifecycleOperation('publish-everything',{},'key');
+// @ts-expect-error durable operations always require a string idempotency identity
+pluginLifecycleOperation('inspect',{path:'/plugin'},42);

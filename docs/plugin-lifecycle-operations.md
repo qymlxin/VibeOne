@@ -24,7 +24,9 @@
 
 ## 兼容与接入
 
-旧 `/plugins/inspect/prepare/commit/discard/{id}/disable` 入口保留同步响应。Host通过 `pluginLifecycleOperations` 声明新能力。正式页面接入由任务95继续，在完成前不能把本后台入口当成页面已经迁移的证据。
+旧 `/plugins/inspect/prepare/commit/discard/{id}/disable` 入口保留同步响应。Host通过 `pluginLifecycleOperations` 声明新能力。95已将正式插件页的检查、准备、发布、失败丢弃和停用接到持久入口；SDK候选App验证仍发生在prepare成功与commit请求之间。
+
+客户端使用共享 `pluginLifecycleOperation` 构造器生成请求，Promise等待终态并把原结果交回既有页面流程。连接异常保留operationKey或operationId，不自动重试；用户可在最近后台操作中核对管理阶段。旧Host没有能力标识时，仍按原路径、原参数调用，不伪造持久回执。管理记录显示动作名称和可用的插件名称，缺少名称时明确标为本机插件管理。
 
 ## 验证
 

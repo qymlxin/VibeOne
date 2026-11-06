@@ -100,6 +100,8 @@ Run身份、文本、状态、幂等键、文件引用、附件身份、时间�
 
 ## 插件后台操作公开响应
 
+94/95增加实际 `PluginLifecycleRequest` 和动作枚举，以及正式页面采用的 `pluginLifecycleOperation` 共享构造器。新入口先返回202，再按操作ID查询，旧Host按能力标识回退原接口。详情见 [插件生命周期回执](plugin-lifecycle-operations.md)。
+
 93将 `PluginOperationReceipt`、`PluginOperationSummary`、`PluginOperationRecord` 和 `PluginOperationListResponse` 接到实际202响应、列表、详情和Snapshot元数据。状态字符串保留未来值，结果使用JsonValue保留false/0/null；缺少结果字段和显式null有不同序列化结果。摘要不发布结果，全部公开响应只构造已知字段，不复制指纹或未来私有字段。缺少说明/时间的旧记录继续可读，不补造时间。
 
 操作目录键是对账身份；正文身份异常时拒绝详情和重复假回执，摘要显示目录身份及固定异常提示，原有活跃状态继续用于重启保护。Schema与类型反例覆盖回执身份、数字时间、结果不能进入摘要和指纹不能进入详情。真实存储验证未知字段过滤及任意JSON结果。详见 [插件后台操作](plugin-operations.md)。

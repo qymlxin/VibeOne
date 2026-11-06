@@ -16,3 +16,5 @@ export function saveProfile(body:Omit<ProfileRequest,'remove'> & Required<Pick<P
 export function removeProfile(id:string,revision?:number,recordHash?:string):Command<ProfileRequest>{return ['/profiles',{id,...(revision===undefined?{}:{revision}),...(recordHash===undefined?{}:{recordHash}),remove:true}];}
 
 export function probeProvider(provider:string,profileId?:string):Command<import('./generated.js').ProviderProbeRequest>{return [`/providers/${encodeURIComponent(provider)}/probe`,{...(profileId?{profileId}:{})}];}
+
+export function pluginLifecycleOperation(action:import('./generated.js').PluginLifecycleAction,input:import('./generated.js').JsonValue,key:string):Command<import('./generated.js').PluginLifecycleRequest>{return ['/plugin-lifecycle/operations',{action,input,key}];}

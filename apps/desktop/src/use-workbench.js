@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { connectHost, restartHost, request } from "./api.js";
 import { createWorkbenchSync } from "./workbench-sync.js";
-import { invokePluginOperation } from "./plugin-operations.js";
+import { invokePluginOperation, managePluginLifecycle } from "./plugin-operations.js";
 
 export function useWorkbench() {
   const [connection, setConnection] = useState(null);
@@ -111,5 +111,7 @@ export function useWorkbench() {
     if(!hasPluginOperations)return call(`/plugins/${id}/invoke`,body);
     return invokePluginOperation({submit:(id,body)=>call(`/plugins/${id}/operations`,body),read:id=>read(`/operations/${id}`),refresh:()=>refreshRef.current()},id,body);
   },[call,read,hasPluginOperations]);
-  return { ...snapshot, dataDirectory:connection?.dataDirectory, migrationPending:!!connection?.migrationPending, migrationWarning:connection?.migrationWarning, phase, error, call, read, invokePlugin, reconnect, restart };
+  const hasPluginLifecycle=!!snapshot.features?.includes('pluginLifecycleOperations');
+  const managePlugin=useCallback((action,input)=>managePluginLifecycle({call,read,refresh:()=>refreshRef.current()},hasPluginLifecycle,action,input),[call,read,hasPluginLifecycle]);
+  return { ...snapshot, dataDirectory:connection?.dataDirectory, migrationPending:!!connection?.migrationPending, migrationWarning:connection?.migrationWarning, phase, error, call, read, invokePlugin, managePlugin, reconnect, restart };
 }

@@ -149,6 +149,22 @@ impl Workbench {
             }) {
                 Ok(value) => {
                     record["state"] = json!("succeeded");
+                    if record["kind"] == "plugin.lifecycle" {
+                        let plugin = if value["plugin"].is_object() {
+                            &value["plugin"]
+                        } else {
+                            &value
+                        };
+                        if let Some(id) = plugin["id"].as_str() {
+                            record["pluginId"] = json!(id);
+                        }
+                        if let Some(name) = plugin["name"].as_str() {
+                            record["pluginName"] = json!(name);
+                        }
+                        if let Some(generation) = plugin["generation"].as_u64() {
+                            record["generation"] = json!(generation);
+                        }
+                    }
                     record["result"] = value;
                 }
                 Err(error) => {

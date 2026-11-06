@@ -1,3 +1,4 @@
+import {pluginLifecycleOperation} from '@vibeone/client-contracts';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export async function invokePluginOperation(transport,plugin,body,{key=crypto.randomUUID(),pause=sleep}={}) {
  let receipt;
@@ -21,5 +22,14 @@ export async function invokePluginOperation(transport,plugin,body,{key=crypto.ra
 const operationStates={accepted:'已受理',running:'执行中',succeeded:'已完成',failed:'失败',interrupted:'已中断'};
 export function operationPresentation(operation){
  const date=typeof operation.createdAt==='number'?new Date(operation.createdAt):null;
- return {title:operation.title||operation.handler||'未知操作',plugin:operation.pluginName||operation.pluginId||'未知插件',time:date&&!Number.isNaN(date.getTime())?date.toLocaleString():'时间未知',state:operation.error?.code==='OPERATION_RECORD_INVALID'?'记录异常':Object.hasOwn(operationStates,operation.state)?operationStates[operation.state]:'未知状态'};
+ return {title:operation.title||operation.handler||'未知操作',plugin:operation.pluginName||operation.pluginId||(operation.kind==='plugin.lifecycle'?'本机插件管理':'未知插件'),time:date&&!Number.isNaN(date.getTime())?date.toLocaleString():'时间未知',state:operation.error?.code==='OPERATION_RECORD_INVALID'?'记录异常':Object.hasOwn(operationStates,operation.state)?operationStates[operation.state]:'未知状态'};
+}
+
+export function managePluginLifecycle(transport,enabled,action,input,options){
+ if(!enabled){
+  if(['inspect','prepare','commit','discard'].includes(action))return transport.call(`/plugins/${action}`,input);
+  if(action==='disable')return transport.call(`/plugins/${encodeURIComponent(input.id)}/disable`,{});
+  throw Error('无法识别插件管理动作');
+ }
+ return invokePluginOperation({submit:(action,body)=>transport.call(...pluginLifecycleOperation(action,body.input,body.key)),read:id=>transport.read(`/operations/${encodeURIComponent(id)}`),refresh:transport.refresh},action,{input},options);
 }

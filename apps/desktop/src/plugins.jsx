@@ -191,17 +191,17 @@ export function usePlugins(workbench) {
   }, [workbench.plugins, workbench.phase]);
   async function install(body) {
     setError("");
-    const result = await latest.current.call("/plugins/prepare", body);
+    const result = await latest.current.managePlugin("prepare", body);
     busy.current.add(result.plugin.id);
     let candidate;
     try {
       candidate = await prepare(result.plugin, result.app);
-      await latest.current.call("/plugins/commit", { ticket: result.ticket });
+      await latest.current.managePlugin("commit", { ticket: result.ticket });
       if (candidate) runtime.current.publish(candidate);
     } catch (error) {
       if (candidate) await candidate.scope.dispose();
       await latest.current
-        .call("/plugins/discard", { ticket: result.ticket })
+        .managePlugin("discard", { ticket: result.ticket })
         .catch(() => {});
       throw error;
     } finally {
@@ -213,7 +213,7 @@ export function usePlugins(workbench) {
     error,
     install,
     async disable(id) {
-      await latest.current.call(`/plugins/${id}/disable`, {});
+      await latest.current.managePlugin("disable", { id });
       await runtime.current.unload(id);
     },
   };
@@ -300,7 +300,7 @@ export function PluginManager({ workbench, plugins }) {
           disabled={busy || !path}
           onClick={() =>
             void run(async () => {
-              setInspection(await workbench.call("/plugins/inspect", { path }));
+              setInspection(await workbench.managePlugin("inspect", { path }));
               setTrusted(false);
             })
           }

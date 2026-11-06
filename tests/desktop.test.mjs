@@ -139,6 +139,9 @@ test(
     });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    let lifecycleReceipts=0,legacyLifecycleCalls=0;
+    page.on('response',response=>{if(new URL(response.url()).pathname==='/v1/plugin-lifecycle/operations'&&response.status()===202)lifecycleReceipts++;});
+    page.on('request',request=>{if(/^\/v1\/plugins\/(inspect|prepare|commit|discard)$/.test(new URL(request.url()).pathname)||/^\/v1\/plugins\/[^/]+\/disable$/.test(new URL(request.url()).pathname))legacyLifecycleCalls++;});
     await page.goto(frontend);
     await page.getByText("工作主机 · 本机已连接", { exact: true }).waitFor();
     // Optional workspace must work through the actual form, without a native picker.
@@ -943,8 +946,11 @@ test(
     await settingsNav.getByRole('button',{name:'插件',exact:true}).click();
     const operations=page.locator('details[aria-label="最近后台操作"]');
     await operations.locator(':scope > summary').click();
-    await operations.getByText('已完成',{exact:true}).waitFor();
-    await operations.getByRole('button',{name:/查看操作结果/}).first().click();
+    const scanOperation=operations.locator('.desktop-settings-row').filter({hasText:'workspace.scan'});
+    await scanOperation.getByText('已完成',{exact:true}).waitFor();
+    await scanOperation.getByRole('button',{name:/查看操作结果/}).click();
+    assert.ok(lifecycleReceipts>=3,'inspect, prepare and commit must receive durable receipts');
+    assert.equal(legacyLifecycleCalls,0,'the formal UI must use lifecycle operations on a capable Host');
     await page.locator('.desktop-diagnostic').filter({hasText:'"entries"'}).last().waitFor();
     await operations.screenshot({path:join(tmpdir(),'vibeone-plugin-operations-dark.png')});
     await settingsNav.getByRole('button',{name:'外观',exact:true}).click();
