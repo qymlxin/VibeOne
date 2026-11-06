@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="460" viewBox="0 0 1000 460">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L9 5L1 9" stroke="#737d8b" fill="none"/></marker></defs>
+<rect width="1000" height="460" fill="#fff"/>
+<g font-family="system-ui,sans-serif" fill="#202327">
+<text x="30" y="40" font-size="21" font-weight="650">快照与待处理项：共享结构，Host 决定可见范围</text>
+<g fill="#f4f5f7" stroke="#cbd0d8"><rect x="30" y="95" width="250" height="120" rx="10"/><rect x="365" y="95" width="270" height="120" rx="10"/><rect x="720" y="95" width="250" height="120" rx="10"/><rect x="30" y="285" width="250" height="115" rx="10"/><rect x="365" y="285" width="270" height="115" rx="10"/><rect x="720" y="285" width="250" height="115" rx="10"/></g>
+<g font-size="16" font-weight="600"><text x="48" y="125">Host 生产快照</text><text x="383" y="125">身份与工作区范围过滤</text><text x="738" y="125">桌面 / 手机读取</text><text x="48" y="315">客户端提交决定</text><text x="383" y="315">Host 检查并保存唯一决定</text><text x="738" y="315">Agent 接收 ACP 响应</text></g>
+<g font-size="13" fill="#4a5565"><text x="48" y="152">SnapshotResponse / SessionView</text><text x="48" y="175">PendingRequest / DecisionRecord</text><text x="48" y="198">身份、期限、选项与动态正文</text><text x="383" y="152">电脑所有者：保留本地视图</text><text x="383" y="175">手机：仅授权工作区及对应会话</text><text x="383" y="198">隐藏启动参数和本地插件记录</text><text x="738" y="152">HTTP JSON 快照 / 游标同步</text><text x="738" y="175">同步 metadata 也经过相同过滤</text><text x="738" y="198">不修改桌面原始视图</text><text x="48" y="342">HTTP POST 审批 / 补充输入</text><text x="48" y="365">requestId + option / answer</text><text x="48" y="388">服务器重新验证权限和请求</text><text x="383" y="342">选项 / Schema / 重复决定校验</text><text x="383" y="365">先提交 SQLite，再发给 Agent</text><text x="383" y="388">旧请求不会在重启后重放</text><text x="738" y="342">stdio，受理后异步处理</text><text x="738" y="365">后续事件更新投递回执</text><text x="738" y="388">sent / uncertain 独立于工具结果</text></g>
+<g stroke="#8e98a7" stroke-width="1.5" fill="none" marker-end="url(#arrow)"><path d="M280 155H361"/><path d="M635 155H716"/><path d="M280 345H361"/><path d="M635 345H716"/></g>
+<g font-size="12"><text x="293" y="140">过滤前</text><text x="651" y="140">序列化</text><text x="297" y="330">HTTP</text><text x="647" y="330">异步投递</text></g>
+<text x="30" y="442" font-size="13" fill="#4a5565">同一生产类型生成 Schema / TypeScript；ACP 动态正文保留扩展，投递成功不等于工具执行成功。</text>
+</g></svg>

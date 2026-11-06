@@ -307,7 +307,22 @@ pub(super) async fn prepare(
             restore_buffered(&mut replay, event, run.as_deref(), &buffered);
             let old = replay.clone();
             let inherited = restore(store, &mut replay, event, run.as_deref(), true).await?;
-            replay.apply(event);
+            if let Err(error) = replay.apply(event) {
+                if matches!(event["type"].as_str(), Some("permission" | "input")) {
+                    // Historical requests are already obsolete. Preserve the raw
+                    // event and message history without recreating a live action.
+                    let warning = "旧的待处理请求格式不再可用；已保留历史，未恢复或重发请求。";
+                    if !warnings.iter().any(|item| item == warning) {
+                        warnings.push(warning.into());
+                    }
+                    if event["type"] == "permission" {
+                        replay.status = "requires_action".into();
+                        replay.observed_active = true;
+                    }
+                } else {
+                    return Err(error);
+                }
+            }
             annotate(
                 &mut replay,
                 event,
@@ -496,6 +511,76 @@ impl Workbench {
 mod tests {
     use super::*;
     #[tokio::test]
+    async fn obsolete_unparseable_attention_does_not_block_preserved_history() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::open(directory.path()).await.unwrap();
+        let snapshot = json!({"id":"old-attention","title":"Old","workspace":"/old","provider":"demo","status":"idle","messages":[],"tools":[],"approvals":[],"runs":[{"id":"run","text":"question","status":"completed"}]});
+        let events = [
+            ("session.created", json!({})),
+            ("run.started", json!({"runId":"run"})),
+            (
+                "agent.update",
+                json!({"type":"permission","id":"obsolete","request":{"options":[{"optionId":42}]}}),
+            ),
+            (
+                "agent.update",
+                json!({"type":"update","notification":{"update":{"sessionUpdate":"agent_message","messageId":"answer","content":[{"type":"text","text":"Preserve this answer"}]}}}),
+            ),
+            ("run.ended", json!({})),
+        ];
+        for (index, (kind, event)) in events.iter().enumerate() {
+            store
+                .save(
+                    &SavedSession {
+                        id: "old-attention".into(),
+                        workspace: "/old".into(),
+                        revision: index as i64 + 1,
+                        snapshot: snapshot.clone(),
+                    },
+                    kind,
+                    event,
+                )
+                .await
+                .unwrap();
+        }
+        store
+            .history_batch("old-attention", &json!({}), &json!({"complete":false}))
+            .await
+            .unwrap();
+        let saved = store.sessions().await.unwrap().pop().unwrap();
+        let restored = prepare(&store, saved).await.unwrap();
+        assert_eq!(restored.snapshot["approvals"], json!([]));
+        assert_eq!(restored.snapshot["inputs"], json!([]));
+        let page = store
+            .history_page("old-attention", None, 128)
+            .await
+            .unwrap();
+        assert!(
+            page["records"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|record| record["item"]["text"] == "Preserve this answer")
+        );
+        assert!(
+            page["warnings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|warning| warning.as_str().unwrap_or_default().contains("待处理请求"))
+        );
+        assert!(
+            store
+                .events(0, 128)
+                .await
+                .unwrap()
+                .iter()
+                .any(|event| event["payload"]["id"] == "obsolete")
+        );
+        store.close().await;
+    }
+
+    #[tokio::test]
     async fn legacy_replay_resumes_from_a_durable_checkpoint_without_replaying_execution() {
         let directory = tempfile::tempdir().unwrap();
         let store = Store::open(directory.path()).await.unwrap();
@@ -537,7 +622,7 @@ mod tests {
    .chain([json!({"sessionUpdate":"agent_message_chunk","messageId":"m-0","content":{"type":"text","text":"-tail"}}),json!({"sessionUpdate":"agent_thought","messageId":"m-0","content":[{"type":"text","text":"separate thought"}]}),json!({"sessionUpdate":"agent_message_chunk","messageId":"m-0","content":{"type":"text","text":"-tail2"}})]);
         for update in events {
             let event = json!({"type":"update","notification":{"update":update}});
-            view.apply(&event);
+            view.apply(&event).unwrap();
             for item in view.messages.iter_mut().chain(&mut view.tools) {
                 item["runId"] = json!("old-run");
             }

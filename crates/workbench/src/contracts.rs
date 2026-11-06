@@ -81,6 +81,99 @@ pub struct HttpErrorResponse {
     pub request_id: String,
 }
 
+#[derive(Clone, Serialize, JsonSchema)]
+pub struct WorkspaceView {
+    pub id: String,
+    pub path: String,
+    pub name: String,
+}
+impl From<&vibeone_storage::Workspace> for WorkspaceView {
+    fn from(value: &vibeone_storage::Workspace) -> Self {
+        Self {
+            id: value.id.clone(),
+            path: value.path.clone(),
+            name: value.name.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, JsonSchema)]
+pub struct DeviceView {
+    pub id: Option<String>,
+    pub role: Option<String>,
+}
+
+#[derive(Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotMetadata {
+    pub api_version: u32,
+    pub features: Vec<String>,
+    pub protocol_version: u32,
+    pub sdk_version: String,
+    pub persistent: bool,
+    pub storage_error: Option<String>,
+    pub revision: u64,
+    pub example_plugin_path: Option<std::path::PathBuf>,
+    pub plugin_events: Vec<Value>,
+    pub operations: Vec<Value>,
+    pub plugins: Vec<Value>,
+    pub notifications: Vec<Value>,
+    pub profiles: Vec<Value>,
+    pub providers: Vec<crate::providers::Provider>,
+    pub workspaces: Vec<WorkspaceView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device: Option<DeviceView>,
+}
+
+#[derive(Clone, Serialize, JsonSchema)]
+pub struct SnapshotResponse {
+    #[serde(flatten)]
+    pub metadata: SnapshotMetadata,
+    pub sessions: Vec<crate::projection::SessionView>,
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PermissionOption {
+    pub option_id: String,
+    pub name: String,
+    pub kind: String,
+    #[serde(flatten)]
+    pub extensions: std::collections::BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingRequest {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub options: Option<Vec<PermissionOption>>,
+    #[serde(flatten)]
+    pub payload: std::collections::BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DecisionRecord {
+    pub id: String,
+    pub request_id: String,
+    pub delivery: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub option: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answer: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<u64>,
+    #[serde(flatten)]
+    pub extensions: std::collections::BTreeMap<String, Value>,
+}
+
 fn legacy_array<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -209,6 +302,10 @@ pub fn schemas() -> Value {
         "CreateSessionResponse":schema_for!(CreateSessionResponse),
         "SubmitMessageReceipt":schema_for!(SubmitMessageReceipt),
         "HttpErrorResponse":schema_for!(HttpErrorResponse),
+        "SnapshotResponse":schema_for!(SnapshotResponse),
+        "SnapshotMetadata":schema_for!(SnapshotMetadata),
+        "PendingRequest":schema_for!(PendingRequest),
+        "DecisionRecord":schema_for!(DecisionRecord),
         "RunRecord":schema_for!(RunRecord),
         "SessionView":schema_for!(crate::projection::SessionView),
         "ProfileRequest":schema_for!(ProfileRequest),
@@ -249,6 +346,29 @@ mod tests {
             roundtrip.runs[0].extensions["futureField"],
             json!({"keep":true})
         );
+    }
+
+    #[test]
+    fn pending_identity_options_dynamic_input_and_decision_content_roundtrip() {
+        let raw = json!({"id":"approval","runId":"run","createdAt":10,"expiresAt":20,"options":[{"optionId":"allow","name":"允许","kind":"allow_once","future":true}],"toolCall":{"title":"Read"},"futureRoot":{"keep":true}});
+        let pending: PendingRequest = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(pending.id, "approval");
+        assert_eq!(pending.options.as_ref().unwrap()[0].option_id, "allow");
+        assert_eq!(serde_json::to_value(pending).unwrap(), raw);
+        let input = json!({"id":"input","mode":"form","requestedSchema":{"type":"object","properties":{"confirmed":{"type":"boolean"}}}});
+        let request: PendingRequest = serde_json::from_value(input.clone()).unwrap();
+        assert_eq!(serde_json::to_value(request).unwrap(), input);
+        let decision = json!({"id":"decision","requestId":"input","delivery":"pending","answer":{"action":"accept","content":{"confirmed":false,"count":0}},"future":"keep"});
+        let record: DecisionRecord = serde_json::from_value(decision.clone()).unwrap();
+        assert_eq!(serde_json::to_value(record).unwrap(), decision);
+        let schema = serde_json::to_value(schema_for!(PendingRequest)).unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        assert!(validator.is_valid(&raw));
+        assert!(validator.is_valid(&input));
+        let mut invalid = raw;
+        invalid["options"][0]["optionId"] = json!(42);
+        assert!(!validator.is_valid(&invalid));
+        assert!(serde_json::from_value::<PendingRequest>(invalid).is_err());
     }
 
     #[test]

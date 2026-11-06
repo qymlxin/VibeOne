@@ -17,8 +17,11 @@
 | HttpErrorResponse | code/error/status/requestId错误信封 |
 | ProfileRequest / ProfileRecord / ProfileResponse | 配置保存/移除命令、实际保存记录及移除结果 |
 | RunRecord / SessionView | 实际会话投影、执行列表及排队记录 |
+| SnapshotResponse / SnapshotMetadata | 实际快照封装及游标同步元数据 |
+| WorkspaceView / Provider / DeviceView | 工作区、Provider公开描述与当前设备身份 |
+| PendingRequest / PermissionOption / DecisionRecord | 待处理身份、期限、选项和持久决定回执 |
 
-完整Snapshot封装、Profile全量快照、待处理业务结构、插件包/操作记录与ACP动态字段尚未全部迁移到共享业务DTO。这里不把JsonValue或若干请求类型称为整个业务模型已经完成。
+Profile全量快照、插件包/操作目录记录内容与ACP动态字段尚未全部迁移到共享业务DTO。这里不把JsonValue或若干请求类型称为整个业务模型已经完成。
 
 ![契约生成与调用](diagrams/client-contracts.svg)
 
@@ -58,10 +61,26 @@ Schema与Serde对字段省略、显式null、负修订号和错误参数元素�
 
 `SessionView`是实际快照和增量响应使用的会话投影；其中`runs`与`queue`均改为`Vec<RunRecord>`。任务提交、幂等判断、队列开始/撤回、完成/取消、附件保留、产物关联和历史回放使用同一结构字段。响应Schema由这些实际生产类型生成，未用另一份手抄接口替代。
 
-Run身份、文本、状态、幂等键、文件引用、附件身份、时间及错误使用已知类型。状态仍用字符串，以兼容后续状态。附件元数据和ACP消息/工具/审批/输入内容继续以明确的JsonValue承载动态部分；完整待处理业务模型及Snapshot封装仍待继续，并未宣称所有上游协议字段已静态化。
+Run身份、文本、状态、幂等键、文件引用、附件身份、时间及错误使用已知类型。状态仍用字符串，以兼容后续状态。附件元数据和ACP消息/工具正文继续以明确的JsonValue承载动态部分；待处理公共字段与Snapshot封装已由后续切片补齐，但并未宣称所有上游协议字段已静态化。
 
 恢复仍读取原来的JSON。历史inputs/runs/queue/decisions缺失或为null时保持兼容；Run的files/attachmentIds/attachments缺失或null时规范为空列表。旧记录没有createdAt/startedAt/finishedAt时不补造时间；Run未知扩展字段通过flatten保留并再次序列化。新结构可能为缺少的key/error输出null，为缺少的列表输出空数组。id/status等已有业务身份字段必须类型正确，不把损坏的记录伪装成有效执行。内部active/observed_active标志不进入响应。
 
 生成器对只有default等说明性属性的无约束Schema输出JsonValue；带扩展字段的对象使用JsonValue索引签名，可选属性允许undefined。无法解释的约束仍直接报错。类型反例覆盖非字符串执行身份、非字符串文件路径及错误队列元素；Rust使用实际SessionView序列化结果验证Schema，并核对扩展字段、缺省时间和私有标志。
 
 ![执行记录类型与恢复](diagrams/typed-run-records.svg)
+
+## 快照封装与待处理项
+
+`SnapshotResponse`直接构造生产快照，包含`SnapshotMetadata`和`SessionView`；HTTP快照直接返回该结构。内部原有需要JSON查询的代码通过同一结构序列化取得Value，没有另一份字段拼装。游标读取也使用同一快照，并从类型字段读取revision/storageError；同步响应的metadata仍经过相同设备过滤。
+
+工作区公开视图来自实际存储记录；Provider从实际序列化结构生成类型，command/args属于内部启动字段，不进入公开描述。设备视图只包含id/role。手机过滤在类型结构上裁剪授权工作区和对应会话，删除会话/目录Profile的command/args，隐藏本地示例路径、插件事件、插件配置、通知和后台操作记录，存储错误替换成不含本地路径的提示。电脑所有者保持完整本地视图；过滤不修改原始快照。
+
+`PendingRequest`承载id、runId、createdAt、expiresAt和可选的`PermissionOption`列表。权限选项的optionId/name/kind使用字符串，其扩展字段继续保留；toolCall、requestedSchema、URL或其他ACP动态正文放在flatten扩展中，手机与桌面不重新解释协议。投影转换失败时返回错误，不发布无法操作的待处理项。处理一个身份只移除该请求，不清空其他待处理项。
+
+`DecisionRecord`使用类型化id/requestId/option/answer/delivery/createdAt。Host先验证请求和选项/输入，再保存唯一决定，随后通过现有ACP通道投递；失败标记uncertain，后续事件更新回执。answer的JSON保留false、0及自定义结构。delivery表示投递状态，与工具成功是不同事实；重启不重放旧决定。历史null列表仍沿用恢复兼容，缺少时间字段不补造。
+
+历史回填可能遇到旧版或已损坏的、早已失效的权限/输入事件。这类事件不恢复为可操作请求：保留原始事件和消息历史，回填结果记录一次兼容提示并继续。在线新事件仍严格校验。回归已先复现旧权限选项阻断回填，再验证修复后正文保留、原始事件仍在且待处理列表为空。
+
+Profile目录和插件/操作记录内容仍是明确JsonValue，领域错误也仍有后续迁移；此处只确认已实现的快照封装、待处理公共结构和权限过滤。自动检查覆盖所有者/手机实际序列化Schema、零授权、脱敏、原始视图不变、错误选项类型、动态输入及决定内容往返，以及错误请求不发布和按身份移除。
+
+![快照与决定链路](diagrams/snapshot-attention.svg)

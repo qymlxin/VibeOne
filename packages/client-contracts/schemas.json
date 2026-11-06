@@ -220,6 +220,734 @@
       }
     }
   },
+  "SnapshotResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "SnapshotResponse",
+    "type": "object",
+    "required": [
+      "apiVersion",
+      "features",
+      "notifications",
+      "operations",
+      "persistent",
+      "pluginEvents",
+      "plugins",
+      "profiles",
+      "protocolVersion",
+      "providers",
+      "revision",
+      "sdkVersion",
+      "sessions",
+      "workspaces"
+    ],
+    "properties": {
+      "apiVersion": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0
+      },
+      "device": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/DeviceView"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "examplePluginPath": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "features": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "notifications": {
+        "type": "array",
+        "items": true
+      },
+      "operations": {
+        "type": "array",
+        "items": true
+      },
+      "persistent": {
+        "type": "boolean"
+      },
+      "pluginEvents": {
+        "type": "array",
+        "items": true
+      },
+      "plugins": {
+        "type": "array",
+        "items": true
+      },
+      "profiles": {
+        "type": "array",
+        "items": true
+      },
+      "protocolVersion": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0
+      },
+      "providers": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/Provider"
+        }
+      },
+      "revision": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0
+      },
+      "sdkVersion": {
+        "type": "string"
+      },
+      "sessions": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/SessionView"
+        }
+      },
+      "storageError": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "workspaces": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/WorkspaceView"
+        }
+      }
+    },
+    "definitions": {
+      "DecisionRecord": {
+        "type": "object",
+        "required": [
+          "delivery",
+          "id",
+          "requestId"
+        ],
+        "properties": {
+          "answer": true,
+          "createdAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "delivery": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "option": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeviceView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PendingRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "options": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/definitions/PermissionOption"
+            }
+          },
+          "runId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": true
+      },
+      "PermissionOption": {
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "optionId"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "optionId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Provider": {
+        "type": "object",
+        "required": [
+          "available",
+          "description",
+          "id",
+          "name"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "RunRecord": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "attachmentIds": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attachments": {
+            "default": [],
+            "type": "array",
+            "items": true
+          },
+          "createdAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "error": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "files": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "finishedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "SessionView": {
+        "type": "object",
+        "required": [
+          "approvals",
+          "id",
+          "messages",
+          "provider",
+          "status",
+          "title",
+          "tools",
+          "workspace"
+        ],
+        "properties": {
+          "agentState": {
+            "default": null
+          },
+          "approvals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/PendingRequest"
+            }
+          },
+          "archived": {
+            "default": false,
+            "type": "boolean"
+          },
+          "decisions": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/DecisionRecord"
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "historyOnly": {
+            "default": false,
+            "type": "boolean"
+          },
+          "historySequence": {
+            "default": 0,
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "inputs": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/PendingRequest"
+            }
+          },
+          "lastActivityAt": {
+            "default": 0,
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "messages": {
+            "type": "array",
+            "items": true
+          },
+          "profile": {
+            "default": null
+          },
+          "provider": {
+            "type": "string"
+          },
+          "queue": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/RunRecord"
+            }
+          },
+          "queuePaused": {
+            "default": false,
+            "type": "boolean"
+          },
+          "runs": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/RunRecord"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "stopReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "tools": {
+            "type": "array",
+            "items": true
+          },
+          "workspace": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkspaceView": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "path"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "SnapshotMetadata": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "SnapshotMetadata",
+    "type": "object",
+    "required": [
+      "apiVersion",
+      "features",
+      "notifications",
+      "operations",
+      "persistent",
+      "pluginEvents",
+      "plugins",
+      "profiles",
+      "protocolVersion",
+      "providers",
+      "revision",
+      "sdkVersion",
+      "workspaces"
+    ],
+    "properties": {
+      "apiVersion": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0
+      },
+      "device": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/DeviceView"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "examplePluginPath": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "features": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "notifications": {
+        "type": "array",
+        "items": true
+      },
+      "operations": {
+        "type": "array",
+        "items": true
+      },
+      "persistent": {
+        "type": "boolean"
+      },
+      "pluginEvents": {
+        "type": "array",
+        "items": true
+      },
+      "plugins": {
+        "type": "array",
+        "items": true
+      },
+      "profiles": {
+        "type": "array",
+        "items": true
+      },
+      "protocolVersion": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0
+      },
+      "providers": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/Provider"
+        }
+      },
+      "revision": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0
+      },
+      "sdkVersion": {
+        "type": "string"
+      },
+      "storageError": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "workspaces": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/WorkspaceView"
+        }
+      }
+    },
+    "definitions": {
+      "DeviceView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Provider": {
+        "type": "object",
+        "required": [
+          "available",
+          "description",
+          "id",
+          "name"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkspaceView": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "path"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "PendingRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PendingRequest",
+    "type": "object",
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "createdAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "expiresAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "id": {
+        "type": "string"
+      },
+      "options": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/definitions/PermissionOption"
+        }
+      },
+      "runId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "additionalProperties": true,
+    "definitions": {
+      "PermissionOption": {
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "optionId"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "optionId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "DecisionRecord": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "DecisionRecord",
+    "type": "object",
+    "required": [
+      "delivery",
+      "id",
+      "requestId"
+    ],
+    "properties": {
+      "answer": true,
+      "createdAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "delivery": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      },
+      "option": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "requestId": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": true
+  },
   "RunRecord": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "RunRecord",
@@ -319,7 +1047,9 @@
       },
       "approvals": {
         "type": "array",
-        "items": true
+        "items": {
+          "$ref": "#/definitions/PendingRequest"
+        }
       },
       "archived": {
         "default": false,
@@ -328,7 +1058,9 @@
       "decisions": {
         "default": [],
         "type": "array",
-        "items": true
+        "items": {
+          "$ref": "#/definitions/DecisionRecord"
+        }
       },
       "error": {
         "type": [
@@ -352,7 +1084,9 @@
       "inputs": {
         "default": [],
         "type": "array",
-        "items": true
+        "items": {
+          "$ref": "#/definitions/PendingRequest"
+        }
       },
       "lastActivityAt": {
         "default": 0,
@@ -409,6 +1143,104 @@
       }
     },
     "definitions": {
+      "DecisionRecord": {
+        "type": "object",
+        "required": [
+          "delivery",
+          "id",
+          "requestId"
+        ],
+        "properties": {
+          "answer": true,
+          "createdAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "delivery": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "option": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "PendingRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "options": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/definitions/PermissionOption"
+            }
+          },
+          "runId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": true
+      },
+      "PermissionOption": {
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "optionId"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "optionId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
       "RunRecord": {
         "type": "object",
         "required": [

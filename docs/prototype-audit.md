@@ -79,17 +79,17 @@
 | 检查 | 结果与具体范围 |
 | --- | --- |
 | `npm run check` | 通过：51项Node/SDK/打包器、生成契约比对/类型正反例、workspace Rust、16项Host集成与崩溃恢复；不包含真实模型请求 |
-| `npm run desktop:test` | 55.1秒完整回归通过：真实Host、目录路径导入、历史与重连的实际游标增量、通知桥接状态、插件React及200刻度组件及插件异步操作记录/结果 |
-| `npm run remote:test` | 23.6秒通过：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
+| `npm run desktop:test` | 54.9秒完整回归通过：真实Host、目录路径导入、历史与重连的实际游标增量、通知桥接状态、插件React及200刻度组件及插件异步操作记录/结果 |
+| `npm run remote:test` | 23.4秒通过：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
 | `cargo clippy --workspace --all-targets -- -D warnings` | 通过 |
 | 原生Cargo测试 / Clippy | 5项测试通过；原生Clippy通过；系统回调的实际窗口观察仍未完成 |
-| `npm run desktop:bundle` | 通过，当前macOS调试包828.89MiB；包标识dev.vibeone.desktop，最低系统10.15 |
+| `npm run desktop:bundle` | 通过，当前macOS调试包829.27MiB；包标识dev.vibeone.desktop，最低系统10.15 |
 | `npm run bundle:smoke` | 通过：复制全部资源到仓库外，两个桥接器v2握手和原生CLI启动、可信HTTPS网页、Worker反向调用、插件Provider及历史 |
 | `npm run agent:smoke -- codex claude` | Codex目标文本/end_turn通过；Claude失败，Authentication required，未冒充双工具完成 |
 | `npm run agent:controls` / `-- --input-only` | 真实Codex批准/拒绝、取消待审批、旧请求失效、进程退出、只读恢复及结构化输入通过 |
 | `cargo test -p vibeone-agent-client` | 全13项通过，覆盖初始化45秒人工等待、独立600秒时限、工作预算恢复、迟到答案拒绝和父子进程清理；客户端Clippy通过 |
 
-包内Host SHA-256：`0d3da57f5c31a0266effa5b865940c77864dbc3c2ac7bd11dd50a9cb5d626bc2`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
+包内Host SHA-256：`c1e4efbebbca9db9e50d2166c13ce1acd39e90f078b432ff76b6fc9dbe1bc2ee`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
 
 ## 解锁后的原生核对顺序
 
@@ -112,3 +112,5 @@
 2026-11-07：68继续补齐Profile保存/删除的实际请求/记录/响应和设置构造器。Schema/Serde与类型正反例、真实Host配置集成3项、51项Node、Workbench13项及Clippy通过；桌面54.8秒、HTTPS手机23.4秒、828.82MiB重建包及仓库外验证通过。68提交时参考的16项Host和崩溃恢复来自66全量检查，该切片按改动范围复跑配置/构造器集成；不冒充已再次运行全部Host套件。CUA仍明确Mac locked，实际Host未切换。剩余业务响应类型和领域错误分类继续见14。
 
 2026-11-07：69把实际Run/队列及其执行/历史操作迁移为结构字段，从SessionView生产类型生成响应；旧列表缺省/null、无时间不补造、未知Run扩展及私有标志有Schema/Serde验证。全量51项Node/SDK、workspace Rust（Workbench14项）、16项Host与SQLite恢复通过；Clippy、55.1秒桌面、23.6秒HTTPS手机及828.89MiB重建包/仓库外验证通过。新类型/恢复SVG已渲染查看。CUA再次明确Mac locked，未动实际Host。完整Snapshot封装、待处理业务结构及领域错误分类仍由14继续跟进，原生/Claude/物理手机项目未验收。
+
+2026-11-07：70完成Snapshot封装、手机权限过滤与待处理/决定公共结构，并补上旧失效审批日志的回填兼容。原始事件、消息和兼容提示均有红/绿回归；在线无效请求仍拒绝。最终全量51项Node/SDK、workspace Rust（Workbench18项）、16项Host、恢复与Clippy通过，桌面54.9秒、HTTPS手机23.4秒及829.27MiB重建包/仓库外验证通过。新SVG已渲染查看。原生CUA仍返回Mac locked，未操作用户Host；Profile目录及完整领域错误仍由14继续，原生/Claude/物理设备项目保持未验收。

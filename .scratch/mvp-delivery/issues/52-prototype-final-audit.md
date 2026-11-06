@@ -42,3 +42,5 @@ Blocked by: 50, 51
 68最终检查完成：51项Node、Workbench13项及Clippy，配置/构造器Host集成3项，桌面54.8秒、手机23.4秒与828.82MiB重建包/仓库外资源验证通过。14剩余完整业务响应和领域错误分类；52仍claimed，原生与物理设备项未验收。
 
 69完成实际Run/队列结构及SessionView响应生成，执行、取消、附件和长历史恢复共用类型；51项Node、Workbench14项、16项Host、恢复、Clippy、桌面/HTTPS及包外验证通过。当前包828.89MiB，新SVG已查看。原生CUA仍明确Mac locked，未动实际Host；完整Snapshot、待处理模型和领域错误分类仍未完成，52保持claimed。
+
+70补齐实际快照封装、手机范围过滤与待处理/决定公共字段。严格转换引出的旧失效权限日志回填问题已先复现再修复，原始事件和消息保留。51项Node、Workbench18项、16项Host、恢复、Clippy、桌面/手机及829.27MiB包外资源检查通过，新SVG已查看。CUA仍Mac locked，实际Host未动；Profile目录和领域错误模型未完成，52保持claimed。

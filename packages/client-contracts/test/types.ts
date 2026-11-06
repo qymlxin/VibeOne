@@ -41,3 +41,16 @@ const invalidRunFiles:RunRecord={id:'run',status:'queued',files:[1]};
 // @ts-expect-error the queue must contain typed run records
 const invalidSession:SessionView={...sessionView,queue:['run']};
 void [legacyRun,sessionView,invalidRun,invalidRunFiles,invalidSession];
+
+import type {SnapshotResponse,PendingRequest,DecisionRecord,Provider} from '../src/generated.js';
+const pendingRequest:PendingRequest={id:'request',runId:'run',options:[{optionId:'allow',name:'Allow',kind:'allow_once'}],toolCall:{title:'Read'}};
+const inputDecision:DecisionRecord={id:'decision',requestId:'request',delivery:'pending',answer:{action:'accept',content:{enabled:false,count:0}}};
+// @ts-expect-error approval option IDs are protocol strings
+const badOption:PendingRequest={id:'request',options:[{optionId:1,name:'Allow',kind:'allow_once'}]};
+// @ts-expect-error request expiry is numeric, never a display string
+const badExpiry:PendingRequest={id:'request',expiresAt:'tomorrow'};
+// @ts-expect-error private launch commands are absent from public Provider descriptors
+const privateProvider:Provider={id:'demo',name:'Demo',available:true,description:'Demo',command:'/private/agent'};
+// @ts-expect-error typed snapshots cannot replace session records with IDs
+const badSnapshotSessions:SnapshotResponse['sessions']=['session'];
+void [pendingRequest,inputDecision,badOption,badExpiry,privateProvider,badSnapshotSessions];

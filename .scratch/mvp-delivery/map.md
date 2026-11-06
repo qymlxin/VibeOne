@@ -99,10 +99,12 @@
 
 - [69-session-run-contracts](issues/69-session-run-contracts.md)：实际Run/队列迁移为结构字段并生成SessionView响应；执行、取消、幂等、附件与历史共用模型，旧记录扩展和缺省时间有专门检查。
 
+- [70-snapshot-attention-contracts](issues/70-snapshot-attention-contracts.md)：快照封装、手机范围过滤及待处理/决定公共字段已接生产类型；旧失效审批事件的回填兼容有红/绿验证，原始事件与消息保留。
+
 ## Fog
 
 
 - 真实Claude认证及该工具的审批/取消仍由本机账号和实际工具能力决定；Codex路径和人工请求可控时间超时已有实测。
 - 物理 iOS/Android 证书信任、弱网、锁屏及 macOS 托盘/系统通知仍待人工验收。
-- 完整Snapshot封装、Profile全量快照与待处理业务结构、完整领域错误分类仍见14；SessionView与Run/队列基本响应由69补齐；请求和基本回执生成已由66交付；HTTP失败信封已由65交付；插件HTTP持久异步回执、客户端游标投影增量及长历史已独立交付。
+- Profile全量快照、目录动态记录内容及完整领域错误分类仍见14；Snapshot封装和待处理公共字段由70补齐；SessionView与Run/队列基本响应由69补齐；请求和基本回执生成已由66交付；HTTP失败信封已由65交付；插件HTTP持久异步回执、客户端游标投影增量及长历史已独立交付。
 - 公开 SDK 完整 semver/跨插件依赖、跨平台发行、签名公证后置。

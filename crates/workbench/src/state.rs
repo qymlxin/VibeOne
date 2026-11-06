@@ -297,6 +297,9 @@ impl Workbench {
         Ok(())
     }
     pub fn snapshot(&self) -> Value {
+        serde_json::to_value(self.snapshot_view()).expect("snapshot serializes to JSON")
+    }
+    pub(crate) fn snapshot_view(&self) -> crate::contracts::SnapshotResponse {
         let _publication = self.publication.lock().expect("publication poisoned");
         let entries: Vec<_> = self
             .sessions
@@ -310,7 +313,54 @@ impl Workbench {
             .map(|entry| entry.view.lock().expect("view poisoned").clone())
             .collect();
         views.sort_by(|a, b| a.id.cmp(&b.id));
-        json!({"apiVersion":3,"features":["queuePause","attachments","conversationHistory","cursorSync","pluginOperations","structuredErrors"],"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"examplePluginPath":std::env::var_os("VIBEONE_EXAMPLE_PLUGIN").map(PathBuf::from).unwrap_or_else(||Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/plugins/workspace-tools")),"pluginEvents":self.plugins.events(),"operations":self.operation_summaries(),"plugins":self.catalog("plugin"),"notifications":self.catalog("notification"),"profiles":self.catalog("profile"),"providers":self.provider_descriptors(),"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
+        crate::contracts::SnapshotResponse {
+            sessions: views,
+            metadata: crate::contracts::SnapshotMetadata {
+                api_version: 3,
+                features: [
+                    "queuePause",
+                    "attachments",
+                    "conversationHistory",
+                    "cursorSync",
+                    "pluginOperations",
+                    "structuredErrors",
+                ]
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+                protocol_version: 2,
+                sdk_version: "5.0.0".into(),
+                persistent: true,
+                storage_error: self
+                    .storage_error
+                    .lock()
+                    .expect("storage error poisoned")
+                    .clone(),
+                revision: self.revision.load(Ordering::SeqCst),
+                example_plugin_path: Some(
+                    std::env::var_os("VIBEONE_EXAMPLE_PLUGIN")
+                        .map(PathBuf::from)
+                        .unwrap_or_else(|| {
+                            Path::new(env!("CARGO_MANIFEST_DIR"))
+                                .join("../../examples/plugins/workspace-tools")
+                        }),
+                ),
+                plugin_events: self.plugins.events(),
+                operations: self.operation_summaries(),
+                plugins: self.catalog("plugin"),
+                notifications: self.catalog("notification"),
+                profiles: self.catalog("profile"),
+                providers: self.provider_descriptors(),
+                workspaces: self
+                    .workspaces
+                    .lock()
+                    .expect("workspaces poisoned")
+                    .iter()
+                    .map(crate::contracts::WorkspaceView::from)
+                    .collect(),
+                device: None,
+            },
+        }
     }
     pub fn entry(&self, id: &str) -> Result<Arc<Entry>, String> {
         self.sessions
@@ -496,9 +546,9 @@ impl Workbench {
         if let Some(decision) = view
             .decisions
             .iter()
-            .find(|item| item["requestId"] == request)
+            .find(|item| item.request_id == request)
         {
-            return if decision["option"] == option {
+            return if decision.option.as_deref() == Some(option) {
                 Ok(())
             } else {
                 Err("该请求已选择其他选项".into())
@@ -507,22 +557,31 @@ impl Workbench {
         let approval = view
             .approvals
             .iter()
-            .find(|approval| approval["id"] == request)
+            .find(|approval| approval.id == request)
             .ok_or("审批已失效或已处理")?;
-        if !approval["options"]
-            .as_array()
-            .is_some_and(|options| options.iter().any(|item| item["optionId"] == option))
+        if !approval
+            .options
+            .as_ref()
+            .is_some_and(|options| options.iter().any(|item| item.option_id == option))
         {
             return Err("审批选项无效".into());
         }
-        view.approvals.retain(|approval| approval["id"] != request);
+        view.approvals.retain(|approval| approval.id != request);
         let connection = entry
             .interactions
             .lock()
             .expect("interactions poisoned")
             .clone()
             .ok_or("Agent 未连接")?;
-        view.decisions.push(json!({"id":uuid::Uuid::new_v4().to_string(),"requestId":request,"option":option,"delivery":"pending","createdAt":execution::now()}));
+        view.decisions.push(crate::contracts::DecisionRecord {
+            id: uuid::Uuid::new_v4().to_string(),
+            request_id: request.into(),
+            option: Some(option.into()),
+            answer: None,
+            delivery: "pending".into(),
+            created_at: Some(execution::now()),
+            extensions: Default::default(),
+        });
         // Persist the unique decision before delivery. Approvals are never replayed after restart.
         self.commit(
             &entry,
@@ -536,9 +595,9 @@ impl Workbench {
             if let Some(decision) = view
                 .decisions
                 .iter_mut()
-                .find(|item| item["requestId"] == request)
+                .find(|item| item.request_id == request)
             {
-                decision["delivery"] = json!("uncertain");
+                decision.delivery = "uncertain".into();
             }
             self.commit(
                 &entry,
@@ -559,15 +618,15 @@ impl Workbench {
         if let Some(previous) = view
             .decisions
             .iter()
-            .find(|item| item["requestId"] == request)
+            .find(|item| item.request_id == request)
         {
-            return if previous["answer"] == answer {
+            return if previous.answer.as_ref() == Some(&answer) {
                 Ok(())
             } else {
                 Err("该问题已提交其他回答".into())
             };
         }
-        if !view.inputs.iter().any(|input| input["id"] == request) {
+        if !view.inputs.iter().any(|input| input.id == request) {
             return Err("补充输入已失效或已处理".into());
         }
         let connection = entry
@@ -577,8 +636,16 @@ impl Workbench {
             .clone()
             .ok_or("Agent 未连接")?;
         connection.validate_input(request, &answer)?;
-        view.inputs.retain(|input| input["id"] != request);
-        view.decisions.push(json!({"id":uuid::Uuid::new_v4().to_string(),"requestId":request,"answer":answer,"delivery":"pending","createdAt":execution::now()}));
+        view.inputs.retain(|input| input.id != request);
+        view.decisions.push(crate::contracts::DecisionRecord {
+            id: uuid::Uuid::new_v4().to_string(),
+            request_id: request.into(),
+            option: None,
+            answer: Some(answer.clone()),
+            delivery: "pending".into(),
+            created_at: Some(execution::now()),
+            extensions: Default::default(),
+        });
         self.commit(
             &entry,
             view,

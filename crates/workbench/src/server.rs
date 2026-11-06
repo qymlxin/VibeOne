@@ -306,7 +306,10 @@ async fn import_workspace(
         .map(Json)
         .map_err(fail)
 }
-async fn profile(State(state): State<Server>, Json(body): Json<ProfileRequest>) -> ApiResult<ProfileResponse> {
+async fn profile(
+    State(state): State<Server>,
+    Json(body): Json<ProfileRequest>,
+) -> ApiResult<ProfileResponse> {
     command(async move { state.workbench.save_profile(body).await })
         .await
         .map(Json)
@@ -331,13 +334,10 @@ async fn event_page(
         .await
         .map_err(fail)?;
     if identity.device.is_some() {
-        let visible = remote::filter_snapshot(state.workbench.snapshot(), &identity);
-        let ids = visible["sessions"].as_array().cloned().unwrap_or_default();
+        let visible = remote::filter_snapshot(state.workbench.snapshot_view(), &identity);
+        let ids = visible.sessions;
         if let Some(events) = page["events"].as_array_mut() {
-            events.retain(|event| {
-                ids.iter()
-                    .any(|session| session["id"] == event["sessionId"])
-            });
+            events.retain(|event| ids.iter().any(|session| event["sessionId"] == session.id));
         }
     }
     Ok(Json(page))
@@ -530,9 +530,9 @@ async fn plugin_app(State(state): State<Server>, Path(id): Path<String>) -> ApiR
 async fn snapshot(
     State(state): State<Server>,
     Extension(identity): Extension<remote::Identity>,
-) -> Json<Value> {
+) -> Json<SnapshotResponse> {
     Json(remote::filter_snapshot(
-        state.workbench.snapshot(),
+        state.workbench.snapshot_view(),
         &identity,
     ))
 }
@@ -551,7 +551,8 @@ async fn sync_view(
         .sync_view(query.after, query.epoch.as_deref())
         .await
         .map_err(fail)?;
-    let mut snapshot = remote::filter_snapshot(view.snapshot, &identity);
+    let mut snapshot = serde_json::to_value(remote::filter_snapshot(view.snapshot, &identity))
+        .map_err(|error| fail(error.to_string()))?;
     let cursor = snapshot["revision"].clone();
     if let Some(reason) = view.reset {
         return Ok(Json(

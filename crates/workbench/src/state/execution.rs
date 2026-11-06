@@ -545,7 +545,7 @@ impl Workbench {
             false,
         )
         .await?;
-        view.apply(&event);
+        view.apply(&event)?;
         let cancelling = entry
             .cancel
             .lock()
@@ -575,11 +575,14 @@ impl Workbench {
             };
             if let Some(request) = requests
                 .iter_mut()
-                .find(|request| request["id"] == event["id"])
+                .find(|request| event["id"] == request.id)
             {
-                request["runId"] = json!(current_run);
-                request["createdAt"] = json!(now());
-                request["expiresAt"] = json!(now() + 600_000);
+                request.run_id = current_run
+                    .as_ref()
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                request.created_at = Some(now());
+                request.expires_at = Some(now() + 600_000);
             }
         }
         if event["type"] == "update" {
@@ -625,8 +628,8 @@ impl Workbench {
         }
         if event["type"] == "disconnected" {
             for decision in &mut view.decisions {
-                if decision["delivery"] == "pending" {
-                    decision["delivery"] = json!("uncertain");
+                if decision.delivery == "pending" {
+                    decision.delivery = "uncertain".into();
                 }
             }
         }
@@ -654,21 +657,22 @@ impl Workbench {
             && let Some(decision) = view
                 .decisions
                 .iter_mut()
-                .find(|item| item["requestId"] == event["id"])
+                .find(|item| event["id"] == item.request_id)
         {
-            decision["delivery"] = json!(if event["selected"] == decision["option"] {
+            decision.delivery = if event["selected"].as_str() == decision.option.as_deref() {
                 "sent"
             } else {
                 "uncertain"
-            });
+            }
+            .into();
         }
         if event["type"] == "input_resolved"
             && let Some(decision) = view
                 .decisions
                 .iter_mut()
-                .find(|item| item["requestId"] == event["id"])
+                .find(|item| event["id"] == item.request_id)
         {
-            decision["delivery"] = json!("sent");
+            decision.delivery = "sent".into();
         }
         event["runEnded"] = json!(was_active && !view.active);
         self.commit(entry, view, "agent.update", &event).await?;

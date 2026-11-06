@@ -36,7 +36,7 @@ impl Workbench {
                                     .approvals
                                     .iter()
                                     .chain(&view.inputs)
-                                    .any(|request| request["id"] == event["requestId"])
+                                    .any(|request| event["requestId"] == request.id)
                             }
                             Err(_) => true,
                         }

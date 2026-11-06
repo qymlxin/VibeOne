@@ -1,4 +1,4 @@
-use crate::contracts::RunRecord;
+use crate::contracts::{DecisionRecord, PendingRequest, RunRecord};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -25,10 +25,10 @@ pub struct SessionView {
     pub status: String,
     pub messages: Vec<Value>,
     pub tools: Vec<Value>,
-    pub approvals: Vec<Value>,
+    pub approvals: Vec<PendingRequest>,
     #[serde(default, deserialize_with = "legacy_list")]
-    #[schemars(with = "Vec<Value>")]
-    pub inputs: Vec<Value>,
+    #[schemars(with = "Vec<PendingRequest>")]
+    pub inputs: Vec<PendingRequest>,
     pub error: Option<String>,
     pub stop_reason: Option<String>,
     #[serde(default)]
@@ -44,8 +44,8 @@ pub struct SessionView {
     #[serde(default)]
     pub queue_paused: bool,
     #[serde(default, deserialize_with = "legacy_list")]
-    #[schemars(with = "Vec<Value>")]
-    pub decisions: Vec<Value>,
+    #[schemars(with = "Vec<DecisionRecord>")]
+    pub decisions: Vec<DecisionRecord>,
     #[serde(default)]
     pub profile: Option<Value>,
     #[serde(default)]
@@ -57,25 +57,31 @@ pub struct SessionView {
 }
 
 impl SessionView {
-    pub fn apply(&mut self, event: &Value) {
+    pub fn apply(&mut self, event: &Value) -> Result<(), String> {
         match event["type"].as_str() {
             Some("update") => self.update(&event["notification"]["update"]),
             Some("input") => {
                 let mut request = event["request"].clone();
                 request["id"] = event["id"].clone();
-                self.inputs.push(request);
+                self.inputs.push(
+                    serde_json::from_value(request)
+                        .map_err(|error| format!("补充输入请求无效：{error}"))?,
+                );
             }
-            Some("input_resolved") => self.inputs.retain(|input| input["id"] != event["id"]),
+            Some("input_resolved") => self.inputs.retain(|input| event["id"] != input.id),
             Some("permission") => {
                 let mut request = event["request"].clone();
                 request["id"] = event["id"].clone();
-                self.approvals.push(request);
+                self.approvals.push(
+                    serde_json::from_value(request)
+                        .map_err(|error| format!("审批请求无效：{error}"))?,
+                );
                 self.status = "requires_action".into();
                 self.observed_active = true;
             }
-            Some("permission_resolved") => self
-                .approvals
-                .retain(|request| request["id"] != event["id"]),
+            Some("permission_resolved") => {
+                self.approvals.retain(|request| event["id"] != request.id)
+            }
             Some("disconnected") => {
                 self.active = false;
                 self.approvals.clear();
@@ -92,6 +98,7 @@ impl SessionView {
             }
             _ => {}
         }
+        Ok(())
     }
 
     fn update(&mut self, update: &Value) {
@@ -297,6 +304,27 @@ mod tests {
             observed_active: false,
         }
     }
+    #[test]
+    fn invalid_attention_never_publishes_and_resolution_keeps_other_requests() {
+        let mut view = view();
+        assert!(view.apply(&json!({"type":"permission","id":"bad","request":{"options":[{"optionId":1,"name":"Allow","kind":"allow_once"}]}})).is_err());
+        assert!(view.approvals.is_empty());
+        assert_eq!(view.status, "starting");
+        for id in ["one", "two"] {
+            view.apply(&json!({"type":"permission","id":id,"request":{"options":[{"optionId":"allow","name":"Allow","kind":"allow_once"}]}})).unwrap();
+        }
+        view.apply(&json!({"type":"input","id":"input","request":{"mode":"form","requestedSchema":{"type":"object"}}})).unwrap();
+        view.apply(&json!({"type":"permission_resolved","id":"one"}))
+            .unwrap();
+        assert_eq!(view.approvals.len(), 1);
+        assert_eq!(view.approvals[0].id, "two");
+        assert_eq!(view.inputs.len(), 1);
+        view.apply(&json!({"type":"input_resolved","id":"input"}))
+            .unwrap();
+        assert!(view.inputs.is_empty());
+        assert_eq!(view.approvals.len(), 1);
+    }
+
     #[test]
     fn idle_error_retains_the_protocol_failure_details() {
         let mut view = view();

@@ -2,7 +2,7 @@
 use super::*;
 
 pub(crate) struct SyncView {
-    pub snapshot: Value,
+    pub snapshot: crate::contracts::SnapshotResponse,
     pub epoch: String,
     pub changed: HashMap<String, u64>,
     pub reset: Option<&'static str>,
@@ -17,14 +17,14 @@ impl Workbench {
         // Writers hold this from the SQLite commit through in-memory publication.
         // Otherwise a higher cursor could be published before an earlier session view.
         let _sync = self.sync_gate.lock().await;
-        let snapshot = self.snapshot();
-        let cursor = snapshot["revision"].as_u64().unwrap_or(0);
+        let snapshot = self.snapshot_view();
+        let cursor = snapshot.metadata.revision;
         let reset = match after {
             None => Some("initial"),
             Some(_) if epoch != Some(self.sync_epoch.as_str()) => Some("epoch"),
             Some(after) if after > cursor => Some("future"),
             Some(after) if cursor - after > 4096 => Some("expired"),
-            _ if snapshot["storageError"].is_string() => Some("storage"),
+            _ if snapshot.metadata.storage_error.is_some() => Some("storage"),
             _ => None,
         };
         let mut changed = HashMap::new();
@@ -64,7 +64,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(sync.reset, Some("expired"));
-        assert_eq!(sync.snapshot["revision"], 4097);
+        assert_eq!(sync.snapshot.metadata.revision, 4097);
         assert!(sync.changed.is_empty());
         let current = workbench
             .sync_view(Some(4097), Some(&first.epoch))

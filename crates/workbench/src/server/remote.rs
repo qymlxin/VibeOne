@@ -287,56 +287,50 @@ pub(super) fn cookie(headers: &HeaderMap) -> Option<&str> {
         .find(|(name, _)| *name == "vibeone_device")
         .map(|(_, value)| value)
 }
-pub(super) fn filter_snapshot(mut snapshot: Value, identity: &Identity) -> Value {
-    if identity.device.is_none() {
+pub(super) fn filter_snapshot(
+    mut snapshot: crate::contracts::SnapshotResponse,
+    identity: &Identity,
+) -> crate::contracts::SnapshotResponse {
+    let Some(device) = identity.device.as_ref() else {
         return snapshot;
-    }
-    let workspaces = snapshot["workspaces"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
-    let visible: Vec<_> = workspaces
-        .into_iter()
-        .filter(|workspace| identity.allowed(workspace["id"].as_str().unwrap_or_default(), "read"))
-        .collect();
-    let paths: Vec<_> = visible
+    };
+    snapshot
+        .metadata
+        .workspaces
+        .retain(|workspace| identity.allowed(&workspace.id, "read"));
+    let paths: std::collections::HashSet<_> = snapshot
+        .metadata
+        .workspaces
         .iter()
-        .filter_map(|workspace| workspace["path"].as_str())
+        .map(|workspace| workspace.path.clone())
         .collect();
-    snapshot["sessions"] = json!(
-        snapshot["sessions"]
-            .as_array()
-            .unwrap_or(&vec![])
-            .iter()
-            .filter(|session| paths.contains(&session["workspace"].as_str().unwrap_or_default()))
-            .cloned()
-            .map(|mut session| {
-                if let Some(profile) = session["profile"].as_object_mut() {
-                    profile.remove("command");
-                    profile.remove("args");
-                }
-                session
-            })
-            .collect::<Vec<_>>()
-    );
-    snapshot["workspaces"] = json!(visible);
-    if snapshot["storageError"].is_string() {
-        snapshot["storageError"] = json!("主机本地存储不可用，请在电脑检查诊断");
-    }
-    snapshot["examplePluginPath"] = Value::Null;
-    snapshot["pluginEvents"] = json!([]);
-    snapshot["plugins"] = json!([]);
-    snapshot["notifications"] = json!([]);
-    snapshot["operations"] = json!([]);
-    if let Some(profiles) = snapshot["profiles"].as_array_mut() {
-        for profile in profiles {
-            if let Some(profile) = profile.as_object_mut() {
-                profile.remove("command");
-                profile.remove("args");
-            }
+    snapshot
+        .sessions
+        .retain(|session| paths.contains(&session.workspace));
+    for session in &mut snapshot.sessions {
+        if let Some(profile) = session.profile.as_mut().and_then(Value::as_object_mut) {
+            profile.remove("command");
+            profile.remove("args");
         }
     }
-    snapshot["device"] = json!({"id":identity.device.as_ref().unwrap()["id"],"role":identity.device.as_ref().unwrap()["role"]});
+    if snapshot.metadata.storage_error.is_some() {
+        snapshot.metadata.storage_error = Some("主机本地存储不可用，请在电脑检查诊断".into());
+    }
+    snapshot.metadata.example_plugin_path = None;
+    snapshot.metadata.plugin_events.clear();
+    snapshot.metadata.plugins.clear();
+    snapshot.metadata.notifications.clear();
+    snapshot.metadata.operations.clear();
+    for profile in &mut snapshot.metadata.profiles {
+        if let Some(profile) = profile.as_object_mut() {
+            profile.remove("command");
+            profile.remove("args");
+        }
+    }
+    snapshot.metadata.device = Some(crate::contracts::DeviceView {
+        id: device["id"].as_str().map(str::to_owned),
+        role: device["role"].as_str().map(str::to_owned),
+    });
     snapshot
 }
 
@@ -576,4 +570,70 @@ pub(super) async fn revoke(State(state): State<Server>, Path(id): Path<String>) 
         .await
         .map_err(fail)?;
     Ok(Json(json!({"revoked":true})))
+}
+
+#[cfg(test)]
+mod snapshot_contract_tests {
+    use super::*;
+    #[tokio::test]
+    async fn typed_snapshot_filters_scope_and_private_fields_without_mutating_owner_view() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(directory.path(), vec![]).await.unwrap();
+        let mut original = workbench.snapshot_view();
+        original.metadata.workspaces = vec![
+            WorkspaceView {
+                id: "one".into(),
+                path: "/one".into(),
+                name: "One".into(),
+            },
+            WorkspaceView {
+                id: "two".into(),
+                path: "/two".into(),
+                name: "Two".into(),
+            },
+        ];
+        for (id, workspace) in [("s-one", "/one"), ("s-two", "/two")] {
+            original.sessions.push(serde_json::from_value(json!({"id":id,"title":"Session","workspace":workspace,"provider":"demo","status":"idle","messages":[],"tools":[],"approvals":[],"profile":{"id":"profile","command":"/private/program","args":["private"]}})).unwrap());
+        }
+        original.metadata.storage_error = Some("/private/storage.db".into());
+        original.metadata.profiles =
+            vec![json!({"id":"profile","command":"/private/program","args":["private"]})];
+        original.metadata.plugins = vec![json!({"private":"plugin"})];
+        original.metadata.plugin_events = vec![json!({"private":"event"})];
+        original.metadata.notifications = vec![json!({"private":"notification"})];
+        original.metadata.operations = vec![json!({"private":"operation"})];
+        let owner =
+            serde_json::to_value(filter_snapshot(original.clone(), &Identity::owner())).unwrap();
+        assert_eq!(owner, serde_json::to_value(&original).unwrap());
+        let device = Identity {
+            device: Some(json!({"id":"phone","role":"viewer","workspaces":["one"]})),
+        };
+        let remote = serde_json::to_value(filter_snapshot(original.clone(), &device)).unwrap();
+        assert_eq!(remote["sessions"].as_array().unwrap().len(), 1);
+        assert_eq!(remote["sessions"][0]["id"], "s-one");
+        assert_eq!(remote["workspaces"].as_array().unwrap().len(), 1);
+        assert!(remote["sessions"][0]["profile"].get("command").is_none());
+        assert!(remote["profiles"][0].get("args").is_none());
+        assert!(remote["examplePluginPath"].is_null());
+        for key in ["plugins", "pluginEvents", "notifications", "operations"] {
+            assert_eq!(remote[key], json!([]));
+        }
+        assert!(
+            !remote["storageError"]
+                .as_str()
+                .unwrap()
+                .contains("/private")
+        );
+        assert_eq!(remote["device"], json!({"id":"phone","role":"viewer"}));
+        assert_eq!(original.sessions.len(), 2);
+        let schema = serde_json::to_value(schemars::schema_for!(SnapshotResponse)).unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        assert!(validator.is_valid(&owner));
+        assert!(validator.is_valid(&remote));
+        let denied = Identity {
+            device: Some(json!({"id":"denied","role":"operator","workspaces":[]})),
+        };
+        assert!(filter_snapshot(original, &denied).sessions.is_empty());
+        workbench.close().await;
+    }
 }
