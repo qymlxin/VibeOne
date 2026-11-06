@@ -7,6 +7,7 @@ export function useWorkbench() {
   const [phase, setPhase] = useState("connecting");
   const [error, setError] = useState("");
   const refreshRef = useRef(async () => {});
+  const upgrading = useRef(false);
   const reconnect = useCallback(async () => {
     setPhase("connecting");
     setError("");
@@ -18,13 +19,17 @@ export function useWorkbench() {
     }
   }, []);
   const restart = useCallback(async () => {
+    upgrading.current = true;
     setPhase("upgrading");
     setError("");
+    setConnection(null);
     try {
       setConnection(await restartHost());
     } catch (error) {
       setError(String(error));
       setPhase("offline");
+    } finally {
+      upgrading.current = false;
     }
   }, []);
   useEffect(() => {
@@ -50,7 +55,7 @@ export function useWorkbench() {
             current.revision > next.revision ? current : next,
           );
       } catch (error) {
-        if (!closed) setError(error.message);
+        if (!closed && !upgrading.current) setError(error.message);
       }
     };
     // A new Host has a different revision space; discard the old in-memory projection.
@@ -63,6 +68,7 @@ export function useWorkbench() {
       socket.onopen = () =>
         socket.send(JSON.stringify({ token: connection.token }));
       socket.onmessage = (event) => {
+        if (closed || upgrading.current) return;
         const message = JSON.parse(event.data);
         if (message.type === "ready") {
           setPhase("online");
@@ -76,7 +82,7 @@ export function useWorkbench() {
       };
       socket.onerror = () => socket.close();
       socket.onclose = () => {
-        if (!closed) {
+        if (!closed && !upgrading.current) {
           setPhase("reconnecting");
           void refresh();
           retry = setTimeout(open, 1500);

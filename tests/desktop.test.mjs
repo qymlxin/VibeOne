@@ -84,6 +84,7 @@ test(
         window.__TAURI_INTERNALS__ = {
           invoke: async (command) => {
             if (command === "host_connection") return connection;
+            if (command === "restart_host") { await new Promise(resolve=>setTimeout(resolve,500)); return connection; }
             if (command === "choose_workspace") return directory;
             throw Error(`Unexpected native command: ${command}`);
           },
@@ -337,6 +338,12 @@ test(
       }),
       true,
     );
+
+    await page.getByRole('button',{name:'重启工作主机',exact:true}).click();
+    await page.getByText('正在重启工作主机',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'重新连接',exact:true}).isDisabled(),true);
+    assert.equal((await page.locator('body').innerText()).includes('Load failed'),false);
+    await page.getByText('工作主机 · 本机已连接',{exact:true}).waitFor();
 
     assert.deepEqual(errors, []);
     assert.equal(

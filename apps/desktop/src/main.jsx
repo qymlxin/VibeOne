@@ -203,6 +203,8 @@ function App() {
               <small>
                 {online
                   ? "本机 · 已连接"
+                  : workbench.phase === "upgrading"
+                    ? "正在重启"
                   : workbench.phase === "connecting"
                     ? "正在连接"
                     : "连接已断开"}
@@ -243,7 +245,7 @@ function App() {
           </button>
           <span>
             <span className={`desktop-dot ${online ? "online" : ""}`} />
-            {online ? "工作主机 · 本机已连接" : "正在连接工作主机"}
+            {online ? "工作主机 · 本机已连接" : workbench.phase === "upgrading" ? "正在重启工作主机" : "正在连接工作主机"}
           </span>
           <span>ACP v2 · 本地运行</span>
         </div>
@@ -260,10 +262,10 @@ function App() {
               {error ||
                 workbench.storageError ||
                 workbench.error ||
-                "主机连接中，连接完成后可以创建会话。"}
+                (workbench.phase === "upgrading" ? "正在重启工作主机，会话记录已保存。" : "主机连接中，连接完成后可以创建会话。")}
             </span>
             {!online ? (
-              <button onClick={() => void workbench.reconnect()}>
+              <button disabled={workbench.phase === "upgrading"} onClick={() => void workbench.reconnect()}>
                 <RefreshCw size={14} />
                 重新连接
               </button>
