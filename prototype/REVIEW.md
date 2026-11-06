@@ -56,3 +56,7 @@ Logo 取自用户提供的 HTML 图稿：四条逐级收窄的圆角横条，vie
 - [导航悬停状态](review-captures/session-navigation-hover.png)
 - [头像选择](review-captures/session-avatar-editor.png)
 - [亮色悬停效果](review-captures/session-navigation-light.png)
+
+## 设置中心
+
+新增八分类设置原型，工作台左下角“设置”进入，或访问 `/review.html?view=settings`。详情与能力边界见 [设置中心评审说明](SETTINGS.md)。继续使用独立设计分支，不接入真实主机。已有外观页与主题状态已整合进设置导航。
