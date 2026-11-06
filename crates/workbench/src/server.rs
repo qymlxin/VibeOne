@@ -485,11 +485,16 @@ async fn tree(
     .map_err(domain_fail)
 }
 async fn plugin_inspect(Json(body): Json<Value>) -> ApiResult {
-    crate::plugins::inspect(std::path::Path::new(
-        body["path"].as_str().ok_or_else(|| fail("请选择目录"))?,
-    ))
-    .map(Json)
-    .map_err(fail)
+    let path = body["path"].as_str().ok_or_else(|| {
+        domain_fail(crate::domain_error::DomainError::new(
+            crate::domain_error::ErrorKind::InvalidInput,
+            "请选择插件目录",
+        ))
+    })?;
+    crate::plugins::inspect(PathBuf::from(path))
+        .await
+        .map(Json)
+        .map_err(domain_fail)
 }
 async fn plugin_prepare(State(state): State<Server>, Json(body): Json<Value>) -> ApiResult {
     state
@@ -563,15 +568,23 @@ async fn operation_list(State(state): State<Server>) -> Json<Value> {
     Json(json!({"operations":state.workbench.operation_summaries()}))
 }
 async fn plugin_app(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
+    use crate::domain_error::{DomainError, ErrorKind};
     let record = state
         .workbench
         .catalog("plugin")
         .into_iter()
-        .find(|record| record["id"] == id && record["enabled"] == true)
-        .ok_or_else(|| fail("插件未启用"))?;
-    crate::plugins::Plugins::app(&record)
+        .find(|record| record["id"] == id)
+        .ok_or_else(|| domain_fail(DomainError::new(ErrorKind::PluginNotFound, "插件不存在")))?;
+    if record["enabled"] != true {
+        return Err(domain_fail(DomainError::new(
+            ErrorKind::PluginDisabled,
+            "插件未启用",
+        )));
+    }
+    crate::plugins::Plugins::app(record)
+        .await
         .map(Json)
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn snapshot(
     State(state): State<Server>,

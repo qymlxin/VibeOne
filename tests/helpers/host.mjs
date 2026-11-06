@@ -12,7 +12,7 @@ export async function host(t) {
   const exited = once(child, "exit");
   let connection;
   t.after(async () => {
-    if (connection) await fetch(`${connection.url}/v1/host/stop`, { method: "POST", headers: { Authorization: `Bearer ${connection.token}` } }).catch(() => {});
+    if (connection) await fetch(`${connection.url}/v1/host/stop`, { method: "POST", headers: { Authorization: `Bearer ${connection.token}` }, signal: AbortSignal.timeout(2500) }).catch(() => {});
     const kill = setTimeout(() => child.kill("SIGKILL"), 8500);
     await exited; clearTimeout(kill);
     await rm(directory, { recursive: true, force: true });

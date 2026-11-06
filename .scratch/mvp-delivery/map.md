@@ -125,6 +125,8 @@
 
 - [82-resource-history-errors](issues/82-resource-history-errors.md)：资源/历史错误分类、Git隔离及删除差异、特殊文件与UTF-8预览、产物并发容量和存储一致性完成；全量、桌面/手机和包外检查通过。14其余入口及52继续。
 
+- [83-plugin-resource-inspection](issues/83-plugin-resource-inspection.md)：插件清单/App普通文件约束、有界读取、异步检查与明确错误完成；命名管道红/绿及全量、桌面/手机、包外验证通过。插件其余入口及最终实机验收继续。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

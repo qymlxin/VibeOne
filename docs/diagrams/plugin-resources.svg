@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="350" viewBox="0 0 1000 350">
+ <rect width="1000" height="350" rx="12" fill="#fafafa"/>
+ <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#666"/></marker></defs>
+ <g font-family="system-ui,sans-serif" fill="#222">
+  <text x="30" y="35" font-size="21" font-weight="600">插件清单与 App 资源检查</text>
+  <text x="30" y="62" font-size="13" fill="#666">HTTP 异步等待结果；阻塞文件访问在线程池执行，检查阶段不执行插件源码。</text>
+  <g fill="white" stroke="#aaa">
+   <rect x="30" y="100" width="165" height="80" rx="8"/>
+   <rect x="245" y="100" width="205" height="80" rx="8"/>
+   <rect x="500" y="100" width="230" height="80" rx="8"/>
+   <rect x="780" y="100" width="190" height="80" rx="8"/>
+   <rect x="30" y="235" width="190" height="65" rx="8"/>
+   <rect x="270" y="235" width="230" height="65" rx="8"/>
+   <rect x="550" y="235" width="190" height="65" rx="8"/>
+   <rect x="790" y="235" width="180" height="65" rx="8"/>
+  </g>
+  <g font-size="14">
+   <text x="47" y="130">设置页 / 插件 App</text><text x="47" y="156">检查或请求源码</text>
+   <text x="263" y="130">Host HTTP：鉴权</text><text x="263" y="156">App 查询先检查启用状态</text>
+   <text x="518" y="124">阻塞线程池：包内普通文件</text><text x="518" y="146">清单 ≤64 KiB；App ≤1 MiB</text><text x="518" y="168">实际字节上限 / JSON / UTF-8</text>
+   <text x="798" y="130">有效清单 / App 源码</text><text x="798" y="156">或稳定错误码与请求 ID</text>
+   <text x="47" y="262">准备：复制候选包</text><text x="47" y="284">保留当前已发布版本</text>
+   <text x="288" y="262">复用同一 App 资源校验</text><text x="288" y="284">失败清理候选，不启动 Worker</text>
+   <text x="568" y="262">通过后启动 Node Worker</text><text x="568" y="284">注册扩展点并检查激活结果</text>
+   <text x="808" y="262">返回候选 ticket</text><text x="808" y="284">后续提交才发布代次</text>
+  </g>
+  <g fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)">
+   <path d="M195 140H242"/><path d="M450 140H497"/><path d="M730 140H777"/>
+   <path d="M220 268H267"/><path d="M500 268H547"/><path d="M740 268H787"/>
+  </g>
+  <text x="30" y="332" font-size="12" fill="#666">越界、缺失、错误类型、超限、编码和版本不兼容分别提示；清单/入口读取不会等待命名管道的写入端。</text>
+ </g>
+</svg>

@@ -1,3 +1,5 @@
+use crate::domain_error::{DomainError, ErrorKind};
+mod resources;
 use crate::{files, providers::find_node, state::Workbench};
 use serde_json::{Value, json};
 use std::{
@@ -134,52 +136,62 @@ fn copy_package(source: &Path, destination: &Path) -> Result<(), String> {
     }
     walk(source, destination, &mut 0, &mut 0)
 }
-pub(crate) fn inspect(path: &Path) -> Result<Value, String> {
-    let file = files::resolve(path, "plugin.json", false).map_err(|error| error.to_string())?;
-    if std::fs::metadata(&file)
-        .map_err(|error| error.to_string())?
-        .len()
-        > 65536
-    {
-        return Err("插件清单过大".into());
-    }
+pub(crate) async fn inspect(path: PathBuf) -> Result<Value, DomainError> {
+    tokio::task::spawn_blocking(move || inspect_manifest(&path))
+        .await
+        .map_err(|_| DomainError::new(ErrorKind::Internal, "插件检查未完成"))?
+}
+fn invalid_manifest(message: &str) -> DomainError {
+    DomainError::new(ErrorKind::PluginInvalid, message)
+}
+fn inspect_manifest(path: &Path) -> Result<Value, DomainError> {
+    let bytes = resources::read(path, "plugin.json", 65536)?;
     let manifest: Value =
-        serde_json::from_slice(&std::fs::read(file).map_err(|error| error.to_string())?)
-            .map_err(|error| error.to_string())?;
-    let id = manifest["id"].as_str().ok_or("插件缺少 id")?;
+        serde_json::from_slice(&bytes).map_err(|_| invalid_manifest("插件清单必须是有效 JSON"))?;
+    let id = manifest["id"]
+        .as_str()
+        .ok_or_else(|| invalid_manifest("插件缺少 id"))?;
     if id.is_empty()
         || id.len() > 128
         || !id
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || "._-".contains(ch))
     {
-        return Err("插件 id 无效".into());
+        return Err(invalid_manifest("插件 id 无效"));
     }
     if manifest["manifestVersion"] != 1 || manifest["engines"]["pluginApi"] != ">=0.1 <0.2" {
-        return Err("插件 API 版本不兼容".into());
+        return Err(DomainError::new(
+            ErrorKind::PluginIncompatible,
+            "插件 API 版本不兼容",
+        ));
     }
     if manifest["entrypoints"].get("worker").is_some() {
-        files::resolve(
+        resources::validate(
             path,
             manifest["entrypoints"]["worker"]["path"]
                 .as_str()
-                .ok_or("缺少 Worker 入口")?,
-            false,
-        )
-        .map_err(|error| error.to_string())?;
+                .ok_or_else(|| invalid_manifest("缺少 Worker 入口"))?,
+        )?;
     }
     if let Some(app) = manifest["entrypoints"].get("app") {
-        files::resolve(path, app["path"].as_str().ok_or("缺少 App 入口")?, false)
-            .map_err(|error| error.to_string())?;
+        resources::text(
+            path,
+            app["path"]
+                .as_str()
+                .ok_or_else(|| invalid_manifest("缺少 App 入口"))?,
+            1024 * 1024,
+        )?;
     }
     let mut ids = std::collections::HashSet::new();
     for item in manifest["contributions"]
         .as_array()
-        .ok_or("插件缺少扩展点声明")?
+        .ok_or_else(|| invalid_manifest("插件缺少扩展点声明"))?
     {
-        let id = item["id"].as_str().ok_or("扩展点缺少 id")?;
+        let id = item["id"]
+            .as_str()
+            .ok_or_else(|| invalid_manifest("扩展点缺少 id"))?;
         if !ids.insert(id) || item["kindVersion"] != 1 {
-            return Err("扩展点重复或版本不兼容".into());
+            return Err(invalid_manifest("扩展点重复或版本不兼容"));
         }
         let supported = match item["kind"].as_str() {
             Some("app.panel" | "settings.section") => item["binding"]["type"] == "app",
@@ -194,25 +206,26 @@ pub(crate) fn inspect(path: &Path) -> Result<Value, String> {
             _ => false,
         };
         if !supported {
-            return Err(format!("当前版本不支持此扩展点或绑定：{id}"));
+            return Err(DomainError::new(
+                ErrorKind::PluginIncompatible,
+                "当前版本不支持此扩展点或绑定",
+            ));
         }
         if item["kind"] == "agent.provider" {
             if !manifest["hostRequirements"]
                 .as_array()
                 .is_some_and(|caps| caps.iter().any(|cap| cap == "agent.spawn"))
             {
-                return Err("Agent Provider 必须声明 agent.spawn 权限".into());
+                return Err(invalid_manifest("Agent Provider 必须声明 agent.spawn 权限"));
             }
             let descriptor = &item["binding"]["descriptor"];
             let command = descriptor["command"].as_str().unwrap_or_default();
             if command.is_empty()
                 || command != "$node"
                     && !std::path::Path::new(command).is_absolute()
-                    && !files::resolve(path, command, false)
-                        .map_err(|error| error.to_string())?
-                        .is_file()
+                    && !files::resolve(path, command, false)?.is_file()
             {
-                return Err("Provider 启动程序不存在".into());
+                return Err(invalid_manifest("Provider 启动程序不存在"));
             }
             if let Some(args) = descriptor.get("args")
                 && !args.as_array().is_some_and(|args| {
@@ -230,14 +243,14 @@ pub(crate) fn inspect(path: &Path) -> Result<Value, String> {
                         })
                 })
             {
-                return Err("Provider 启动参数或包内路径无效".into());
+                return Err(invalid_manifest("Provider 启动参数或包内路径无效"));
             }
         }
     }
     if let Some(dependencies) = manifest["dependencies"].as_object()
         && !dependencies.is_empty()
     {
-        return Err("当前版本要求插件自包含；请打包依赖后安装".into());
+        return Err(invalid_manifest("当前版本要求插件自包含；请打包依赖后安装"));
     }
     Ok(manifest)
 }
@@ -375,7 +388,9 @@ impl Plugins {
         let source = PathBuf::from(body["path"].as_str().ok_or("请选择插件目录")?)
             .canonicalize()
             .map_err(|_| "插件目录不存在")?;
-        let mut manifest = inspect(&source)?;
+        let mut manifest = inspect(source.clone())
+            .await
+            .map_err(|error| error.to_string())?;
         if body.get("expectedManifest").is_some() && body["expectedManifest"] != manifest {
             return Err("插件清单已变化，请重新检查并授权".into());
         }
@@ -455,6 +470,14 @@ impl Plugins {
             .and_then(|record| record["generation"].as_u64())
             .unwrap_or(0);
         let record = json!({"id":id,"name":manifest["name"],"version":manifest["version"],"manifest":manifest,"path":destination,"generation":base+1,"enabled":true,"capabilities":capabilities,"workspaces":workspaces,"config":body["config"].as_object().cloned().unwrap_or_default(),"error":null});
+        // Validate the copied candidate's App before starting plugin code.
+        let app = match Self::app(record.clone()).await {
+            Ok(app) => app,
+            Err(error) => {
+                let _ = tokio::fs::remove_dir_all(&destination).await;
+                return Err(error.to_string());
+            }
+        };
         let manager = match self.activate(workbench, &record).await {
             Ok(manager) => manager,
             Err(error) => {
@@ -462,7 +485,7 @@ impl Plugins {
                 return Err(error);
             }
         };
-        let app = Self::app(&record)?;
+
         self.pending.lock().expect("plugins poisoned").insert(
             ticket.clone(),
             Candidate {
@@ -474,26 +497,19 @@ impl Plugins {
         );
         Ok(json!({"ticket":ticket,"plugin":record,"app":app}))
     }
-    pub fn app(record: &Value) -> Result<Value, String> {
-        let Some(path) = record["manifest"]["entrypoints"]["app"]["path"].as_str() else {
-            return Ok(Value::Null);
-        };
-        let file = files::resolve(
-            Path::new(record["path"].as_str().ok_or("插件路径无效")?),
-            path,
-            false,
-        )
-        .map_err(|error| error.to_string())?;
-        if std::fs::metadata(&file)
-            .map_err(|error| error.to_string())?
-            .len()
-            > 1024 * 1024
-        {
-            return Err("App 入口须为不超过 1 MiB 的单文件 ESM".into());
-        }
-        std::fs::read_to_string(file)
-            .map(|source| json!({"source":source}))
-            .map_err(|error| error.to_string())
+    pub async fn app(record: Value) -> Result<Value, DomainError> {
+        tokio::task::spawn_blocking(move || {
+            let Some(path) = record["manifest"]["entrypoints"]["app"]["path"].as_str() else {
+                return Ok(Value::Null);
+            };
+            let root = record["path"]
+                .as_str()
+                .ok_or_else(|| invalid_manifest("插件目录记录无效"))?;
+            let source = resources::text(Path::new(root), path, 1024 * 1024)?;
+            Ok(json!({"source":source}))
+        })
+        .await
+        .map_err(|_| DomainError::new(ErrorKind::Internal, "插件 App 读取未完成"))?
     }
     pub async fn commit(&self, workbench: &Workbench, ticket: &str) -> Result<Value, String> {
         let _gate = self.gate.lock().await;

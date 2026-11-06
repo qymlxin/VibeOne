@@ -136,3 +136,5 @@
 81：会话创建与附件入口采用具名错误，配置查询/探测区分无效与缺失记录；创建和取消归档共享容量检查，修复达到上限先建默认项目及取消归档绕过上限。真实HTTP及SQLite容量/故障验证通过；完整check含53项Node、31项Workbench及其他workspace Rust、26项Host和恢复，Clippy/格式通过。桌面62.3秒、HTTPS手机23.7秒、832.39MiB包及仓库外smoke通过；SVG已渲染查看。包内Host SHA256为`f9da24a28ade47cba3c1873232b5cc2e17d057fc1a4dbf23a532d49d0267bb14`。未重启用户Host，14其余业务入口与52原生/认证/物理设备验收仍未完成。
 
 82：资源与历史入口采用明确领域错误；四项真实Host/Git回归与两项状态测试覆盖环境隔离/独立仓库租约、损坏索引、嵌套删除差异、命名管道、UTF-8截断、产物并发上限及SQLite失败。完整check含53项Node、workspace Rust（Workbench33项）、30项Host和恢复通过，Clippy/格式、桌面62.6秒、HTTPS手机23.6秒通过。832.56MiB包及仓库外检查通过，Host SHA256为`3f402fbf02c6f63b89c80ccdcfabe82f467907a3f6541524e52b2ecd8e46682f`。SVG已渲染查看；用户Host未动，14/52继续未完成。
+
+83：插件清单/App检查采用明确错误、包内普通文件、有界字节读取及阻塞线程池。命名管道先复现旧检查卡住，再验证清单/App及时拒绝；有效准备/发布、停用/缺失身份、边界及源码查询通过。完整check含53项Node、workspace Rust（Workbench33项）、32项Host及恢复通过，Clippy/格式、桌面62.4秒、HTTPS手机23.5秒通过；832.76MiB包及仓库外检查通过，Host SHA256为`5c05bd262a4e247d3782598ad0460e25e972ffbe0e24f3b03a2e8a219c78a8d4`。SVG已查看。CUA仍Mac locked，未动用户Host，14/52继续未完成。

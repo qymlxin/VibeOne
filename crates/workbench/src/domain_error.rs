@@ -34,6 +34,13 @@ pub(crate) enum ErrorKind {
     AttachmentTooLarge,
     AttachmentNotFound,
     AttachmentLimit,
+    PluginInvalid,
+    PluginIncompatible,
+    PluginUnavailable,
+    PluginResourceNotFound,
+    PluginResourceTooLarge,
+    PluginNotFound,
+    PluginDisabled,
     ResourceForbidden,
     ResourceNotFound,
     ResourceUnavailable,
@@ -86,6 +93,13 @@ impl ErrorKind {
             Self::AttachmentTooLarge => "ATTACHMENT_TOO_LARGE",
             Self::AttachmentNotFound => "ATTACHMENT_NOT_FOUND",
             Self::AttachmentLimit => "ATTACHMENT_LIMIT_REACHED",
+            Self::PluginInvalid => "PLUGIN_INVALID",
+            Self::PluginIncompatible => "PLUGIN_INCOMPATIBLE",
+            Self::PluginUnavailable => "PLUGIN_UNAVAILABLE",
+            Self::PluginResourceNotFound => "PLUGIN_RESOURCE_NOT_FOUND",
+            Self::PluginResourceTooLarge => "PLUGIN_RESOURCE_TOO_LARGE",
+            Self::PluginNotFound => "PLUGIN_NOT_FOUND",
+            Self::PluginDisabled => "PLUGIN_DISABLED",
             Self::ResourceForbidden => "RESOURCE_FORBIDDEN",
             Self::ResourceNotFound => "RESOURCE_NOT_FOUND",
             Self::ResourceUnavailable => "RESOURCE_UNAVAILABLE",
@@ -112,13 +126,17 @@ impl ErrorKind {
             | Self::InvalidAnswer
             | Self::ConfigurationUnsupported
             | Self::InvalidConfiguration
-            | Self::ArtifactUnsupported => 400,
+            | Self::ArtifactUnsupported
+            | Self::PluginInvalid
+            | Self::PluginResourceTooLarge => 400,
             Self::ProfileNotFound
             | Self::WorkspaceNotFound
             | Self::SessionNotFound
             | Self::ProviderNotFound
             | Self::AttachmentNotFound
-            | Self::ResourceNotFound => 404,
+            | Self::ResourceNotFound
+            | Self::PluginNotFound
+            | Self::PluginResourceNotFound => 404,
             Self::AttachmentTooLarge => 413,
             Self::WorkspaceForbidden | Self::ResourceForbidden => 403,
             Self::ProfileConflict
@@ -131,7 +149,9 @@ impl ErrorKind {
             | Self::ProviderConflict
             | Self::RunLimit
             | Self::WorkspaceBusy
-            | Self::QueueConflict => 409,
+            | Self::QueueConflict
+            | Self::PluginIncompatible
+            | Self::PluginDisabled => 409,
             Self::ProfileInvalid
             | Self::SessionLimit
             | Self::AttachmentLimit
@@ -145,7 +165,8 @@ impl ErrorKind {
             | Self::ProviderUnavailable
             | Self::WorkspaceUnavailable
             | Self::ResourceUnavailable
-            | Self::GitUnavailable => 503,
+            | Self::GitUnavailable
+            | Self::PluginUnavailable => 503,
             Self::DeliveryUncertain
             | Self::UpstreamInvalid
             | Self::ConfigurationFailed
