@@ -133,7 +133,9 @@
 
 - [86-query-domain-errors](issues/86-query-domain-errors.md)：事件/增量查询错误、存储故障公开提示及缓存storage重置完成；全量、桌面/手机及包外验证通过。远程管理仍有固定400适配，后续迁移；14/52继续。
 
-- [87-remote-domain-errors](issues/87-remote-domain-errors.md)：远程HTTP适配已移除，状态锁/重复决定/撤销与启动失败、TLS身份保护完成；全量、桌面/手机及包外检查通过。配置保存/回显缺口由88继续，14动态类型和52实机未完成。
+- [87-remote-domain-errors](issues/87-remote-domain-errors.md)：远程HTTP适配已移除，状态锁/重复决定/撤销与启动失败、TLS身份保护完成；全量、桌面/手机及包外检查通过。配置保存/回显缺口待独立后续项继续，14动态类型和52实机未完成。
+
+- [88-composer-interaction](issues/88-composer-interaction.md)：指令/引用重新聚焦、中段完整词替换、Esc事件竞争与引用简名完成；54项Node、桌面/HTTPS手机及打包烟测通过。
 
 ## Fog
 

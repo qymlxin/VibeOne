@@ -5,7 +5,7 @@ import {discoverComposerSkills} from './composer-skills.js';
 import './composer.css';
 
 export function ComposerInput({session,workbench,value,onChange,files,onFiles,onSubmit,onPanel,disabled,online,placeholder}) {
-  const input=useRef(null),root=useRef(null),cache=useRef(new Map()),selection=useRef(null);
+  const input=useRef(null),root=useRef(null),cache=useRef(new Map()),selection=useRef(null),dismissed=useRef(false);
   const [token,setToken]=useState(null),[selected,setSelected]=useState(0),[listing,setListing]=useState(null),[error,setError]=useState('');
   const [refresh,setRefresh]=useState(0),[skillRefresh,setSkillRefresh]=useState(0);
   const [skills,setSkills]=useState([]),[skillError,setSkillError]=useState(''),[skillsLoading,setSkillsLoading]=useState(false);
@@ -46,7 +46,7 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
   const options=token?.kind==='/'?commandOptions(session.agentState?.commands,token.query,skills):referenceOptions(listing?.entries,query,skills,directory);
   useEffect(()=>setSelected(0),[token?.query,listing,skills]);
   useEffect(()=>{root.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({block:'nearest'});},[selected]);
-  const update=(text,caret)=>{onChange(text);setToken(composerToken(text,caret));setError('');};
+  const update=(text,caret)=>{dismissed.current=false;onChange(text);setToken(composerToken(text,caret));setError('');};
   const choose=(item,referenceDirectory=false)=>{
     if(!token)return;
     let insertion='';
@@ -77,7 +77,7 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
     const text=before+insert+value.slice(caret);selection.current={text,caret:caret+insert.length};update(text,caret+insert.length);
   };
   return <section className="composer-input" ref={root}>
-    {!!files.length&&<div className="composer-references" aria-label="已引用文件">{files.map(path=><span key={path} title={path}>{path.endsWith('/')?<Folder size={14}/>:<File size={14}/>}<span>{path==='./'?'当前工作区':path}</span><small>{path.endsWith('/')?'文件夹':'文件'}</small><button type="button" disabled={disabled} aria-label={`移除引用 ${path}`} onClick={()=>onFiles(files.filter(file=>file!==path))}><X size={13}/></button></span>)}</div>}
+    {!!files.length&&<div className="composer-references" aria-label="已引用文件">{files.map(path=><span key={path} title={path}>{path.endsWith('/')?<Folder size={14}/>:<File size={14}/>}<span>{path==='./'?'当前工作区':path.replace(/\/$/,'').split('/').at(-1)}</span><small>{path.endsWith('/')?'文件夹':'文件'}</small><button type="button" disabled={disabled} aria-label={`移除引用 ${path}`} onClick={()=>onFiles(files.filter(file=>file!==path))}><X size={13}/></button></span>)}</div>}
     {token&&!disabled&&<div className="composer-picker">
       <div className="composer-picker-heading">{token.kind==='/'?'指令':'引用上下文'}<small>{token.kind==='/'?'Agent 命令 · 工作台 · 项目技能':'文件 / 文件夹 / 项目技能 · 最多 5 项'}</small>{token.kind==='@'&&<button type="button" aria-label="刷新引用目录" disabled={!online} onClick={()=>{cache.current.delete(`${session.id}:${directory}`);setRefresh(count=>count+1);setSkillRefresh(count=>count+1);}}><RefreshCw size={14}/></button>}<button type="button" aria-label="关闭建议" onClick={()=>setToken(null)}><X size={14}/></button></div>
       {token.kind==='@'&&directory&&<button type="button" className="composer-parent" onClick={()=>{const parent=directory.replace(/\/$/,'').split('/').slice(0,-1).join('/');const insertion=parent?'@\"'+parent+'/':'@';const next=replaceToken(value,token,insertion),caret=token.start+insertion.length;selection.current={text:next,caret};update(next,caret);}}>‹ 上级目录 · {directory}</button>}
@@ -98,10 +98,12 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
     </div>}
     <textarea ref={input} aria-label="发送任务" aria-haspopup="listbox" aria-autocomplete="list" aria-controls={token?listId:undefined} aria-expanded={!!token} aria-activedescendant={token&&options[selected]?`${listId}-${selected}`:undefined} disabled={disabled} value={value} placeholder={placeholder}
       onChange={event=>update(event.target.value,event.target.selectionStart)}
-      onSelect={event=>{if(token)setToken(composerToken(value,event.target.selectionStart));}}
+      onClick={event=>{dismissed.current=false;setToken(composerToken(value,event.currentTarget.selectionStart));}}
+      onFocus={event=>{dismissed.current=false;setToken(composerToken(value,event.currentTarget.selectionStart));}}
+      onSelect={event=>{if(token&&!dismissed.current)setToken(composerToken(value,event.target.selectionStart));}}
       onKeyDown={event=>{
         if(event.nativeEvent.isComposing||event.keyCode===229)return;
-        if(token&&event.key==='Escape'){event.preventDefault();setToken(null);return;}
+        if(token&&event.key==='Escape'){event.preventDefault();dismissed.current=true;setToken(null);return;}
         if(token&&['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();setSelected(index=>(index+(event.key==='ArrowDown'?1:-1)+Math.max(1,options.length))%Math.max(1,options.length));return;}
         if(token&&['Enter','Tab'].includes(event.key)&&!event.shiftKey){
           if(options[selected]){event.preventDefault();choose(options[selected]);return;}

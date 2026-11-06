@@ -222,6 +222,19 @@ test(
     await page.getByRole('option',{name:/child.txt/}).waitFor();
     await page.getByRole('button',{name:/上级目录/}).click();
     await page.getByRole('option',{name:/folder name/}).waitFor();
+    // Reopen a dismissed trigger at the caret, and replace the whole token.
+    await composer.fill('@preview.txt 后文');
+    await composer.evaluate(node=>node.setSelectionRange(4,4));
+    await composer.click({position:{x:8,y:8}});
+    await composer.evaluate(node=>node.setSelectionRange(4,4));
+    await composer.press('Escape');
+    assert.equal(await page.getByRole('listbox',{name:'文件建议'}).count(),0);
+    await page.getByRole('button',{name:'选择指令',exact:true}).focus();
+    await composer.focus();
+    await page.getByRole('option',{name:/preview.txt/}).waitFor();
+    await composer.press('Tab');
+    assert.equal(await composer.inputValue(),' 后文');
+    await page.getByRole('button',{name:'移除引用 preview.txt'}).click();
     await composer.fill('@preview');
     await page.getByRole('option',{name:/preview.txt/}).waitFor();
     await page.screenshot({path:join(tmpdir(),'vibeone-composer-light.png')});

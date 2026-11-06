@@ -89,3 +89,14 @@ test('original-context selection does not enable mode changes before the connect
  assert.equal(canConfigure({status:'idle',agentState:{contextRestoreState:'pending'}},{phase:'online'}),false);
  assert.equal(canConfigure({status:'idle',agentState:{contextRestoreState:'restored'}},{phase:'online'}),true);
 });
+
+test('choosing inside a trigger replaces its complete suffix but preserves following prose',()=>{
+ const text='查看 @preview.txt 然后解释';
+ const token=composerToken(text,7);
+ assert.equal(token.query,'pre');
+ assert.equal(replaceToken(text,token,''),'查看  然后解释');
+ const command='/terminal 继续';
+ assert.equal(replaceToken(command,composerToken(command,4),'/files '),'/files  继续');
+ const quoted='看 @"folder name/file.txt" 后文';
+ assert.equal(replaceToken(quoted,composerToken(quoted,10),''),'看  后文');
+});

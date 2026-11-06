@@ -1,11 +1,12 @@
-// Detect only the token at the caret; text after the caret is preserved.
+// Query by the caret prefix, replace the complete token, preserve surrounding prose.
 export function composerToken(text, caret) {
   const prefix = text.slice(0, caret);
+  const suffix = text.slice(caret);
   const quoted=/(?:^|\s)@"([^"\n]*)$/.exec(prefix);
-  if(quoted)return {kind:'@',query:quoted[1],start:prefix.length-quoted[1].length-2,end:caret};
+  if(quoted)return {kind:'@',query:quoted[1],start:prefix.length-quoted[1].length-2,end:caret+(suffix.match(/^[^"\n]*(?:")?/)?.[0].length??0)};
   const match = /(?:^|\s)([@/])([^\s]*)$/.exec(prefix);
   if (!match) return null;
-  return {kind:match[1], query:match[2], start:prefix.length-match[2].length-1, end:caret};
+  return {kind:match[1], query:match[2], start:prefix.length-match[2].length-1, end:caret+(suffix.match(/^[^\s]*/)?.[0].length??0)};
 }
 export function replaceToken(text, token, value) {
   return text.slice(0,token.start)+value+text.slice(token.end);
