@@ -3,6 +3,27 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderProbeRequest {
+    #[serde(default)]
+    pub profile_id: Option<String>,
+}
+#[derive(Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderProbeResponse {
+    pub provider: String,
+    pub profile_id: Option<String>,
+    pub profile_revision: Option<u64>,
+    pub state: String,
+    pub name: Option<String>,
+    pub version: Option<String>,
+    pub protocol_version: Option<u64>,
+    pub capabilities: serde_json::Value,
+    pub authentication: String,
+    pub authentication_command: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CreateSessionRequest {
     pub provider: String,
     #[serde(default)]
@@ -383,7 +404,9 @@ pub fn schemas() -> Value {
         "ProfileIssue":schema_for!(ProfileIssue),
         "ProfileRequest":schema_for!(ProfileRequest),
         "ProfileRecord":schema_for!(ProfileRecord),
-        "ProfileResponse":schema_for!(ProfileResponse)
+        "ProfileResponse":schema_for!(ProfileResponse),
+        "ProviderProbeRequest":schema_for!(ProviderProbeRequest),
+        "ProviderProbeResponse":schema_for!(ProviderProbeResponse)
     })
 }
 

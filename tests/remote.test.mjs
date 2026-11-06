@@ -131,6 +131,7 @@ test(
     assert.equal((await request(`/v1/sessions/${invisible.id}/history`, undefined, cookie)).status,403);
     assert.equal((await request(`/v1/sessions/${visible.id}/history`)).status,401);
     assert.equal((await request("/v1/devices", undefined, cookie)).status, 403);
+    assert.equal((await request("/v1/providers/demo/probe", {}, cookie)).status, 403);
     assert.equal((await request(`/v1/sessions/${visible.id}/attachments`,{name:'forbidden.txt',mimeType:'text/plain',data:'dGV4dA=='},cookie)).status,403);
     const events = await request("/v1/event-log?after=0", undefined, cookie);
     assert.ok(

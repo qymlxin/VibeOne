@@ -2,6 +2,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ErrorKind {
     InvalidInput,
+    ProbeBusy,
     ProfileNotFound,
     ProfileConflict,
     ProfileLimit,
@@ -15,6 +16,7 @@ impl ErrorKind {
     pub(crate) fn code(self) -> &'static str {
         match self {
             Self::InvalidInput => "INVALID_INPUT",
+            Self::ProbeBusy => "PROBE_BUSY",
             Self::ProfileNotFound => "PROFILE_NOT_FOUND",
             Self::ProfileConflict => "PROFILE_CONFLICT",
             Self::ProfileLimit => "PROFILE_LIMIT_REACHED",
@@ -30,7 +32,7 @@ impl ErrorKind {
             Self::InvalidInput => 400,
             Self::ProfileNotFound | Self::WorkspaceNotFound => 404,
             Self::WorkspaceForbidden => 403,
-            Self::ProfileConflict | Self::ProfileLimit => 409,
+            Self::ProfileConflict | Self::ProfileLimit | Self::ProbeBusy => 409,
             Self::StorageUnavailable | Self::HostUnavailable => 503,
             Self::Internal => 500,
         }

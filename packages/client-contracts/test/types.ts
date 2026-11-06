@@ -67,3 +67,8 @@ const badPinnedArgs:PinnedProfile={args:[1]};
 // @ts-expect-error record identity guards are strings
 const badProfileHash:ProfileRequest={id:'bad',recordHash:1,remove:true};
 void [legacyProfile,pluginPinned,profileIssue,noProfileId,badPinnedArgs,badProfileHash];
+
+import {probeProvider} from '../src/index.js';
+probeProvider('demo');probeProvider('codex','saved-profile');
+// @ts-expect-error profile identity is a string
+probeProvider('demo',42);

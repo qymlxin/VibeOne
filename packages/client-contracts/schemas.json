@@ -1935,5 +1935,82 @@
         }
       }
     }
+  },
+  "ProviderProbeRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProviderProbeRequest",
+    "type": "object",
+    "properties": {
+      "profileId": {
+        "default": null,
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    }
+  },
+  "ProviderProbeResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProviderProbeResponse",
+    "type": "object",
+    "required": [
+      "authentication",
+      "capabilities",
+      "provider",
+      "state"
+    ],
+    "properties": {
+      "authentication": {
+        "type": "string"
+      },
+      "authenticationCommand": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "capabilities": true,
+      "name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "profileId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "profileRevision": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "protocolVersion": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "provider": {
+        "type": "string"
+      },
+      "state": {
+        "type": "string"
+      },
+      "version": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    }
   }
 }

@@ -14,3 +14,5 @@ export function decideApproval(sessionId:string,requestId:string,option:string):
 
 export function saveProfile(body:Omit<ProfileRequest,'remove'> & Required<Pick<ProfileRequest,'name'|'provider'>>):Command<ProfileRequest>{return ['/profiles',body];}
 export function removeProfile(id:string,revision?:number,recordHash?:string):Command<ProfileRequest>{return ['/profiles',{id,...(revision===undefined?{}:{revision}),...(recordHash===undefined?{}:{recordHash}),remove:true}];}
+
+export function probeProvider(provider:string,profileId?:string):Command<import('./generated.js').ProviderProbeRequest>{return [`/providers/${encodeURIComponent(provider)}/probe`,{...(profileId?{profileId}:{})}];}

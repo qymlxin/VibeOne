@@ -15,6 +15,38 @@ use std::{
 };
 use tokio::sync::oneshot;
 
+/// Initialize only: no session/new, prompt, authentication or permission grants.
+/// Dropping the bounded SDK transport tears down its process group.
+pub async fn probe(command: PathBuf, args: Vec<String>) -> Result<Value, i32> {
+    tokio::time::timeout(
+        Duration::from_secs(10),
+        Client.v2().name("vibeone-probe").connect_with(
+            AcpAgent::new(AcpAgentConfig::new(command).args(args)),
+            async |cx| {
+                let response = cx
+                    .send_initialize(schema::InitializeRequest::new(
+                        ProtocolVersion::V2,
+                        schema::Implementation::new("vibeone-probe", env!("CARGO_PKG_VERSION")),
+                    ))
+                    .block_task()
+                    .await?;
+                match response {
+                    agent_client_protocol::v2::InitializeOutcome::Initialized(response) => {
+                        serde_json::to_value(response).map_err(|_| Error::internal_error())
+                    }
+                    agent_client_protocol::v2::InitializeOutcome::LowerVersion(_) => {
+                        Ok(json!({"protocolVersion":1}))
+                    }
+                    _ => Err(Error::internal_error()),
+                }
+            },
+        ),
+    )
+    .await
+    .map_err(|_| -32098)?
+    .map_err(|error| error.code.value())
+}
+
 pub type Sink =
     Arc<dyn Fn(Value) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>> + Send + Sync>;
 pub fn event_sink<F, Fut>(sink: F) -> Sink

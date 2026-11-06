@@ -47,7 +47,7 @@ pub fn find_node() -> Option<PathBuf> {
         .find(|path| path.is_file())
 }
 
-fn find_on_path(name: &str) -> Option<PathBuf> {
+pub(crate) fn find_on_path(name: &str) -> Option<PathBuf> {
     std::env::split_paths(&std::env::var_os("PATH")?)
         .map(|path| {
             path.join(if cfg!(windows) {

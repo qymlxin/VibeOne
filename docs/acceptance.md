@@ -214,3 +214,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 原生窗口仍被Mac锁屏阻止，尚未切换用户正在运行的旧Host；未终止其会话或丢弃草稿。真实Codex固定文本对话复验通过，Claude仍未认证。完整矩阵与待验步骤见[原型逐项验收](prototype-audit.md)，此处不把这些人工项改成通过。
 
 游标同步已接桌面与手机共享客户端；合并投影、稳定ID、并发上界、越权过滤及恢复流程见[游标增量同步](cursor-sync.md)，不以浏览器回归替代真实手机弱网和后台验收。
+
+## Agent环境探测
+
+设置 → Agent → 检查环境，仅初始化握手，不发送任务。可查看实际桥接器版本、v2会话/媒体能力、CLI登录状态和登录命令。修改启动参数后先保存再测，旧结果清空；失败保留表单。真实Codex/Claude只读探测已通过，Claude仍未登录，不自动改变本机认证。详情见[环境探测](provider-probe.md)。

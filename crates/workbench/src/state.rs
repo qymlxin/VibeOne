@@ -17,6 +17,7 @@ mod execution;
 mod history;
 mod operations;
 mod outbox;
+mod probe;
 mod sync;
 use vibeone_storage::{SavedSession, Store, Workspace};
 
@@ -74,6 +75,7 @@ pub struct Workbench {
     leases: Mutex<HashMap<String, String>>,
     catalog: Mutex<HashMap<String, HashMap<String, Value>>>,
     stopping: AtomicBool,
+    probe_gate: tokio::sync::Mutex<()>,
     storage_error: Mutex<Option<String>>,
 }
 
@@ -178,6 +180,7 @@ impl Workbench {
             leases: Mutex::default(),
             catalog: Mutex::new(catalog),
             stopping: AtomicBool::new(false),
+            probe_gate: tokio::sync::Mutex::new(()),
             storage_error: Mutex::default(),
         }))
     }
@@ -322,6 +325,7 @@ impl Workbench {
                     "queuePause",
                     "attachments",
                     "directoryReferences",
+                    "providerProbe",
                     "conversationHistory",
                     "cursorSync",
                     "pluginOperations",

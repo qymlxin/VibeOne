@@ -178,6 +178,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/sync",get(sync_view))
         .route("/v1/workspaces",post(import_workspace))
         .route("/v1/profiles",post(profile))
+        .route("/v1/providers/{id}/probe",post(provider_probe))
         .route("/v1/remote",post(remote::configure))
         .route("/v1/devices",get(remote::status))
         .route("/v1/pairing/code",post(remote::pairing_code))
@@ -332,6 +333,21 @@ async fn profile(
         .await
         .map(Json)
         .map_err(domain_fail)
+}
+async fn provider_probe(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    Json(body): Json<ProviderProbeRequest>,
+) -> ApiResult<ProviderProbeResponse> {
+    domain_command(async move {
+        state
+            .workbench
+            .probe_provider(&id, body.profile_id.as_deref())
+            .await
+    })
+    .await
+    .map(Json)
+    .map_err(domain_fail)
 }
 async fn diagnostics(State(state): State<Server>) -> Json<Value> {
     Json(state.workbench.diagnostics().await)
