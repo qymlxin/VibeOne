@@ -247,12 +247,42 @@ test(
     await page.getByRole('button',{name:'移除引用 preview.txt'}).waitFor();
 
     const explorer=page.getByRole('region',{name:'文件浏览器',exact:true});
+    let failDirectory=true;
+    const directoryRoute=async route=>{
+      const url=new URL(route.request().url());
+      if(failDirectory&&url.searchParams.get('path')==='folder name'){
+        failDirectory=false;await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'目录暂时不可读，请重试',code:'HOST_UNAVAILABLE',status:503})});
+      }else await route.continue();
+    };
+    await page.route('**/tree?**',directoryRoute);
     await explorer.getByRole('button',{name:'folder name',exact:true}).click();
+    await explorer.getByRole('button',{name:'重试读取 folder name',exact:true}).waitFor();
+    assert.equal(await explorer.getByText('正在读取目录…',{exact:true}).count(),0);
+    await explorer.getByRole('button',{name:'重试读取 folder name',exact:true}).click();
+    await page.unroute('**/tree?**',directoryRoute);
+
     await explorer.getByRole('button',{name:'child.txt',exact:true}).click();
     await explorer.locator('.explorer-code code').getByText('nested text',{exact:true}).waitFor();
     assert.equal(await explorer.locator('.explorer-line-number').first().innerText(),'1');
     await explorer.getByRole('textbox',{name:'筛选文件'}).fill('child');
     assert.equal(await explorer.getByRole('button',{name:'preview.txt',exact:true}).count(),0);
+    await explorer.getByRole('textbox',{name:'筛选文件'}).fill('');
+    const directoryAddress=explorer.getByRole('textbox',{name:'浏览目录',exact:true});
+    await directoryAddress.fill('folder name');
+    assert.equal(await explorer.getByRole('button',{name:'preview.txt',exact:true}).count(),1,'editing an address must not replace the current directory');
+    await explorer.getByRole('button',{name:'打开目录',exact:true}).click();
+    await explorer.getByRole('navigation',{name:'当前目录'}).getByRole('button',{name:'folder name',exact:true}).waitFor();
+    assert.equal(await explorer.getByRole('button',{name:'preview.txt',exact:true}).count(),0);
+    await explorer.getByRole('button',{name:'child.txt',exact:true}).waitFor();
+    await directoryAddress.fill('missing-directory');
+    await explorer.getByRole('button',{name:'打开目录',exact:true}).click();
+    await explorer.getByRole('alert').waitFor();
+    assert.equal(await directoryAddress.inputValue(),'missing-directory','failed navigation retains the editable address');
+    await explorer.getByRole('button',{name:'child.txt',exact:true}).waitFor();
+    await page.screenshot({path:join(tmpdir(),'vibeone-file-navigation-error.png')});
+    await explorer.getByRole('navigation',{name:'当前目录'}).getByRole('button',{name:'工作区',exact:true}).click();
+    await explorer.getByRole('button',{name:'preview.txt',exact:true}).waitFor();
+    assert.equal(await directoryAddress.inputValue(),'.');
     await explorer.getByRole('button',{name:'收起文件列表'}).click();
     assert.equal(await explorer.getByRole('complementary',{name:'文件列表'}).count(),0);
     await explorer.getByRole('button',{name:'显示文件列表',exact:true}).click();

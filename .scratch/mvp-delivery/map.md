@@ -141,6 +141,8 @@
 
 - [90-remote-qr-restoration](issues/90-remote-qr-restoration.md)：当前监听二维码通过状态恢复，关闭清空/新代次替换，旧Host回退校验地址；Host、桌面/手机和重建包外烟测通过。
 
+- [91-file-directory-navigation](issues/91-file-directory-navigation.md)：目录地址确认后切换、失败保留当前列表、层级返回与子目录独立重试已完成；55项Node、桌面/手机与打包烟测通过，文档和SVG已更新。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。
