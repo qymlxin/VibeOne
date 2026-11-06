@@ -321,6 +321,7 @@ impl Workbench {
                 features: [
                     "queuePause",
                     "attachments",
+                    "directoryReferences",
                     "conversationHistory",
                     "cursorSync",
                     "pluginOperations",

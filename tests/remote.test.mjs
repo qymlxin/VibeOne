@@ -197,6 +197,15 @@ test(
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-composer-mobile.png')});
     assert.equal(await page.locator('.composer-picker').evaluate(element=>{const r=element.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0;}),true);
     await page.getByRole('textbox',{name:'发送任务'}).press('Escape');
+    await page.getByRole('textbox',{name:'发送任务'}).fill('@');
+    const folderReference=page.getByRole('button',{name:/引用当前工作区文件夹/});
+    await folderReference.waitFor();
+    assert.ok((await folderReference.boundingBox()).height>=44);
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-folder-reference-mobile.png')});
+    await folderReference.click();
+    await page.getByRole('button',{name:'移除引用 ./',exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'发送消息',exact:true}).isEnabled(),true,'a context-only draft can be sent');
+    await page.getByRole('button',{name:'移除引用 ./',exact:true}).click();
     await page.emulateMedia({reducedMotion:'reduce'});
     await page.getByRole('textbox',{name:'发送任务'}).fill('/activity');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();

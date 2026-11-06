@@ -530,7 +530,7 @@ function Conversation({ session, workbench, online, act }) {
     else if (followLatest.current && timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight;
   }, [contentLength, history.session.messages,history.session.tools, session.approvals.length, session.inputs?.length, session.status]);
   const send = async () => {
-    if ((!draft.trim()&&!attachmentDraft.items.length) || attachmentDraft.busy || sending || !online || readOnly) return;
+    if ((!draft.trim()&&!fileReferences.length&&!attachmentDraft.items.length) || attachmentDraft.busy || sending || !online || readOnly) return;
     const panel=commandPanel(draft,session.agentState?.commands);
     if(panel&&!fileReferences.length&&!attachmentDraft.items.length){setTab(panel);setDraft('');requestKey.current=null;return;}
     followLatest.current = true;
@@ -819,7 +819,7 @@ function Conversation({ session, workbench, online, act }) {
               aria-label="发送消息"
               disabled={
                 readOnly ||
-                (!draft.trim()&&!attachmentDraft.items.length) ||
+                (!draft.trim()&&!fileReferences.length&&!attachmentDraft.items.length) ||
                 attachmentDraft.busy ||
                 sending ||
                 !online ||

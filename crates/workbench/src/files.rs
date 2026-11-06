@@ -164,6 +164,53 @@ pub async fn tree(workspace: &str, path: &str) -> Result<Value, String> {
     }).await.map_err(|error|error.to_string())?
 }
 
+/// References are workspace-relative files, or directories marked by a trailing slash.
+/// Directory context contains names only; it never recursively reads file contents.
+pub async fn reference(workspace: &str, path: &str) -> Result<String, String> {
+    if path.ends_with('/') {
+        let listing = tree(workspace, path).await?;
+        let mut names = String::new();
+        for entry in listing["entries"].as_array().ok_or("目录内容无效")? {
+            if entry["kind"] == "symlink" {
+                continue;
+            }
+            let name = entry["name"].as_str().ok_or("目录名称无效")?;
+            // JSON string encoding preserves unusual names without introducing fake rows.
+            let row = format!(
+                "{}{}\n",
+                serde_json::to_string(name).map_err(|e| e.to_string())?,
+                if entry["kind"] == "directory" {
+                    " /"
+                } else {
+                    ""
+                }
+            );
+            if names.len() + row.len() > 32768 {
+                names.push_str("（目录清单已截断）\n");
+                break;
+            }
+            names.push_str(&row);
+        }
+        if listing["truncated"] == true {
+            names.push_str("（目录仅列出前 300 项）\n");
+        }
+        return Ok(format!(
+            "用户引用的工作区文件夹 {path}（执行前读取，仅当前层目录清单，不含文件正文）：\n{names}"
+        ));
+    }
+    let content = read(workspace, path).await?;
+    if content["binary"] == true
+        || content["truncated"] == true
+        || content["size"].as_u64().unwrap_or(0) > 32768
+    {
+        return Err("引用文件须为不超过 32 KiB 的文本文件".into());
+    }
+    Ok(format!(
+        "用户引用的工作区文件 {path}（执行前读取）：\n{}",
+        content["text"].as_str().unwrap_or_default()
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

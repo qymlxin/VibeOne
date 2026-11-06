@@ -115,3 +115,21 @@ test('sessions can create independent managed projects without choosing a direct
   await call(`/sessions/${first.id}/messages`,{text:'managed project works'});
   await wait(first.id,s=>s.stopReason==='end_turn');
 });
+
+test('folder references send only bounded names and reject escaped or invalid context', {timeout:15000}, async t=>{
+  const {directory,call,wait}=await host(t);
+  await mkdir(join(directory,'context folder'));
+  await writeFile(join(directory,'context folder','note.txt'),'PRIVATE_FILE_BODY_NOT_SELECTED');
+  await mkdir(join(directory,'context folder','nested'));
+  await writeFile(join(directory,'context folder','nested','deep.txt'),'DEEP_BODY_NOT_SELECTED');
+  const {id}=await call('/sessions',{workspace:directory,provider:'demo'});
+  await call(`/sessions/${id}/messages`,{text:'',files:['../'],key:'escaped'},false);
+  await call(`/sessions/${id}/messages`,{text:'',files:['context folder/note.txt/'],key:'not-dir'},false);
+  const accepted=await call(`/sessions/${id}/messages`,{text:'',files:['context folder/'],key:'folder-context'});
+  const done=await wait(id,session=>session.runs.some(run=>run.id===accepted.operationId&&run.status==='completed'));
+  const message=done.messages.find(message=>message.role==='user').text;
+  assert.match(message,/工作区文件夹 context folder\//);
+  assert.match(message,/note.txt/);assert.match(message,/nested/);
+  assert.doesNotMatch(message,/PRIVATE_FILE_BODY_NOT_SELECTED|DEEP_BODY_NOT_SELECTED|deep.txt/);
+  assert.deepEqual(done.runs.find(run=>run.id===accepted.operationId).files,['context folder/']);
+});

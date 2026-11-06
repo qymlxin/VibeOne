@@ -119,7 +119,9 @@ impl Workbench {
         attachment_ids: Vec<String>,
     ) -> Result<crate::contracts::SubmitMessageReceipt, String> {
         self.available()?;
-        if (text.trim().is_empty() && attachment_ids.is_empty()) || text.len() > 32_768 {
+        if (text.trim().is_empty() && attachment_ids.is_empty() && files.is_empty())
+            || text.len() > 32_768
+        {
             return Err("输入不能为空且不能超过 32 KiB".into());
         }
         if key
@@ -182,16 +184,10 @@ impl Workbench {
             view.queue_paused = false;
         }
         if files.len() > 5 {
-            return Err("每轮最多引用 5 个文本文件".into());
+            return Err("每轮最多引用 5 个文件或文件夹".into());
         }
         for path in &files {
-            let content = crate::files::read(&view.workspace, path).await?;
-            if content["binary"] == true
-                || content["truncated"] == true
-                || content["size"].as_u64().unwrap_or(0) > 32768
-            {
-                return Err("引用文件须为不超过 32 KiB 的文本文件".into());
-            }
+            crate::files::reference(&view.workspace, path).await?;
         }
         let attachments = self.attachment_metadata(id, &attachment_ids).await?;
         if view.agent_state["capabilities"].is_object() {
@@ -278,14 +274,13 @@ impl Workbench {
             let attachment_ids = queued.attachment_ids.clone();
             self.attachment_metadata(&view.id, &attachment_ids).await?;
             for path in &queued.files {
-                let content = crate::files::read(&view.workspace, path).await?;
-                if content["binary"] == true || content["size"].as_u64().unwrap_or(0) > 32768 {
-                    return Err("引用文件已变化，队列已暂停，请重新提交".into());
-                }
-                text.push_str(&format!(
-                    "\n\n用户引用的工作区文件 {path}（执行前读取）：\n{}",
-                    content["text"].as_str().unwrap_or_default()
-                ));
+                let context = crate::files::reference(&view.workspace, path)
+                    .await
+                    .map_err(|error| {
+                        format!("引用内容无法读取，队列已暂停，请重新提交：{error}")
+                    })?;
+                text.push_str("\n\n");
+                text.push_str(&context);
             }
             view.active = true;
             view.observed_active = false;

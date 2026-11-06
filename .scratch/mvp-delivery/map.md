@@ -105,6 +105,8 @@
 
 - [71-profile-catalog-views](issues/71-profile-catalog-views.md)：目录及固定配置类型、异常记录隔离与摘要保护移除接入正式设置页，完整回归与打包通过。
 
+- [73-composer-reference-menu](issues/73-composer-reference-menu.md)：`/` 分类和目录重试、`@` 文件夹清单及纯引用发送接正式输入框；桌面/手机、Host和包外验证通过，旧Host按能力标识兼容。
+
 ## Fog
 
 

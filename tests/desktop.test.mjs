@@ -208,6 +208,11 @@ test(
     await composer.fill('@folder');
     await page.getByRole('option',{name:/folder name/}).click();
     await page.getByRole('option',{name:/child.txt/}).waitFor();
+    await page.getByRole('button',{name:/引用folder name\/文件夹/}).click();
+    await page.getByRole('button',{name:'移除引用 folder name/'}).waitFor();
+    await composer.fill('@folder');
+    await page.getByRole('option',{name:/folder name/}).click();
+    await page.getByRole('option',{name:/child.txt/}).waitFor();
     await page.getByRole('button',{name:/上级目录/}).click();
     await page.getByRole('option',{name:/folder name/}).waitFor();
     await composer.fill('@preview');
@@ -252,6 +257,10 @@ test(
     await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000}).catch(async error=>{throw new Error(`${error.message}\nReact errors: ${JSON.stringify(errors)}\n${(await page.locator("body").innerText()).slice(-6000)}`);});
     assert.equal(await page.getByRole('button',{name:'移除引用 preview.txt'}).count(),0);
     assert.equal(await page.getByRole('button',{name:'移除附件 pixel.png'}).count(),0);
+    assert.equal(await page.getByRole('listbox',{name:'指令建议'}).count(),0,'successful send closes stale command suggestions');
+    // Image thumbnails load when their card enters the viewport; longer context
+    // can move the user's attachment above the followed answer.
+    await page.locator('.desktop-message.user .desktop-attachment-card').scrollIntoViewIfNeeded();
     await page.locator('.desktop-message.user').getByRole('img',{name:'pixel.png',exact:true}).waitFor();
     const fileDownload=page.waitForEvent('download');
     await page.locator('.desktop-message.user').getByRole('button',{name:'下载附件',exact:true}).click();
@@ -259,6 +268,9 @@ test(
     assert.equal(downloaded.suggestedFilename(),'pixel.png');
     assert.deepEqual(await readFile(await downloaded.path()),imageBytes);
     assert.match(await page.locator('.desktop-message.user').first().innerText(),/workspace preview text/);
+    assert.match(await page.locator('.desktop-message.user').first().innerText(),/工作区文件夹 folder name\//);
+    assert.match(await page.locator('.desktop-message.user').first().innerText(),/child.txt/);
+    assert.equal(await page.getByRole('button',{name:'移除引用 folder name/'}).count(),0);
     assert.match(await page.locator('.desktop-message.user').first().innerText(),/Use the project skill fixture for review/);
     assert.equal(await page.getByRole('button',{name:'移除引用 .agents/skills/composer-review/SKILL.md'}).count(),0);
     assert.equal(await page.locator(".desktop-message.user").count(), 1);
