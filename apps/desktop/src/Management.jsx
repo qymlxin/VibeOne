@@ -9,7 +9,10 @@ export function Management({ workbench, section="all" }) {
     [provider, setProvider] = useState("demo"),
     [command, setCommand] = useState(""),
     [args, setArgs] = useState(""),
-    [diagnostics, setDiagnostics] = useState(null);
+    [diagnostics, setDiagnostics] = useState(null),
+    [workspacePath,setWorkspacePath] = useState(''),
+    [importing,setImporting] = useState(false),
+    [workspaceNotice,setWorkspaceNotice] = useState('');
   async function run(action) {
     setError("");
     try {
@@ -21,17 +24,31 @@ export function Management({ workbench, section="all" }) {
   return (
     <>
       {(section==='all'||section==='workspaces') && <section className="desktop-settings-group"><h2>工作区</h2>
+      <form className="desktop-management-form" onSubmit={async event=>{
+        event.preventDefault();if(importing||workbench.phase!=='online')return;
+        const path=workspacePath.trim();setWorkspaceNotice('');
+        if(!/^(\/|[A-Za-z]:[\\/]|\\\\)/.test(path)){setError('请输入工作区的绝对路径。');return;}
+        setImporting(true);
+        try{const result=await run(()=>workbench.call('/workspaces',{path}));if(result){setWorkspaceNotice(`已导入工作区：${result.name}`);setWorkspacePath('');}}
+        finally{setImporting(false);}
+      }}>
+      <label>工作区目录<input aria-label="工作区目录" placeholder="粘贴现有工程的绝对路径" value={workspacePath} disabled={importing} onChange={event=>setWorkspacePath(event.target.value)}/></label>
       <button
+        type="button"
         className="desktop-button"
+        disabled={importing}
         onClick={() =>
           void run(async () => {
             const path = await chooseWorkspace();
-            if (path) await workbench.call("/workspaces", { path });
+            if (path) setWorkspacePath(path);
           })
         }
       >
-        导入工作区
+        选择目录
       </button>
+      <button type="submit" className="desktop-button" disabled={importing||!workspacePath.trim()||workbench.phase!=='online'}>{importing?'正在导入…':'导入工作区'}</button>
+      </form>
+      {workspaceNotice&&<p role="status">{workspaceNotice}</p>}
       {(workbench.workspaces ?? []).map((workspace) => (
         <p key={workspace.id}>
           {workspace.name} · {workspace.path}

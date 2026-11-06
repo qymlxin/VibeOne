@@ -617,6 +617,22 @@ test(
     await page.getByRole('textbox',{name:'搜索设置'}).fill('配对');
     assert.equal(await settingsNav.getByRole('button').count(),1);
     await page.getByRole('textbox',{name:'搜索设置'}).fill('');
+    await settingsNav.getByRole('button',{name:'工作区',exact:true}).click();
+    await page.getByRole('textbox',{name:'工作区目录',exact:true}).fill('relative/path');
+    await page.getByRole('button',{name:'导入工作区',exact:true}).click();
+    await page.getByRole('alert').getByText('请输入工作区的绝对路径。',{exact:true}).waitFor();
+    await page.getByRole('textbox',{name:'工作区目录',exact:true}).fill(join(directory,'folder name'));
+    await page.getByRole('button',{name:'导入工作区',exact:true}).click();
+    await page.getByText('已导入工作区：folder name',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('textbox',{name:'工作区目录',exact:true}).inputValue(),'');
+    await page.getByRole('textbox',{name:'工作区目录',exact:true}).fill(join(directory,'folder name'));
+    const duplicateImport=page.waitForResponse(response=>response.url().endsWith('/v1/workspaces')&&response.request().method()==='POST');
+    await page.getByRole('button',{name:'导入工作区',exact:true}).click();
+    assert.equal((await duplicateImport).ok(),true);
+    const importedSnapshot=await (await fetch(`${connection.url}/v1/snapshot`,{headers:historyHeaders})).json();
+    assert.equal(importedSnapshot.workspaces.filter(workspace=>workspace.path.endsWith('/folder name')).length,1);
+    await page.getByRole('button',{name:'选择目录',exact:true}).click();
+    assert.equal(await page.getByRole('textbox',{name:'工作区目录',exact:true}).inputValue(),directory);
     await settingsNav.getByRole('button',{name:'Agent',exact:true}).click();
     await page.getByRole('button',{name:'新建 Agent 配置',exact:true}).click();
     await page.getByRole('textbox',{name:'配置名称',exact:true}).fill('桌面审阅配置');
@@ -723,8 +739,9 @@ test(
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('vibeone-appearance-v1')).light.background),'#f4f1eb');
     assert.ok(await page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('vibeone-avatar:')).some(key=>JSON.parse(localStorage.getItem(key)).shape==='hexagon')));
     // Exercise the actual reading-rail component with more marks than fit on screen.
+    await page.waitForFunction(()=>Boolean(window.__vibeoneReactDOMClient));
     await page.evaluate(async()=>{
-      const React=await import('react'),{createRoot}=await import('react-dom/client'),{ConversationNav}=await import('/src/ConversationNav.jsx');
+      const React=window.__vibeoneReact,{createRoot}=window.__vibeoneReactDOMClient,{ConversationNav}=await import('/src/ConversationNav.jsx');
       const mount=document.createElement('div');mount.dataset.historyNavFixture='true';Object.assign(mount.style,{position:'fixed',inset:'40px',zIndex:1000,background:'var(--surface)'});document.body.append(mount);
       const root=createRoot(mount);window.__navFixture={root,mount};
       function Fixture(){const timeline=React.useRef(null);const turns=Array.from({length:200},(_,index)=>({id:`nav-${index}`,user:{text:`历史第 ${index+1} 轮`},answer:{text:`回答 ${index+1}`}}));return React.createElement('div',{className:'desktop-timeline-shell',style:{height:'100%',position:'relative'}},React.createElement('div',{ref:timeline,className:'desktop-timeline',style:{height:'100%',overflow:'auto',boxSizing:'border-box'}},turns.map(turn=>React.createElement('div',{key:turn.id,'data-turn-id':turn.id,style:{height:100}},turn.user.text))),React.createElement(ConversationNav,{turns,timeline,onNavigate:()=>{}}));}

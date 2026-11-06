@@ -69,6 +69,8 @@
 
 - [54-notification-permission-state](issues/54-notification-permission-state.md)：补齐本设备通知开关与真实权限查询、macOS系统回调及冷启动事件基线；桌面/手机与原生编译检查通过，系统弹窗仍归52实机验收。
 
+- [55-workspace-path-import](issues/55-workspace-path-import.md)：补齐设置原型的绝对路径输入与导入，目录选择改为填入后明确提交；真实Host验证相对拒绝、空格目录、幂等与成功反馈。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。
