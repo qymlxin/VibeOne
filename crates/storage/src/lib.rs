@@ -538,6 +538,35 @@ mod tests {
         store.close().await;
     }
     #[tokio::test]
+    async fn queue_receipt_failure_preserves_projection_and_event_cursor() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).await.unwrap();
+        let initial = record(1, "running");
+        store.save(&initial, "created", &json!({})).await.unwrap();
+        let cursor = store.cursor().await.unwrap();
+        sqlx::query("CREATE TRIGGER fail_queue_receipt BEFORE INSERT ON catalog WHEN NEW.kind='queue-command' BEGIN SELECT RAISE(ABORT,'injected queue receipt failure'); END").execute(&store.pool).await.unwrap();
+        let mut changed = record(2, "running");
+        changed.snapshot["queuePaused"] = json!(true);
+        assert!(
+            store
+                .save_with_receipt(
+                    &changed,
+                    "queue.updated",
+                    &json!({"pause":true}),
+                    Some(("queue-command", "intent", &json!({"updated":true})))
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            store.sessions().await.unwrap()[0].snapshot,
+            initial.snapshot
+        );
+        assert!(store.catalog().await.unwrap().is_empty());
+        assert_eq!(store.cursor().await.unwrap(), cursor);
+        store.close().await;
+    }
+    #[tokio::test]
     async fn restart_invalidates_requests_and_never_replays_pending_input() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(dir.path()).await.unwrap();

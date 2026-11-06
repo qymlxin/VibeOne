@@ -777,22 +777,11 @@ async fn queue(
     State(state): State<Server>,
     Path(id): Path<String>,
     Json(body): Json<QueueRequest>,
-) -> ApiResult {
-    domain_command(async move {
-        state
-            .workbench
-            .queue_action(
-                &id,
-                body.withdraw,
-                body.pause,
-                body.resume,
-                body.fresh_context,
-            )
-            .await
-    })
-    .await
-    .map(|_| Json(json!({"updated":true})))
-    .map_err(domain_fail)
+) -> ApiResult<QueueResponse> {
+    domain_command(async move { state.workbench.queue_command(&id, body).await })
+        .await
+        .map(|_| Json(QueueResponse { updated: true }))
+        .map_err(domain_fail)
 }
 async fn metadata(
     State(state): State<Server>,

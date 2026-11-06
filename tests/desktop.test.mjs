@@ -389,11 +389,24 @@ test(
     await page.getByRole('textbox',{name:'发送任务'}).fill('排队控制测试消息');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
     const queue=page.locator('.desktop-queue');
+    const queueKeys=[];
+    const lostQueue=async route=>{queueKeys.push(route.request().postDataJSON().key);const response=await route.fetch();if(queueKeys.length%2===1)await route.abort('failed');else await route.fulfill({response});};
+    await page.route('**/v1/sessions/*/queue',lostQueue);
     await queue.getByRole('button',{name:'暂停队列',exact:true}).click();
+    await queue.getByRole('button',{name:'重试队列操作',exact:true}).click();
     await queue.getByText('排队消息已暂停；正在执行的任务继续，恢复后再开始下一轮。',{exact:true}).waitFor();
     await queue.getByRole('button',{name:'继续队列',exact:true}).click();
+    await queue.getByRole('button',{name:'重试队列操作',exact:true}).click();
     await queue.getByRole('button',{name:'暂停队列',exact:true}).click();
+    await queue.getByRole('button',{name:'重试队列操作',exact:true}).click();
     await queue.getByRole('button',{name:'撤回',exact:true}).click();
+    await queue.getByRole('button',{name:'重试队列操作',exact:true}).waitFor();
+    await queue.getByText('连接失败，队列操作结果尚未确认。',{exact:true}).waitFor();
+    await page.screenshot({path:join(tmpdir(),'vibeone-queue-retry-desktop.png')});
+    await queue.getByRole('button',{name:'重试队列操作',exact:true}).click();
+    await queue.waitFor({state:'hidden'});
+    assert.equal(queueKeys.length,8);for(let index=0;index<8;index+=2){assert.equal(typeof queueKeys[index],'string');assert.equal(queueKeys[index],queueKeys[index+1]);if(index)assert.notEqual(queueKeys[index],queueKeys[index-2]);}
+    await page.unroute('**/v1/sessions/*/queue',lostQueue);
     const liveProcess=page.locator('.desktop-activity[data-live="true"]');
     await liveProcess.getByText('演示：整理执行结果',{exact:true}).waitFor();
     assert.equal(await page.locator('.desktop-turn').last().locator('.desktop-message.assistant').count(),0,'intermediate commentary belongs inside the turn process');

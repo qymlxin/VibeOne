@@ -89,19 +89,18 @@ function SessionToolsDetail({ session, workbench, tab, act, onLocateRun, availab
   return null;
 }
 
-export function Queue({ session, workbench, online, act }) {
-  const [busy,setBusy]=useState(false);
-  const change=async body=>{if(busy||!online)return;setBusy(true);try{await act(()=>workbench.call(`/sessions/${session.id}/queue`,body));}finally{setBusy(false);}};
-  if (!(session.queue ?? []).length) return null;
+export function Queue({ session, workbench, online, commands }) {
+  const {busy,failure}=commands,queue=session.queue??[];
+  const change=body=>online?commands.execute(body):Promise.resolve(false);
+  if (!queue.length&&!failure&&!busy) return null;
   return (
-    <section className="desktop-queue">
+    <section className="desktop-queue" aria-label="队列控制">
       <header>
         <strong>
-          下一轮 · {session.queue.length} 条
-          {session.queuePaused ? " · 已暂停" : ""}
+          {queue.length?`下一轮 · ${queue.length} 条${session.queuePaused?' · 已暂停':''}`:'队列操作'}
         </strong>
-        {!session.queuePaused&&<button disabled={!online||busy||!workbench.features?.includes('queuePause')} title={workbench.features?.includes('queuePause')?'当前任务继续，只暂停下一轮':'结束执行后在设置中重启主机以启用暂停'} onClick={()=>void change({pause:true})}>暂停队列</button>}
-        {session.queuePaused && (
+        {queue.length>0&&!session.queuePaused&&<button disabled={!online||busy||!workbench.features?.includes('queuePause')} title={workbench.features?.includes('queuePause')?'当前任务继续，只暂停下一轮':'结束执行后在设置中重启主机以启用暂停'} onClick={()=>void change({pause:true})}>暂停队列</button>}
+        {queue.length>0&&session.queuePaused && (
           <button
             disabled={!online||busy}
             onClick={()=>void change({resume:true,freshContext:!!session.historyOnly})}
@@ -110,11 +109,13 @@ export function Queue({ session, workbench, online, act }) {
           </button>
         )}
       </header>
-      {session.queuePaused&&<p>排队消息已暂停；正在执行的任务继续，恢复后再开始下一轮。</p>}
+      {busy&&!queue.length&&<p role="status">正在确认队列操作…</p>}
+      {failure&&<p role="alert" className="desktop-queue-failure"><span>{failure.message}</span><button disabled={!online||busy} onClick={()=>void commands.retry()}>重试队列操作</button><button disabled={busy} aria-label="关闭队列提示" onClick={commands.dismiss}>关闭提示</button></p>}
+      {queue.length>0&&session.queuePaused&&<p>排队消息已暂停；正在执行的任务继续，恢复后再开始下一轮。</p>}
       {session.historyOnly && (
         <p>继续会建立新的 Agent 上下文，不会恢复上一轮的思考或工具状态。</p>
       )}
-      {session.queue.map((run) => (
+      {queue.map((run) => (
         <div key={run.id}>
           <span>{run.text}</span>
           <button

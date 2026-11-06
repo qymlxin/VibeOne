@@ -28,6 +28,7 @@ import { AgentConfigControls } from "./AgentConfigControls.jsx";
 import { ComposerInput } from "./ComposerInput.jsx";
 import { commandPanel } from "./composer.js";
 import {useStopCommand} from './use-stop-command.js';
+import {useQueueCommands} from './use-queue-commands.js';
 import { useNotifications } from "./notifications.js";
 import { RemoteSettings, PhoneGate } from "./Remote.jsx";
 import { isNative } from "./api.js";
@@ -490,6 +491,7 @@ function Conversation({ session, workbench, online, act }) {
   const [changeSummary,setChangeSummary]=useState(null);
   const lastRun=session.runs?.at(-1);
   const stopCurrentRun=useStopCommand(workbench,session);
+  const queueCommands=useQueueCommands(workbench,session.id);
   useEffect(()=>{let stale=false;setChangeSummary(null);if(online&&lastRun?.finishedAt)workbench.call(`/sessions/${session.id}/changes`).then(value=>{if(!stale)setChangeSummary(value);}).catch(()=>{});return()=>{stale=true;};},[session.id,lastRun?.id,lastRun?.finishedAt,online,workbench.call]);
   const openFile=useCallback(path=>{setFileTarget({path,key:crypto.randomUUID()});setTab('files');},[]);
   const previewContext=useMemo(()=>({workspace:session.workspace,sessionId:session.id,read:workbench.read,openUrl,openFile}),[session.workspace,session.id,workbench.read,openUrl,openFile]);
@@ -799,7 +801,7 @@ function Conversation({ session, workbench, online, act }) {
             {!(session.queue??[]).length&&
             <button className="desktop-button" disabled={!online || sending} onClick={async () => {
               setSending(true);
-              await act(() => workbench.call(`/sessions/${session.id}/queue`, {resume:true,freshContext:true}));
+              await queueCommands.execute({resume:true,freshContext:true});
               setSending(false);
             }}>在新上下文继续</button>}
           </div>
@@ -811,10 +813,10 @@ function Conversation({ session, workbench, online, act }) {
         <div className="desktop-composer" onPaste={attachmentDraft.onPaste} onDrop={attachmentDraft.onDrop} onDragOver={attachmentDraft.onDragOver}>
           <AttachmentPicker draft={attachmentDraft} disabled={readOnly||sending} supported={workbench.features?.includes('attachments')}/>
           <Queue
+            commands={queueCommands}
             session={session}
             workbench={workbench}
             online={online && canOperate}
-            act={act}
           />
           <ComposerInput session={session} workbench={workbench} value={draft}
             onChange={text=>{setDraft(text);requestKey.current=null;}}

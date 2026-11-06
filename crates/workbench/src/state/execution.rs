@@ -815,27 +815,23 @@ impl Workbench {
             ));
         }
         let receipt = json!({"sessionId":id,"fingerprint":fingerprint,"runId":active_run,"cancelRequested":true});
-        let receipt = receipt_key.as_deref().map(|key| (key, &receipt));
+        let receipt = receipt_key
+            .as_deref()
+            .map(|key| ("stop-command", key, &receipt));
         if !view.active {
             if !view.queue.is_empty() {
                 view.queue_paused = true;
                 view.stop_reason = Some("cancelled".into());
-                self.commit_with_stop_receipt(
-                    &entry,
-                    view,
-                    "queue.stop_requested",
-                    &json!({}),
-                    receipt,
-                )
-                .await
-                .map_err(|_| DomainError::storage())?;
+                self.commit_with_receipt(&entry, view, "queue.stop_requested", &json!({}), receipt)
+                    .await
+                    .map_err(|_| DomainError::storage())?;
                 self.leases
                     .lock()
                     .expect("leases poisoned")
                     .retain(|_, owner| owner != id);
                 entry.wake.notify_one();
             } else if receipt.is_some() {
-                self.commit_with_stop_receipt(&entry, view, "run.stop_noop", &json!({}), receipt)
+                self.commit_with_receipt(&entry, view, "run.stop_noop", &json!({}), receipt)
                     .await
                     .map_err(|_| DomainError::storage())?;
             }
@@ -843,7 +839,7 @@ impl Workbench {
         }
         view.queue_paused = true;
         view.status = "cancelling".into();
-        self.commit_with_stop_receipt(&entry, view, "run.cancel_requested", &json!({}), receipt)
+        self.commit_with_receipt(&entry, view, "run.cancel_requested", &json!({}), receipt)
             .await
             .map_err(|_| DomainError::storage())?;
         if let Some(control) = entry
@@ -874,6 +870,7 @@ impl Workbench {
         Ok(())
     }
 
+    #[cfg(test)]
     pub(crate) async fn queue_action(
         self: &Arc<Self>,
         id: &str,
@@ -882,11 +879,75 @@ impl Workbench {
         resume: bool,
         fresh_context: bool,
     ) -> Result<(), DomainError> {
+        self.queue_command(
+            id,
+            crate::contracts::QueueRequest {
+                key: None,
+                withdraw,
+                pause,
+                resume,
+                fresh_context,
+            },
+        )
+        .await
+    }
+    pub(crate) async fn queue_command(
+        self: &Arc<Self>,
+        id: &str,
+        mut request: crate::contracts::QueueRequest,
+    ) -> Result<(), DomainError> {
         self.command_available()?;
         let entry = self.command_entry(id)?;
         let _gate = entry.gate.lock().await;
         self.command_available()?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
+        use sha2::{Digest, Sha256};
+        let hash = |value: &Value| {
+            Sha256::digest(serde_json::to_vec(value).expect("JSON serializes"))
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        };
+        let key = request.key.take();
+        if key
+            .as_ref()
+            .is_some_and(|key| key.is_empty() || key.len() > 128)
+        {
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "队列幂等键须为1至128字节",
+            ));
+        }
+        let receipt_key = key.map(|key| hash(&json!([id, key])));
+        let fingerprint = hash(
+            &serde_json::to_value(&request)
+                .map_err(|_| DomainError::new(ErrorKind::Internal, "队列参数编码失败"))?,
+        );
+        if let Some(key) = &receipt_key {
+            let saved = self
+                .catalog
+                .lock()
+                .expect("catalog poisoned")
+                .get("queue-command")
+                .and_then(|items| items.get(key))
+                .cloned();
+            if let Some(saved) = saved {
+                if saved["fingerprint"] != fingerprint {
+                    return Err(DomainError::new(
+                        ErrorKind::IdempotencyConflict,
+                        "同一队列幂等键的参数不同",
+                    ));
+                }
+                return Ok(());
+            }
+        }
+        let crate::contracts::QueueRequest {
+            withdraw,
+            pause,
+            resume,
+            fresh_context,
+            ..
+        } = request;
         if pause && (resume || fresh_context || withdraw.is_some()) {
             return Err(DomainError::new(
                 ErrorKind::InvalidInput,
@@ -943,11 +1004,15 @@ impl Workbench {
             view.queue_paused = false;
         }
         let release_lease = !view.active && (view.queue_paused || view.queue.is_empty());
-        self.commit(
+        let receipt = json!({"sessionId":id,"fingerprint":fingerprint,"updated":true});
+        self.commit_with_receipt(
             &entry,
             view,
             "queue.updated",
             &json!({"pause":pause,"resume":resume}),
+            receipt_key
+                .as_deref()
+                .map(|key| ("queue-command", key, &receipt)),
         )
         .await
         .map_err(|_| DomainError::storage())?;

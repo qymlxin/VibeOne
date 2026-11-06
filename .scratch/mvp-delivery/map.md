@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [101 队列控制对账](issues/101-queue-command-receipts.md)：暂停/继续/撤回接持久幂等、原子投影与重启保护；队列清空后的失败重试保留，中文提示及手机44px目标实测通过。完整回归与打包通过，接续102产物保存。
+
 - [100 停止请求对账](issues/100-stop-command-receipts.md)：修复旧停止请求影响后续Run，增加持久受理、原子投影与目标保护，桌面/手机接入；并发、重启、SQLite故障、权限及完整回归通过。
 - 后续已直接复现：[101 队列控制](issues/101-queue-command-receipts.md)同键撤回重试报冲突；[102 产物保存](issues/102-artifact-capture-receipts.md)同键重复生成快照。保持整体目标，依次实现并验证。
 

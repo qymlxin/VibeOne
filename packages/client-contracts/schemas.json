@@ -744,6 +744,12 @@
         "default": false,
         "type": "boolean"
       },
+      "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "pause": {
         "default": false,
         "type": "boolean"
@@ -757,6 +763,19 @@
           "string",
           "null"
         ]
+      }
+    }
+  },
+  "QueueResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "QueueResponse",
+    "type": "object",
+    "required": [
+      "updated"
+    ],
+    "properties": {
+      "updated": {
+        "type": "boolean"
       }
     }
   },

@@ -320,16 +320,16 @@ impl Workbench {
         kind: &str,
         event: &Value,
     ) -> Result<(), String> {
-        self.commit_with_stop_receipt(entry, view, kind, event, None)
+        self.commit_with_receipt(entry, view, kind, event, None)
             .await
     }
-    async fn commit_with_stop_receipt(
+    async fn commit_with_receipt(
         &self,
         entry: &Entry,
         mut view: SessionView,
         kind: &str,
         event: &Value,
-        receipt: Option<(&str, &Value)>,
+        receipt: Option<(&str, &str, &Value)>,
     ) -> Result<(), String> {
         let _sync = self.sync_gate.lock().await;
         if let Some(error) = self
@@ -355,22 +355,17 @@ impl Workbench {
         };
         let cursor = self
             .store
-            .save_with_receipt(
-                &record,
-                kind,
-                event,
-                receipt.map(|(id, value)| ("stop-command", id, value)),
-            )
+            .save_with_receipt(&record, kind, event, receipt)
             .await
             .map_err(|error| self.fail_storage(error))?;
         let _publication = self.publication.lock().expect("publication poisoned");
         *entry.view.lock().expect("view poisoned") = view;
         entry.revision.store(revision, Ordering::SeqCst);
-        if let Some((id, value)) = receipt {
+        if let Some((kind, id, value)) = receipt {
             self.catalog
                 .lock()
                 .expect("catalog poisoned")
-                .entry("stop-command".into())
+                .entry(kind.into())
                 .or_default()
                 .insert(id.into(), value.clone());
         }
@@ -412,6 +407,7 @@ impl Workbench {
                     "sessionCreationIdempotency",
                     "profileCommandIdempotency",
                     "stopCommandIdempotency",
+                    "queueCommandIdempotency",
                     "structuredErrors",
                 ]
                 .into_iter()
