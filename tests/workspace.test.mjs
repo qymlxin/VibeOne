@@ -81,6 +81,9 @@ test(
       files: ["tracked.txt"],
       key: "file-ref",
     });
+    await call("/profiles",{id:profile.id,revision:1,name:"stale",provider:"demo"},false);
+    await call("/profiles",{id:profile.id,revision:2,remove:true});
+    assert.ok(!(await call("/snapshot")).profiles.some(item=>item.id===profile.id));
     const events = await call("/event-log?after=0");
     assert.ok(events.events.length >= 4);
     assert.ok(

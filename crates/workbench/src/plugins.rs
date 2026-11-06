@@ -43,7 +43,11 @@ impl HostCapabilityBroker for Broker {
                     if message.chars().count() > 1000 {
                         return Err(Error::Invalid("notification too long".into()));
                     }
-                    let id = uuid::Uuid::new_v4().to_string();
+                    let id = call.input["idempotencyKey"]
+                        .as_str()
+                        .filter(|key| !key.is_empty() && key.len() <= 128)
+                        .map(|key| format!("{}:{key}", call.plugin_id))
+                        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
                     workbench.put_catalog("notification",&id,json!({"id":id,"message":message,"pluginId":call.plugin_id,"workspaceId":call.workspace_id})).await.map(|_|json!({"shown":true}))
                 }
                 _ => Err("插件宿主操作未授权或不支持".into()),
@@ -56,6 +60,7 @@ struct Candidate {
     record: Value,
     manager: Arc<PluginManager>,
     base: u64,
+    created: std::time::Instant,
 }
 pub(crate) struct Plugins {
     directory: PathBuf,
@@ -136,6 +141,31 @@ pub(crate) fn inspect(path: &Path) -> Result<Value, String> {
     }
     if let Some(app) = manifest["entrypoints"].get("app") {
         files::resolve(path, app["path"].as_str().ok_or("缺少 App 入口")?, false)?;
+    }
+    let mut ids = std::collections::HashSet::new();
+    for item in manifest["contributions"]
+        .as_array()
+        .ok_or("插件缺少扩展点声明")?
+    {
+        let id = item["id"].as_str().ok_or("扩展点缺少 id")?;
+        if !ids.insert(id) || item["kindVersion"] != 1 {
+            return Err("扩展点重复或版本不兼容".into());
+        }
+        let supported = match item["kind"].as_str() {
+            Some("app.panel" | "settings.section") => item["binding"]["type"] == "app",
+            Some("app.command") => {
+                matches!(item["binding"]["type"].as_str(), Some("app" | "worker"))
+            }
+            Some("agent.provider") => {
+                item["binding"]["type"] == "declarative"
+                    && item["binding"]["descriptor"]["command"].is_string()
+            }
+            Some("notification.channel") => item["binding"]["type"] == "worker",
+            _ => false,
+        };
+        if !supported {
+            return Err(format!("当前版本不支持此扩展点或绑定：{id}"));
+        }
     }
     if let Some(dependencies) = manifest["dependencies"].as_object()
         && !dependencies.is_empty()
@@ -268,6 +298,10 @@ impl Plugins {
         if body["trusted"] != true {
             return Err("请先确认信任本地插件代码与声明权限".into());
         }
+        self.pending
+            .lock()
+            .expect("plugins poisoned")
+            .retain(|_, candidate| candidate.created.elapsed() < Duration::from_secs(600));
         if self.pending.lock().expect("plugins poisoned").len() >= 8 {
             return Err("有过多待确认的插件更新，请先完成或取消".into());
         }
@@ -368,6 +402,7 @@ impl Plugins {
                 record: record.clone(),
                 manager,
                 base,
+                created: std::time::Instant::now(),
             },
         );
         Ok(json!({"ticket":ticket,"plugin":record,"app":app}))
@@ -437,24 +472,23 @@ impl Plugins {
         self.current.lock().expect("plugins poisoned").remove(id);
         Ok(())
     }
-    pub fn notify(
+    pub async fn deliver_notification(
         &self,
         workbench: &Workbench,
-        event: Value,
-        session: &crate::projection::SessionView,
-    ) {
-        let workspace = workbench.snapshot()["workspaces"]
+        event: &Value,
+    ) -> Result<(), String> {
+        let snapshot = workbench.snapshot();
+        let workspace = snapshot["workspaces"]
             .as_array()
             .and_then(|items| {
                 items
                     .iter()
-                    .find(|workspace| workspace["path"] == session.workspace)
+                    .find(|workspace| workspace["path"] == event["workspace"])
             })
             .and_then(|workspace| workspace["id"].as_str())
-            .map(str::to_owned);
-        let Some(workspace) = workspace else {
-            return;
-        };
+            .ok_or("通知工作区不存在")?
+            .to_owned();
+        let mut deliveries = vec![];
         for record in workbench.catalog("plugin").into_iter().filter(|record| {
             record["enabled"] == true
                 && record["workspaces"]
@@ -476,21 +510,26 @@ impl Plugins {
                 else {
                     continue;
                 };
-                let Ok(lease) = self.acquire(record["id"].as_str().unwrap_or_default()) else {
-                    continue;
-                };
-                let payload = json!({"event":event,"sessionId":session.id,"runId":session.runs.last().map(|run|&run["id"]),"workspaceId":workspace,"status":session.status});
+                let lease = self.acquire(record["id"].as_str().unwrap_or_default())?;
+                if Some(lease.key().generation) != record["generation"].as_u64() {
+                    return Err("通知插件正在更新".into());
+                }
+                let mut payload = event.clone();
+                payload["workspaceId"] = json!(workspace);
                 let workspace = workspace.clone();
-                tokio::spawn(async move {
-                    if let Err(error) = lease
+                deliveries.push(async move {
+                    lease
                         .invoke(&handler, payload, Some(&workspace), Duration::from_secs(2))
                         .await
-                    {
-                        eprintln!("notification extension failed: {error}");
-                    }
+                        .map(|_| ())
+                        .map_err(|error| error.to_string())
                 });
             }
         }
+        for result in futures_util::future::join_all(deliveries).await {
+            result?;
+        }
+        Ok(())
     }
     pub fn acquire(&self, id: &str) -> Result<vibeone_plugin_host::PluginLease, String> {
         self.current
@@ -545,6 +584,9 @@ impl Plugins {
             return Err("插件未获授权访问此工作区".into());
         }
         let lease = manager.acquire(id).map_err(|error| error.to_string())?;
+        if Some(lease.key().generation) != record["generation"].as_u64() {
+            return Err("插件代次正在切换，请稍后重试".into());
+        }
         drop(gate);
         let result = lease
             .invoke(

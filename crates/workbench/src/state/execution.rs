@@ -294,10 +294,7 @@ impl Workbench {
                 view.error = Some(error.chars().take(4000).collect());
                 finish(&mut view, "failed");
             }
-            let notification = view.clone();
             self.commit(entry, view, "run.ended", &json!({})).await?;
-            self.plugins
-                .notify(self, json!({"type":"run.ended"}), &notification);
         }
         self.leases.lock().expect("leases poisoned").remove(&lease);
         Ok(())
@@ -521,18 +518,8 @@ impl Workbench {
         {
             decision["delivery"] = json!("sent");
         }
-        let notify = if was_active && !view.active {
-            Some("run.ended")
-        } else if event["type"] == "permission" || event["type"] == "input" {
-            Some("attention.created")
-        } else {
-            None
-        };
-        let notification = notify.map(|kind| (kind, view.clone()));
+        event["runEnded"] = json!(was_active && !view.active);
         self.commit(entry, view, "agent.update", &event).await?;
-        if let Some((kind, view)) = notification {
-            self.plugins.notify(self, json!({"type":kind}), &view);
-        }
         entry.wake.notify_one();
         Ok(())
     }

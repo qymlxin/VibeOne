@@ -80,6 +80,12 @@ impl SessionView {
         let kind = update["sessionUpdate"].as_str().unwrap_or("");
         if kind == "config_option_update" {
             self.agent_state["configOptions"] = update["configOptions"].clone();
+            if let Some(commands) = update.get("initialCommands") {
+                self.agent_state["commands"] = commands.clone();
+            }
+            if let Some(capabilities) = update.get("capabilities") {
+                self.agent_state["capabilities"] = capabilities.clone();
+            }
             if let Some(id) = update.get("upstreamSessionId") {
                 self.agent_state["upstreamSessionId"] = id.clone();
             }

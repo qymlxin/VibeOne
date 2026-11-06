@@ -39,6 +39,7 @@ fn fail(message: impl Into<String>) -> (StatusCode, Json<Value>) {
     let message = message.into();
     let conflict = [
         "同一幂等键",
+        "配置已更新",
         "已选择其他选项",
         "已提交其他回答",
         "消息已开始执行或已撤回",
@@ -83,6 +84,7 @@ pub async fn serve(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error + 
     )?;
     let workbench = Workbench::open(&data_dir, providers(&data_dir)).await?;
     workbench.plugins.restore(&workbench).await;
+    workbench.start_outbox();
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
     let token = format!("{}{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
@@ -186,7 +188,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/sessions/{id}/approvals/{request}",post(decide))
         .route("/v1/sessions/{id}/inputs/{request}",post(answer))
         .route("/v1/host/stop",post(shutdown))
-        .layer(DefaultBodyLimit::max(40_000))
+        .layer(DefaultBodyLimit::max(262_144))
         .layer(middleware::from_fn_with_state(state.clone(),authorize))
         .layer(cors).with_state(state)
 }
@@ -302,7 +304,7 @@ async fn profile(State(state): State<Server>, Json(body): Json<Value>) -> ApiRes
         .map_err(fail)
 }
 async fn diagnostics(State(state): State<Server>) -> Json<Value> {
-    Json(state.workbench.diagnostics())
+    Json(state.workbench.diagnostics().await)
 }
 #[derive(Deserialize)]
 struct Cursor {
@@ -448,23 +450,23 @@ struct Ticket {
     ticket: String,
 }
 async fn plugin_commit(State(state): State<Server>, Json(body): Json<Ticket>) -> ApiResult {
-    state
-        .workbench
-        .plugins
-        .commit(&state.workbench, &body.ticket)
-        .await
-        .map(Json)
-        .map_err(fail)
+    command(async move {
+        state
+            .workbench
+            .plugins
+            .commit(&state.workbench, &body.ticket)
+            .await
+    })
+    .await
+    .map(Json)
+    .map_err(fail)
 }
 async fn plugin_discard(State(state): State<Server>, Json(body): Json<Ticket>) -> Json<Value> {
     state.workbench.plugins.discard(&body.ticket);
     Json(json!({"discarded":true}))
 }
 async fn plugin_disable(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
-    state
-        .workbench
-        .plugins
-        .disable(&state.workbench, &id)
+    command(async move { state.workbench.plugins.disable(&state.workbench, &id).await })
         .await
         .map(|_| Json(json!({"disabled":true})))
         .map_err(fail)

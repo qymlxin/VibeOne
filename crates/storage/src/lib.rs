@@ -97,6 +97,27 @@ impl Store {
             .execute(&mut *tx)
             .await?
             .last_insert_rowid();
+        let notification = if matches!(event["type"].as_str(), Some("permission" | "input")) {
+            Some("attention.created")
+        } else if kind == "run.ended" || kind == "agent.update" && event["runEnded"] == true {
+            Some("run.ended")
+        } else if kind == "run.failed" {
+            Some("queue.paused")
+        } else if kind == "session.recovered" && event["interrupted"] == true {
+            Some("run.interrupted")
+        } else {
+            None
+        };
+        if let Some(kind) = notification {
+            let id = format!("notification-{seq}");
+            let payload = json!({"eventId":id,"type":kind,"sessionId":session.id,"workspace":session.workspace,"requestId":event["id"],"runId":session.snapshot["runs"].as_array().and_then(|runs|runs.iter().rev().find(|run|run["status"]!="queued")).map(|run|&run["id"]),"status":session.snapshot["status"]});
+            sqlx::query("INSERT INTO notification_outbox(id,session_id,payload) VALUES(?,?,?)")
+                .bind(&id)
+                .bind(&session.id)
+                .bind(serde_json::to_string(&payload)?)
+                .execute(&mut *tx)
+                .await?;
+        }
         tx.commit().await?;
         Ok(seq as u64)
     }
@@ -206,6 +227,7 @@ impl Store {
 
     /// Called only after the Host's instance lock is held, before accepting clients.
     pub async fn recover(&self) -> Result<()> {
+        sqlx::query("UPDATE notification_outbox SET state='obsolete' WHERE state='pending' AND json_extract(payload,'$.type')='attention.created'").execute(&self.pool).await?;
         let records = self.sessions().await?;
         for mut session in records {
             let active = matches!(
@@ -265,6 +287,24 @@ impl Store {
         }
         Ok(())
     }
+    pub async fn pending_notifications(&self) -> Result<Vec<Value>> {
+        sqlx::query("SELECT id,session_id,payload,attempts FROM notification_outbox WHERE state='pending' AND available_at<=unixepoch() ORDER BY available_at,id LIMIT 32").fetch_all(&self.pool).await?.into_iter().map(|row|Ok(json!({"id":row.try_get::<String,_>("id")?,"sessionId":row.try_get::<String,_>("session_id")?,"payload":serde_json::from_str::<Value>(row.try_get("payload")?)?,"attempts":row.try_get::<i64,_>("attempts")?}))).collect()
+    }
+    pub async fn notification_result(&self, id: &str, state: &str, attempts: u32) -> Result<()> {
+        sqlx::query("UPDATE notification_outbox SET state=?,attempts=?,available_at=unixepoch()+? WHERE id=?").bind(state).bind(attempts).bind(2_i64.pow(attempts.min(8))).bind(id).execute(&self.pool).await?;
+        Ok(())
+    }
+    pub async fn notification_counts(&self) -> Result<Value> {
+        let rows =
+            sqlx::query("SELECT state,COUNT(*) AS count FROM notification_outbox GROUP BY state")
+                .fetch_all(&self.pool)
+                .await?;
+        let mut counts = json!({"pending":0,"delivered":0,"failed":0,"obsolete":0});
+        for row in rows {
+            counts[row.try_get::<String, _>("state")?] = json!(row.try_get::<i64, _>("count")?);
+        }
+        Ok(counts)
+    }
     pub async fn close(&self) {
         self.pool.close().await;
     }
@@ -314,6 +354,47 @@ mod tests {
         assert_eq!(saved.snapshot["approvals"], json!([]));
         assert_eq!(saved.snapshot["messages"][0]["delivery"], "interrupted");
         assert_eq!(saved.snapshot["historyOnly"], true);
+        store.close().await;
+    }
+    #[tokio::test]
+    async fn notification_outbox_is_atomic_persistent_and_obsoletes_old_attention() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::open(directory.path()).await.unwrap();
+        store
+            .save(
+                &record(1, "requires_action"),
+                "agent.update",
+                &json!({"type":"permission","id":"old-request"}),
+            )
+            .await
+            .unwrap();
+        let pending = store.pending_notifications().await.unwrap();
+        assert_eq!(pending.len(), 1);
+        let id = pending[0]["id"].clone();
+        assert!(
+            store
+                .save(
+                    &record(1, "requires_action"),
+                    "agent.update",
+                    &json!({"type":"permission","id":"old-request"})
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(store.pending_notifications().await.unwrap().len(), 1);
+        store.close().await;
+        let store = Store::open(directory.path()).await.unwrap();
+        assert_eq!(store.pending_notifications().await.unwrap()[0]["id"], id);
+        store.recover().await.unwrap();
+        assert!(
+            store
+                .pending_notifications()
+                .await
+                .unwrap()
+                .iter()
+                .all(|record| record["payload"]["type"] != "attention.created")
+        );
+        assert_eq!(store.notification_counts().await.unwrap()["obsolete"], 1);
         store.close().await;
     }
     #[tokio::test]

@@ -13,6 +13,7 @@ use vibeone_agent_client::AgentSession;
 mod artifacts;
 mod catalog;
 mod execution;
+mod outbox;
 use vibeone_storage::{SavedSession, Store, Workspace};
 
 pub struct Entry {

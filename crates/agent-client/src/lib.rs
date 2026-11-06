@@ -171,7 +171,7 @@ impl AgentSession {
                             );
                         }
                         let opened = cx.build_session(cwd).start_session().block_task().await?;
-                        init_sink(json!({"type":"update","notification":{"sessionId":opened.session.session_id(),"update":{"sessionUpdate":"config_option_update","configOptions":opened.response.config_options,"upstreamSessionId":opened.session.session_id()}}})).await.map_err(|error|Error::internal_error().data(error))?;
+                        init_sink(json!({"type":"update","notification":{"sessionId":opened.session.session_id(),"update":{"sessionUpdate":"config_option_update","configOptions":opened.response.config_options,"initialCommands":opened.response.available_commands,"capabilities":init.capabilities,"upstreamSessionId":opened.session.session_id()}}})).await.map_err(|error|Error::internal_error().data(error))?;
                         if let Some(tx) = task_ready.lock().expect("ready poisoned").take() {
                             let _ = tx.send(Ok(opened.session.clone()));
                         }

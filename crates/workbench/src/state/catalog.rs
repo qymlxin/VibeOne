@@ -85,6 +85,10 @@ impl Workbench {
     ) -> Result<(), String> {
         self.available()?;
         let _gate = self.catalog_gate.lock().await;
+        self.put_catalog_locked(kind, id, value).await
+    }
+    async fn put_catalog_locked(&self, kind: &str, id: &str, value: Value) -> Result<(), String> {
+        self.available()?;
         let cursor = self
             .store
             .put_catalog(kind, id, &value)
@@ -131,6 +135,30 @@ impl Workbench {
         serde_json::to_value(workspace).map_err(|error| error.to_string())
     }
     pub(crate) async fn save_profile(&self, mut value: Value) -> Result<Value, String> {
+        let _gate = self.catalog_gate.lock().await;
+        if let Some(id) = value["id"].as_str()
+            && let Some(existing) = self
+                .catalog("profile")
+                .iter()
+                .find(|profile| profile["id"] == id)
+            && value.get("revision").is_some()
+            && value["revision"] != existing["revision"]
+        {
+            return Err("配置已更新，请重新加载后修改".into());
+        }
+        if value["remove"] == true {
+            let id = value["id"].as_str().ok_or("请选择配置")?;
+            if !self
+                .catalog("profile")
+                .iter()
+                .any(|profile| profile["id"] == id)
+            {
+                return Err("配置不存在".into());
+            }
+            self.put_catalog_locked("profile", id, Value::Null).await?;
+            return Ok(json!({"removed":true}));
+        }
+
         let name = value["name"].as_str().ok_or("请输入配置名称")?.trim();
         if name.is_empty() || name.chars().count() > 80 {
             return Err("配置名称须为 1–80 个字符".into());
@@ -180,7 +208,8 @@ impl Workbench {
             + 1;
         value["id"] = json!(id);
         value["revision"] = json!(revision);
-        self.put_catalog("profile", &id, value.clone()).await?;
+        self.put_catalog_locked("profile", &id, value.clone())
+            .await?;
         Ok(value)
     }
     pub(crate) async fn event_page(&self, after: u64) -> Result<Value, String> {
@@ -196,10 +225,10 @@ impl Workbench {
             json!({"events":events,"cursor":events.last().and_then(|event|event["cursor"].as_u64()).unwrap_or(after),"hasMore":events.len()==256}),
         )
     }
-    pub(crate) fn diagnostics(&self) -> Value {
+    pub(crate) async fn diagnostics(&self) -> Value {
         // Export an allowlist of counts/statuses, never messages, paths, raw errors or credentials.
         let snapshot = self.snapshot();
         let sessions=snapshot["sessions"].as_array().map(|sessions|sessions.iter().map(|session|json!({"id":session["id"],"provider":session["provider"],"status":session["status"],"runs":session["runs"].as_array().map(Vec::len),"queued":session["queue"].as_array().map(Vec::len),"approvals":session["approvals"].as_array().map(Vec::len)})).collect::<Vec<_>>()).unwrap_or_default();
-        json!({"version":env!("CARGO_PKG_VERSION"),"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageAvailable":snapshot["storageError"].is_null(),"sessions":sessions,"plugins":self.catalog("plugin").iter().map(|plugin|json!({"id":plugin["id"],"enabled":plugin["enabled"],"generation":plugin["generation"]})).collect::<Vec<_>>()})
+        json!({"version":env!("CARGO_PKG_VERSION"),"protocolVersion":2,"sdkVersion":"5.0.0","notificationOutbox":self.store.notification_counts().await.unwrap_or_else(|_|json!({"unavailable":true})),"persistent":true,"storageAvailable":snapshot["storageError"].is_null(),"sessions":sessions,"plugins":self.catalog("plugin").iter().map(|plugin|json!({"id":plugin["id"],"enabled":plugin["enabled"],"generation":plugin["generation"]})).collect::<Vec<_>>()})
     }
 }
