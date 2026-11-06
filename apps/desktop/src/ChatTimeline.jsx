@@ -1,10 +1,10 @@
 import React, {memo, useEffect, useMemo, useRef, useState} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {Brain, Check, ChevronDown, FileText, LoaderCircle, MessageSquare, Search, Terminal, Wrench, X} from 'lucide-react';
+import {BookOpen, Brain, Check, ChevronDown, FileText, LoaderCircle, MessageSquare, Search, Terminal, Wrench, X} from 'lucide-react';
 import {activityTail, formatDuration, groupProcess, toolFamily} from './chat-timeline.js';
 import {ToolDetails} from './ToolDetails.jsx';
-import {describeTool} from './tool-presentation.js';
+import {describeAction,describeTool} from './tool-presentation.js';
 import {remarkSoftBreaks} from './markdown-layout.js';
 
 const markdownComponents = {
@@ -26,9 +26,11 @@ export const ChatMessage = memo(function ChatMessage({message,name}) {
 
 const toolStatus = {pending:'等待执行',in_progress:'执行中',completed:'已完成',failed:'失败',cancelled:'已停止'};
 const typeLabel = {thought:'思考摘要',tool:'工具',note:'说明'};
-const familyLabel={web:'搜索与浏览网页',command:'运行命令',file:'文件操作',other:'工具调用'};
-const familyIcon={web:Search,command:Terminal,file:FileText,other:Wrench};
+const familyLabel={read:'读取文件',web:'搜索与浏览网页',command:'运行命令',file:'文件操作',other:'工具调用'};
+const familyIcon={read:BookOpen,web:Search,command:Terminal,file:FileText,other:Wrench};
 function toolTitle(tool) {
+  const action=describeAction(tool);
+  if(action.label && action.paths.length)return `${action.label} ${action.paths.map(path=>path.split(/[\\/]/).at(-1)).join('、')}`;
   const {kind,fields}=describeTool(tool);
   const value=fields[0]?.value;
   if (kind==='search' && Array.isArray(value)) return `搜索：${value.join('、')}`;
@@ -44,7 +46,7 @@ function ActivityItem({activity,onInspect}) {
   return <details className={`desktop-activity-item ${type}`} onToggle={event=>{
     setOpen(event.currentTarget.open);if(event.currentTarget.open)onInspect();
   }}>
-    <summary><span className="desktop-process-item-icon"><Icon size={13}/></span><span>{type==='tool'?toolTitle(item):activityTail(text)}</span><span>{type==='tool'?(toolStatus[item.status] ?? item.status ?? '处理中'):'思考摘要'}</span><ChevronDown size={12}/></summary>
+    <summary><span className="desktop-process-item-icon"><Icon size={13}/></span><span title={type==='tool'?(describeAction(item).paths.join('\n') || toolTitle(item)):undefined}>{type==='tool'?toolTitle(item):activityTail(text)}</span><span>{type==='tool'?(toolStatus[item.status] ?? item.status ?? '处理中'):'思考摘要'}</span><ChevronDown size={12}/></summary>
     {open && (type==='tool' ? <ToolDetails tool={item}/> : <div className="desktop-process-thought"><MarkdownBody text={text}/></div>)}
   </details>;
 }
@@ -53,8 +55,9 @@ function ToolGroup({group,onInspect}) {
   const failed=group.items.some(activity=>activity.item.status==='failed');
   const working=group.items.some(activity=>['pending','in_progress'].includes(activity.item.status));
   const completed=group.items.filter(activity=>activity.item.status==='completed').length;
+  const label=completed===group.items.length?({read:'已读取文件',command:'已运行命令',file:'已处理文件',web:'已搜索与浏览网页'}[group.family] ?? familyLabel[group.family]):familyLabel[group.family];
   return <details className="desktop-tool-group" onToggle={event=>{if(event.currentTarget.open)onInspect();}}>
-    <summary><Icon size={13}/><span>{familyLabel[group.family]}</span><span>{group.items.length} 项</span><span>{failed?'含失败':working?'执行中':completed===group.items.length?'已完成':''}</span><ChevronDown size={12}/></summary>
+    <summary><Icon size={13}/><span>{label}</span><span>{group.items.length} 项</span><span>{failed?'含失败':working?'执行中':completed===group.items.length?'已完成':''}</span><ChevronDown size={12}/></summary>
     <div className="desktop-tool-group-body">{group.items.map(activity=><ActivityItem key={activity.id} activity={activity} onInspect={onInspect}/>)}</div>
   </details>;
 }

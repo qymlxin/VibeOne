@@ -1,4 +1,4 @@
-import {describeTool} from './tool-presentation.js';
+import {describeAction,describeTool} from './tool-presentation.js';
 
 export const isRunActive = status => ['starting', 'running', 'requires_action', 'cancelling'].includes(status);
 
@@ -57,6 +57,7 @@ export function activityTail(text, limit=150) {
 }
 
 export function toolFamily(tool) {
+  if(describeAction(tool).operation==='read')return 'read';
   const kind=describeTool(tool).kind;
   if (kind==='search' || kind==='web' || ['search','fetch'].includes(tool.kind)) return 'web';
   if (kind==='command' || tool.kind==='execute') return 'command';

@@ -26,6 +26,12 @@ async function run(sessionId, prompt, userId, epoch) {
       update(sessionId, { sessionUpdate: 'agent_thought', messageId, content: [{ type: 'text', text }] });
     }
     if (prompt.includes('/format')) response='这是一段说明。\n保留段内换行。\n\n1. **第一项**\n\n   第一项说明。\n\n2. **第二项**\n\n   第二项说明。\n\n```text\n  first\n    second\n```';
+    if (prompt.includes('/read-tools')) {
+      for (const [index,path] of ['/demo/src/main.rs','/demo/src/app.tsx'].entries()) {
+        update(sessionId,{sessionUpdate:'tool_call_update',toolCallId:`read:${userId}:${index}`,kind:'read',title:`Read file '${path}'`,locations:[{path}],status:'completed'});
+      }
+      response='文件读取视图演示完成。没有实际读取文件。';
+    }
     if (prompt.includes('/rich-tools')) {
       const calls=[
         {title:'演示：搜索资料',rawInput:{type:'webSearch',id:'transport-only',query:'summary...',action:{type:'search',queries:['测试查询一','测试查询二']}}},

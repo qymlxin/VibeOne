@@ -57,3 +57,18 @@ export function describeTool(tool) {
   const seen=new Set();
   return {kind,fields,outputs:outputs.filter(output=>{const key=JSON.stringify(output);if(seen.has(key))return false;seen.add(key);return true;})};
 }
+
+// Use explicit ACP semantics. Do not guess file reads by parsing shell commands.
+export function describeAction(tool) {
+  const input=record(parseToolValue(tool.rawInput));
+  const paths=[...new Set([
+    ...strings(first(input.file_path,input.filePath,input.path)),
+    ...(Array.isArray(tool.locations)?tool.locations.map(location=>typeof location==='string'?location:location?.path):[]),
+  ].filter(path=>typeof path==='string' && path.trim()))];
+  // Codex's read reporter can provide a title even when old projections omit locations.
+  const titlePath=tool.kind==='read' ? /^Read file '(.+)'$/.exec(tool.title ?? '')?.[1] : null;
+  if(!paths.length && titlePath)paths.push(titlePath);
+  const operation=tool.kind==='read' && !/^List files/.test(tool.title ?? '')?'read':tool.kind==='edit'?'edit':null;
+  const done=tool.status==='completed';
+  return {paths,operation,label:operation==='read'?(done?'已读取':'读取文件'):operation==='edit'?(done?'已修改':'修改文件'):null};
+}

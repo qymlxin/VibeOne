@@ -36,3 +36,11 @@ test('soft line breaks stay inside paragraphs without touching code indentation 
  assert.equal(tree.children.length,2);
  assert.equal(tree.children[1].value,'  first\n    second');
 });
+
+import {describeAction} from '../apps/desktop/src/tool-presentation.js';
+test('semantic reads use explicit ACP file paths, never infer reads from arbitrary shell',()=>{
+ assert.deepEqual(describeAction({kind:'read',status:'completed',locations:[{path:'/project/a.ts'},{path:'/project/a.ts'}]}),{paths:['/project/a.ts'],operation:'read',label:'已读取'});
+ assert.deepEqual(describeAction({kind:'read',title:"Read file '/project/b.ts'"}).paths,['/project/b.ts']);
+ assert.equal(describeAction({kind:'execute',rawInput:{command:'cat /project/a.ts'}}).operation,null);
+ assert.equal(describeAction({kind:'read',title:"List files in '/project'"}).operation,null);
+});
