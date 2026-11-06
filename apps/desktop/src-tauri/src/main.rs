@@ -63,7 +63,8 @@ fn session_busy(session: &Value) -> bool {
 }
 
 async fn launch_host(app: &tauri::AppHandle) -> Result<Value, String> {
-    let data = data::target()?;
+    let mut data = data::target()?;
+    let mut migration_warning = None;
     let legacy = app
         .path()
         .app_data_dir()
@@ -118,11 +119,18 @@ async fn launch_host(app: &tauri::AppHandle) -> Result<Value, String> {
                 return Err("旧主机尚未退出，原数据尚未迁移".into());
             }
         }
-        data::migrate(&legacy, &data)?;
+        if let Err(error) = data::migrate(&legacy, &data) {
+            if !legacy.is_dir() {
+                return Err(error);
+            }
+            migration_warning = Some(error);
+            data = legacy;
+        }
     }
     std::fs::create_dir_all(&data).map_err(|error| error.to_string())?;
     let record = data.join("host.json");
-    if let Some(connection) = healthy(&record).await {
+    if let Some(mut connection) = healthy(&record).await {
+        connection["migrationWarning"] = serde_json::json!(migration_warning);
         return Ok(connection);
     }
     let resource = app
@@ -185,7 +193,8 @@ async fn launch_host(app: &tauri::AppHandle) -> Result<Value, String> {
         .spawn()
         .map_err(|error| format!("Host 启动失败：{error}"))?;
     for _ in 0..100 {
-        if let Some(connection) = healthy(&record).await {
+        if let Some(mut connection) = healthy(&record).await {
+            connection["migrationWarning"] = serde_json::json!(migration_warning);
             return Ok(connection);
         }
         tokio::time::sleep(Duration::from_millis(100)).await;

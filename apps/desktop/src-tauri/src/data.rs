@@ -8,10 +8,49 @@ pub fn target() -> Result<PathBuf, String> {
             .then_some(path)
             .ok_or("VIBEONE_DATA_DIR 必须是绝对路径".into());
     }
-    std::env::var_os("HOME")
+    let home = std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(|home| PathBuf::from(home).join(".vibeone"))
-        .ok_or("无法确定用户目录".into())
+        .map(PathBuf::from)
+        .ok_or("无法确定用户目录")?;
+    target_for(&home)
+}
+
+fn writable(directory: &Path) -> bool {
+    let probe = directory.join(format!(
+        ".vibeone-write-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&probe)
+    {
+        Ok(file) => {
+            drop(file);
+            std::fs::remove_file(probe).is_ok()
+        }
+        Err(_) => false,
+    }
+}
+
+fn target_for(home: &Path) -> Result<PathBuf, String> {
+    let preferred = home.join(".vibeone");
+    if preferred.is_dir() || writable(home) {
+        return Ok(preferred);
+    }
+    // Some external-volume homes are root-owned. Use an existing writable user
+    // configuration parent without changing ownership or requesting elevation.
+    for relative in [".config", ".local/share"] {
+        let parent = home.join(relative);
+        if parent.is_dir() && writable(&parent) {
+            return Ok(parent.join("vibeone"));
+        }
+    }
+    Err("用户目录不可写，请通过 VIBEONE_DATA_DIR 指定可写的数据目录".into())
 }
 
 pub fn current(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -64,6 +103,18 @@ pub fn migrate(legacy: &Path, target: &Path) -> Result<(), String> {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    #[test]
+    fn read_only_home_uses_existing_writable_configuration_parent() {
+        use std::os::unix::fs::PermissionsExt;
+        let home =
+            std::env::temp_dir().join(format!("vibeone-readonly-home-{}", std::process::id()));
+        std::fs::create_dir_all(home.join(".config")).unwrap();
+        std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o500)).unwrap();
+        let result = target_for(&home);
+        std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(result.unwrap(), home.join(".config/vibeone"));
+        std::fs::remove_dir_all(home).unwrap();
+    }
     #[test]
     fn migration_preserves_database_and_pinned_paths_without_overwriting_existing_data() {
         let root = std::env::temp_dir().join(format!(
