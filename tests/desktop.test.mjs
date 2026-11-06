@@ -10,7 +10,7 @@ import { chromium } from "@playwright/test";
 
 test(
   "desktop React view controls the live Host: messages, approvals, stop, themes and reconnect",
-  { timeout: 45_000 },
+  { timeout: 60_000 },
   async (t) => {
     const directory = await mkdtemp(join(tmpdir(), "vibeone-desktop-test-"));
     const child = spawn(
@@ -117,17 +117,45 @@ test(
       .getByRole("textbox", { name: "发送任务" })
       .fill("桌面集成测试 /thought");
     await page.getByRole("button", { name: "发送消息" }).click();
-    await page.getByText("本轮执行结束", { exact: true }).waitFor();
+    await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000}).catch(async error=>{throw new Error(`${error.message}\nReact errors: ${JSON.stringify(errors)}\n${(await page.locator("body").innerText()).slice(-6000)}`);});
     assert.equal(await page.locator(".desktop-message.user").count(), 1);
     assert.equal(await page.locator(".desktop-message.assistant").count(), 1);
-    assert.equal(await page.locator(".desktop-message.thought").count(), 1);
-    assert.equal(
-      await page
-        .locator(".desktop-message.thought .desktop-message-text")
-        .innerText(),
-      "演示进度摘要：正在准备回复。",
-    );
-    await page.getByText("本地演示 · 思考摘要", { exact: true }).waitFor();
+    assert.equal(await page.locator('.desktop-message.thought').count(),0,'thoughts should not expand into the conversation body');
+    const firstProcess=page.getByRole('region',{name:'Agent 处理过程'}).first();
+    assert.equal(await firstProcess.getByRole('button').getAttribute('aria-expanded'),'false');
+    await firstProcess.getByRole('button').click();
+    await firstProcess.locator('.desktop-activity-item.thought summary').click();
+    assert.equal(await firstProcess.locator('.desktop-activity-item.thought > pre').innerText(),'演示进度摘要：正在准备回复。');
+    await firstProcess.getByRole('button').click();
+    await page.getByRole('textbox',{name:'发送任务'}).fill('/activity');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    const liveProcess=page.locator('.desktop-activity[data-live="true"]');
+    await liveProcess.getByText('演示：整理执行结果',{exact:true}).waitFor();
+    assert.ok(await liveProcess.locator('.desktop-activity-preview-row').count()<=3);
+    assert.equal(await liveProcess.locator('.desktop-activity-preview').innerText().then(text=>text.includes('演示：梳理任务范围')),false,'old activity rolls out of bounded preview');
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-light.png')});
+    await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('dark');
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-dark.png')});
+    await page.setViewportSize({width:960,height:640});
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'minimum desktop activity must not overflow');
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-minimum.png')});
+    await page.setViewportSize({width:1360,height:900});
+    await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('light');
+
+    await liveProcess.getByRole('button').click();
+    assert.equal(await liveProcess.getByRole('button').getAttribute('aria-expanded'),'true');
+    assert.equal(await liveProcess.locator('details[open]').count(),0,'activity details remain collapsed until requested');
+    await liveProcess.getByRole('button').click();
+    await page.getByText('演示处理已完成。以上思考摘要与工具事件用于验证实时活动视图，没有读取文件或执行命令。',{exact:true}).waitFor();
+    const latestProcess=page.getByRole('region',{name:'Agent 处理过程'}).last();
+    assert.equal(await latestProcess.getByRole('button').getAttribute('aria-expanded'),'false');
+    await latestProcess.getByRole('button').click();
+    const firstTool=latestProcess.locator('.desktop-activity-item.tool').first();
+    await firstTool.locator('summary').click();
+    await firstTool.getByText('输入',{exact:true}).waitFor();
+    assert.ok((await firstTool.innerText()).includes('模拟步骤完成'));
+    await latestProcess.getByRole('button').click();
     await page.screenshot({
       animations: "disabled",
       path: join(tmpdir(), "vibeone-desktop-light.png"),

@@ -1,11 +1,8 @@
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowUp,
   Check,
-  ChevronDown,
   FolderOpen,
   LoaderCircle,
   MessageSquare,
@@ -18,7 +15,6 @@ import {
   ShieldCheck,
   Square,
   Sun,
-  Terminal,
   X,
 } from "lucide-react";
 import { useNotifications } from "./notifications.js";
@@ -30,6 +26,8 @@ import { InputRequest } from "./InputRequest.jsx";
 import { SessionTools, Queue } from "./SessionTools.jsx";
 import { usePlugins, PluginManager } from "./plugins.jsx";
 import { Management } from "./Management.jsx";
+import { ChatMessage, ActivityFeed } from "./ChatTimeline.jsx";
+import { buildTurns } from "./chat-timeline.js";
 import mark from "../../../assets/brand/vibeone-logo-mark.svg";
 import "../../../prototype/src/theme.css";
 import "./workbench.css";
@@ -467,7 +465,6 @@ function Conversation({ session, workbench, online, act }) {
   const readOnly = session.historyOnly || session.archived || !canOperate;
   const [sending, setSending] = useState(false);
   const [deciding, setDeciding] = useState(null);
-  const bottom = useRef(null);
   const timeline = useRef(null);
   const followLatest = useRef(true);
   const [following, setFollowing] = useState(true);
@@ -484,24 +481,14 @@ function Conversation({ session, workbench, online, act }) {
     (length, message) => length + message.text.length,
     0,
   );
-  const turnStart = session.messages.findLastIndex(
-    (message) => message.role === "user",
-  );
-  const turnOutput = session.messages
-    .slice(turnStart + 1)
-    .findLast(
-      (message) =>
-        message.text && ["thought", "assistant"].includes(message.role),
-    );
-  const progressStage =
-    session.status === "running"
-      ? (turnOutput?.role ?? "waiting")
-      : session.status;
-  useEffect(() => {
-    if (followLatest.current) bottom.current?.scrollIntoView({ block: "end" });
-  }, [contentLength, session.approvals.length]);
+  const turns = useMemo(() => buildTurns(session), [session.messages, session.tools, session.runs, session.status]);
+  useLayoutEffect(() => {
+    if (followLatest.current && timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight;
+  }, [contentLength, session.tools, session.approvals.length, session.inputs?.length, session.status]);
   const send = async () => {
     if (!draft.trim() || sending || !online || readOnly) return;
+    followLatest.current = true;
+    setFollowing(true);
     setSending(true);
     const result = await act(() =>
       workbench.call(`/sessions/${session.id}/messages`, {
@@ -642,87 +629,13 @@ function Conversation({ session, workbench, online, act }) {
             </p>
           </div>
         )}
-        {session.messages.map((message) => (
-          <article
-            key={`${message.role}:${message.id}`}
-            className={`desktop-message ${message.role}`}
-          >
-            <span className="desktop-avatar">
-              {message.role === "user" ? (
-                "你"
-              ) : message.role === "thought" ? (
-                <Terminal size={14} />
-              ) : (
-                <MessageSquare size={14} />
-              )}
-            </span>
-            <div>
-              <div className="desktop-message-meta">
-                <strong>
-                  {message.role === "user"
-                    ? "你"
-                    : message.role === "thought"
-                      ? `${name} · 思考摘要`
-                      : name}
-                </strong>
-                {message.pending ? <span>已受理 · 等待 Agent 接受</span> : null}
-              </div>
-              <div className="desktop-message-text">
-                {message.role === "assistant" ? (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      a: (props) => (
-                        <a
-                          {...props}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        />
-                      ),
-                      img: (props) => (
-                        <span>[图片：{props.alt ?? "图片"}]</span>
-                      ),
-                    }}
-                  >
-                    {message.text || "…"}
-                  </ReactMarkdown>
-                ) : (
-                  message.text || "…"
-                )}
-              </div>
-            </div>
-          </article>
+        {turns.map(turn => (
+          <div className="desktop-turn" key={turn.id}>
+            {turn.user && <ChatMessage message={turn.user} name={name}/>}
+            <ActivityFeed turn={turn} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
+            {turn.reply && <ChatMessage message={turn.reply} name={name}/>}
+          </div>
         ))}
-        {session.tools.length > 0 && (
-          <section className="desktop-tools">
-            <h2>
-              <Terminal size={14} />
-              工具执行
-            </h2>
-            {session.tools.map((tool) => (
-              <details key={tool.toolCallId}>
-                <summary>
-                  <span>{tool.title ?? tool.name ?? "工具调用"}</span>
-                  <span>
-                    {tool.status ?? "处理中"}
-                    <ChevronDown size={13} />
-                  </span>
-                </summary>
-                <pre>
-                  {JSON.stringify(
-                    tool.rawInput ?? tool.content ?? tool,
-                    null,
-                    2,
-                  )}
-                </pre>
-                {tool.output && <pre>{tool.output}</pre>}
-                {tool.rawOutput && (
-                  <pre>{JSON.stringify(tool.rawOutput, null, 2)}</pre>
-                )}
-              </details>
-            ))}
-          </section>
-        )}
         {(session.inputs ?? []).map((request) => (
           <InputRequest
             key={request.id}
@@ -805,8 +718,6 @@ function Conversation({ session, workbench, online, act }) {
                 : `本轮已结束 · ${session.stopReason}`}
           </p>
         ) : null}
-        {active ? <LiveStatus stage={progressStage} /> : null}
-        <div ref={bottom} />
       </div>
       {!following && (
         <div className="desktop-jump">
@@ -815,7 +726,7 @@ function Conversation({ session, workbench, online, act }) {
             onClick={() => {
               followLatest.current = true;
               setFollowing(true);
-              bottom.current?.scrollIntoView({ block: "end" });
+              if (timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight;
             }}
           >
             回到最新消息
@@ -939,39 +850,6 @@ function Conversation({ session, workbench, online, act }) {
         </div>
       </div>
     </>
-  );
-}
-
-function LiveStatus({ stage }) {
-  const [started] = useState(Date.now);
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(
-      () => setSeconds(Math.floor((Date.now() - started) / 1000)),
-      1000,
-    );
-    return () => clearInterval(timer);
-  }, [started]);
-  const message =
-    {
-      starting: "正在准备本轮执行",
-      waiting: "Agent 正在处理，等待输出",
-      thought: "已收到思考摘要，等待回复",
-      assistant: "正在接收回复",
-      requires_action: "等待你处理审批",
-      cancelling: "正在请求 Agent 停止",
-    }[stage] ?? "Agent 正在执行";
-  return (
-    <div className="desktop-live-status">
-      <LoaderCircle size={14} className="desktop-spin" aria-hidden="true" />
-      <div>
-        <p role="status">{message}</p>
-        {stage === "waiting" && seconds >= 3 ? (
-          <small>尚未收到可展示的思考摘要；收到后会自动显示。</small>
-        ) : null}
-      </div>
-      <time aria-hidden="true">已等待 {seconds} 秒</time>
-    </div>
   );
 }
 

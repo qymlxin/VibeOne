@@ -498,10 +498,6 @@ p {
   padding-top: 5px;
   max-width: 76ch;
 }
-.desktop-message.thought .desktop-message-text {
-  color: var(--muted);
-  font-size: 12px;
-}
 .desktop-tools {
   margin: 0 0 24px 41px;
 }
@@ -1155,4 +1151,65 @@ p {
 .desktop-context-restart .desktop-button { flex-shrink: 0; }
 @media (max-width: 600px) {
   .desktop-context-restart { align-items: flex-start; flex-direction: column; gap: 6px; }
+}
+
+/* A bounded stream of real activity, attached to its turn instead of the page footer. */
+.desktop-activity {
+  min-width: 0;
+  margin: -8px 0 20px 41px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.desktop-activity-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.desktop-activity-toggle > svg { flex: none; }
+.desktop-activity-toggle > span:first-of-type { color: var(--ink); }
+.desktop-activity-toggle > time { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.desktop-activity-toggle > span:nth-last-of-type(1) { white-space: nowrap; }
+.desktop-activity-toggle:hover { color: var(--ink); }
+.desktop-activity-toggle > .expanded { transform: rotate(180deg); }
+.desktop-activity-preview { overflow: hidden; max-height: 104px; }
+.desktop-activity-preview-row {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+  padding: 4px 0;
+  line-height: 1.6;
+  animation: activity-arrive 160ms ease-out;
+}
+.desktop-activity-preview-row > span:first-child { width: 4em; flex: none; font-size: 11px; }
+.desktop-activity-preview-row > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.desktop-activity-preview-row > span:last-child:not(:nth-child(2)) { flex: none; font-size: 11px; }
+.desktop-activity-preview-row:last-child { color: var(--ink); }
+.desktop-activity .desktop-live-status { margin: 0; padding: 5px 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+.desktop-activity-history { max-height: 320px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 6px; }
+.desktop-activity-item { border-bottom: 1px solid var(--line); }
+.desktop-activity-item summary { display: flex; align-items: baseline; gap: 8px; padding: 9px 0; cursor: pointer; }
+.desktop-activity-item summary > span:first-child { flex: none; font-size: 11px; }
+.desktop-activity-item summary > span:nth-child(2) { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.desktop-activity-item summary > span:nth-child(3), .desktop-activity-item summary > svg { flex: none; }
+.desktop-activity-item[open] summary > svg { transform: rotate(180deg); }
+.desktop-activity-detail { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; margin: 0; padding: 6px 0 12px; font-size: 12px; line-height: 1.75; color: var(--ink); }
+.desktop-activity-item:not(.tool) > pre { font-family: inherit; }
+.desktop-activity-detail pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
+.desktop-activity-detail strong { font-size: 11px; font-weight: 500; color: var(--muted); }
+@keyframes activity-arrive { from { transform: translateY(5px); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .desktop-activity-preview-row { animation: none; } }
+@media (max-width: 600px) {
+  .desktop-activity { margin-left: 0; }
+  .desktop-activity-count { display: none; }
+  .desktop-activity-toggle { gap: 6px; min-height: 40px; }
+  .desktop-activity-history { max-height: 260px; }
 }

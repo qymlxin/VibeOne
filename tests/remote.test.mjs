@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import https from "node:https";
+import {tmpdir} from "node:os";
 import { readFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -162,7 +163,18 @@ test(
       workspaces: [workspace.id],
     });
     await page.getByText("本机 · 已连接", { exact: true }).waitFor();
+    await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('dark');
     await page.locator(".desktop-session").first().click();
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.getByRole('textbox',{name:'发送任务'}).fill('/activity');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    const liveActivity=page.locator('.desktop-activity[data-live="true"]');
+    await liveActivity.getByText('演示：整理执行结果',{exact:true}).waitFor();
+    assert.ok(await liveActivity.locator('.desktop-activity-preview-row').count()<=3);
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-mobile.png')});
+    await page.getByText('本轮执行结束',{exact:true}).waitFor();
+
     await page.getByRole("textbox", { name: "发送任务" }).fill("/approve");
     await page.getByRole("button", { name: "发送消息", exact: true }).click();
     await page.getByRole("button", { name: "允许一次", exact: true }).click();
