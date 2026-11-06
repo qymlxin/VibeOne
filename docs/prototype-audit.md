@@ -1,6 +1,6 @@
 # 批准原型的实现与验收记录
 
-状态：本轮发现的实现缺口已补齐，自动验证与包外资源验证通过；原生实机交付尚未完成，不能据此宣布全部原型验收通过。
+状态：已完成的原型功能有自动验证及包外资源证据；业务类型契约仍在补齐，原生与物理设备验收未完成，不能宣布全部原型验收通过。
 
 ## 范围与证据
 
@@ -22,7 +22,7 @@
 | W08 | 整轮过程、同类工具组、单工具详情 | `chat-timeline.js`、`ChatTimeline.jsx`、`ToolDetails.jsx` | 顺序、嵌套折叠、搜索/命令/文件解析、旧数据兼容自动通过 |
 | W09 | 运行摘要滚动、思考扫光、结束停止动画 | `ActivityFeed`、主题CSS | 最新3项、状态、减少动画与移动截图自动通过；静态检测的渐变提示属于已批准状态效果 |
 | W10 | 发送、停止、忙碌追加队列、撤回、暂停/继续 | `execution.rs`、`Queue` | 串行、幂等、进程排空、恢复配置失败停止及手动暂停自动通过；真实Codex进程退出通过 |
-| W11 | `/` 指令与 `@` 上下文引用 | `ComposerInput.jsx`、Host文件读取 | ACP真实命令列表、本地面板指令、目录筛选/刷新、键盘及正文传递自动通过 |
+| W11 | `/` 指令与 `@` 上下文引用 | `ComposerInput.jsx`、Host文件读取 | ACP真实命令列表、本地面板指令、项目技能发现/正文引用、目录筛选/刷新和键盘自动通过 |
 | W12 | 附件按钮、图片/文件上下文 | `Attachments.jsx`、Host附件API | 真上传、粘贴/拖放、预览、下载字节、ACP内容块、失败恢复与重启自动通过 |
 | W13 | 输入区Agent/模型/权限配置 | `AgentConfigControls.jsx` | 只显示上游实际选项，select/boolean和失败回退自动通过；不冒充所有Agent都有同一权限模式 |
 | W14 | 阅读刻度、当前位置、悬停预览、渐减长度 | `ConversationNav.jsx` | 真实轮次跳转及200刻度组件的End键/点击可达自动通过 |
@@ -78,18 +78,18 @@
 
 | 检查 | 结果与具体范围 |
 | --- | --- |
-| `npm run check` | 通过：49项Node/SDK/打包器、workspace Rust、15项Host集成与崩溃恢复；不包含真实模型请求 |
-| `npm run desktop:test` | 54.8秒完整回归通过：真实Host、目录路径导入、历史与重连的实际游标增量、通知桥接状态、插件React及200刻度组件及插件异步操作记录/结果 |
+| `npm run check` | 通过：51项Node/SDK/打包器、生成契约比对/类型正反例、workspace Rust、16项Host集成与崩溃恢复；不包含真实模型请求 |
+| `npm run desktop:test` | 54.9秒完整回归通过：真实Host、目录路径导入、历史与重连的实际游标增量、通知桥接状态、插件React及200刻度组件及插件异步操作记录/结果 |
 | `npm run remote:test` | 23.4秒通过：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
 | `cargo clippy --workspace --all-targets -- -D warnings` | 通过 |
 | 原生Cargo测试 / Clippy | 5项测试通过；原生Clippy通过；系统回调的实际窗口观察仍未完成 |
-| `npm run desktop:bundle` | 通过，当前macOS调试包828.34MiB；包标识dev.vibeone.desktop，最低系统10.15 |
+| `npm run desktop:bundle` | 通过，当前macOS调试包828.54MiB；包标识dev.vibeone.desktop，最低系统10.15 |
 | `npm run bundle:smoke` | 通过：复制全部资源到仓库外，两个桥接器v2握手和原生CLI启动、可信HTTPS网页、Worker反向调用、插件Provider及历史 |
 | `npm run agent:smoke -- codex claude` | Codex目标文本/end_turn通过；Claude失败，Authentication required，未冒充双工具完成 |
 | `npm run agent:controls` / `-- --input-only` | 真实Codex批准/拒绝、取消待审批、旧请求失效、进程退出、只读恢复及结构化输入通过 |
 | `cargo test -p vibeone-agent-client` | 全13项通过，覆盖初始化45秒人工等待、独立600秒时限、工作预算恢复、迟到答案拒绝和父子进程清理；客户端Clippy通过 |
 
-包内Host SHA-256：`81fc51df7cf09c264c6227d6f4ec5629bc398123413fccfe8ab331f0f76e4a7b`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
+包内Host SHA-256：`69c3d7c80861336b0432c16fe16c03488b5102203cd43c7e904e169625e6f342`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
 
 ## 解锁后的原生核对顺序
 
@@ -106,3 +106,5 @@
 2026-11-07：64插件操作记录已接真实Worker/SDK与记录界面，重复提交、丢回执、旧代次、失败及崩溃恢复通过；重建包外验证新增pluginOperations通过。通用DTO/统一错误模型及原生/真实Claude/物理设备验收仍未完成。
 
 2026-11-07：65HTTP错误信封已统一，并修复插件操作入口512KiB参数被通用限额提前拒绝的问题；同接口修复前红、修复后执行及超限拒绝通过。重建包外structuredErrors通过。业务DTO生成、完整领域错误分类和实际原生/外部设备条件仍待完成。
+
+2026-11-07：66以实际Rust请求/回执生成JSON Schema和TypeScript，正式创建/发送调用已接类型构造器；覆盖缺省/null兼容、幂等身份、产物漂移与类型反例。67补齐真实项目技能选择、引用正文及发送清空，桌面/HTTPS手机和重建包外验证通过。Profile、完整Session/Run响应与领域错误分类仍待继续；原生/Claude/物理设备项目保持未验收。

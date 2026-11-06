@@ -1,0 +1,13 @@
+export type * from './generated.js';
+import type {CreateSessionRequest,SubmitMessageRequest,QueueRequest,UpdateSessionRequest,WorkspaceImportRequest,ApprovalDecisionRequest} from './generated.js';
+export type Command<T> = readonly [path:string,body:T];
+export function createSession(provider:string,workspace='',profileId?:string):Command<CreateSessionRequest>{
+ return ['/sessions',{provider,workspace,...(profileId?{profileId}:{})}];
+}
+export function submitMessage(sessionId:string,text:string,files:string[],attachments:string[],key:string):Command<SubmitMessageRequest>{
+ return [`/sessions/${encodeURIComponent(sessionId)}/messages`,{text,files,attachments,key}];
+}
+export function controlQueue(sessionId:string,body:QueueRequest):Command<QueueRequest>{return [`/sessions/${encodeURIComponent(sessionId)}/queue`,body];}
+export function updateSession(sessionId:string,body:UpdateSessionRequest):Command<UpdateSessionRequest>{return [`/sessions/${encodeURIComponent(sessionId)}/metadata`,body];}
+export function importWorkspace(path:string):Command<WorkspaceImportRequest>{return ['/workspaces',{path}];}
+export function decideApproval(sessionId:string,requestId:string,option:string):Command<ApprovalDecisionRequest>{return [`/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(requestId)}`,{option}];}

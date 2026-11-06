@@ -1,4 +1,5 @@
 //! Desktop workbench Host; the independent process owns all execution state.
+pub mod contracts;
 mod files;
 mod plugins;
 mod projection;

@@ -1,0 +1,223 @@
+{
+  "CreateSessionRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "CreateSessionRequest",
+    "type": "object",
+    "required": [
+      "provider"
+    ],
+    "properties": {
+      "profileId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "provider": {
+        "type": "string"
+      },
+      "workspace": {
+        "default": "",
+        "type": "string"
+      }
+    }
+  },
+  "SubmitMessageRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "SubmitMessageRequest",
+    "type": "object",
+    "required": [
+      "text"
+    ],
+    "properties": {
+      "attachments": {
+        "default": [],
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "files": {
+        "default": [],
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "text": {
+        "type": "string"
+      }
+    }
+  },
+  "QueueRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "QueueRequest",
+    "type": "object",
+    "properties": {
+      "freshContext": {
+        "default": false,
+        "type": "boolean"
+      },
+      "pause": {
+        "default": false,
+        "type": "boolean"
+      },
+      "resume": {
+        "default": false,
+        "type": "boolean"
+      },
+      "withdraw": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    }
+  },
+  "UpdateSessionRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "UpdateSessionRequest",
+    "type": "object",
+    "properties": {
+      "archived": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "title": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    }
+  },
+  "WorkspaceImportRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "WorkspaceImportRequest",
+    "type": "object",
+    "required": [
+      "path"
+    ],
+    "properties": {
+      "path": {
+        "type": "string"
+      }
+    }
+  },
+  "ApprovalDecisionRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ApprovalDecisionRequest",
+    "type": "object",
+    "required": [
+      "option"
+    ],
+    "properties": {
+      "option": {
+        "type": "string"
+      }
+    }
+  },
+  "AttachmentUploadRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AttachmentUploadRequest",
+    "type": "object",
+    "required": [
+      "data",
+      "mimeType",
+      "name"
+    ],
+    "properties": {
+      "data": {
+        "type": "string"
+      },
+      "mimeType": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      }
+    }
+  },
+  "PluginTicketRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PluginTicketRequest",
+    "type": "object",
+    "required": [
+      "ticket"
+    ],
+    "properties": {
+      "ticket": {
+        "type": "string"
+      }
+    }
+  },
+  "CreateSessionResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "CreateSessionResponse",
+    "type": "object",
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      }
+    }
+  },
+  "SubmitMessageReceipt": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "SubmitMessageReceipt",
+    "type": "object",
+    "required": [
+      "duplicate",
+      "operationId",
+      "queued"
+    ],
+    "properties": {
+      "duplicate": {
+        "type": "boolean"
+      },
+      "operationId": {
+        "type": "string"
+      },
+      "queued": {
+        "type": "boolean"
+      }
+    }
+  },
+  "HttpErrorResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "HttpErrorResponse",
+    "type": "object",
+    "required": [
+      "code",
+      "error",
+      "requestId",
+      "status"
+    ],
+    "properties": {
+      "code": {
+        "type": "string"
+      },
+      "error": {
+        "type": "string"
+      },
+      "requestId": {
+        "type": "string"
+      },
+      "status": {
+        "type": "integer",
+        "format": "uint16",
+        "minimum": 0
+      }
+    }
+  }
+}

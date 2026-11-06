@@ -1,3 +1,4 @@
+import {createSession as createSessionCommand,submitMessage as submitMessageCommand} from "@vibeone/client-contracts";
 import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -339,11 +340,7 @@ function NewSession({ workbench, online, act, onCreated }) {
     event.preventDefault();
     setBusy(true);
     const result = await act(() =>
-      workbench.call("/sessions", {
-        provider: profile?.provider ?? provider,
-        workspace,
-        ...(profile ? { profileId: profile.id } : {}),
-      }),
+      workbench.call(...createSessionCommand(profile?.provider ?? provider,workspace,profile?.id)),
     );
     setBusy(false);
     if (result) onCreated(result.id);
@@ -540,12 +537,7 @@ function Conversation({ session, workbench, online, act }) {
     setFollowing(true);
     setSending(true);
     const result = await act(() =>
-      workbench.call(`/sessions/${session.id}/messages`, {
-        text: draft,
-        files: fileReferences,
-        attachments: attachmentDraft.items.map(item=>item.id),
-        key: (requestKey.current ??= crypto.randomUUID()),
-      }),
+      workbench.call(...submitMessageCommand(session.id,draft,fileReferences,attachmentDraft.items.map(item=>item.id),(requestKey.current ??= crypto.randomUUID()))),
     );
     if (result) {
       setDraft("");

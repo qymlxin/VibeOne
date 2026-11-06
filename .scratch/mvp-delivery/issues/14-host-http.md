@@ -36,3 +36,5 @@ Blocked by: 07, 09, 10, 11, 12, 13
 2026-11-07：64已补齐持久插件操作：新operations入口返回202，受理时固定代次，幂等重试、状态/结果查询、崩溃中断与不重放已验证。App SDK和桌面按钮已接入；旧invoke同步路径保留兼容。通用DTO生成与完整统一错误码仍待完成，14不标记resolved。
 
 2026-11-07：65补齐HTTP4xx/5xx的Rust错误DTO与稳定code/status/requestId，覆盖鉴权、路由、解析、大小和专用错误码；共享客户端兼容旧主机并保留未知新码。内部领域Result<String>及部分业务HTTP分类仍保留，通用业务DTO生成尚未完成，14继续claimed。
+
+2026-11-07：66完成8组实际HTTP请求及创建/提交/错误回执的Rust源定义、Schema/TypeScript生成、产物漂移检查和正式创建/发送客户端接入。真实Host构造器回归及类型正反例通过。Profile、完整Session/Run/队列响应与内部领域错误分类仍未全部迁移，14继续claimed。

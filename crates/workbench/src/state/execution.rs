@@ -117,7 +117,7 @@ impl Workbench {
         key: Option<String>,
         files: Vec<String>,
         attachment_ids: Vec<String>,
-    ) -> Result<Value, String> {
+    ) -> Result<crate::contracts::SubmitMessageReceipt, String> {
         self.available()?;
         if (text.trim().is_empty() && attachment_ids.is_empty()) || text.len() > 32_768 {
             return Err("输入不能为空且不能超过 32 KiB".into());
@@ -148,9 +148,11 @@ impl Workbench {
             {
                 return Err("同一幂等键不能用于不同输入".into());
             }
-            return Ok(
-                json!({"operationId":run["id"],"queued":run["status"]=="queued","duplicate":true}),
-            );
+            return Ok(crate::contracts::SubmitMessageReceipt {
+                operation_id: run["id"].as_str().ok_or("历史执行回执身份无效")?.into(),
+                queued: run["status"] == "queued",
+                duplicate: true,
+            });
         }
         let needs_lease = entry
             .provider_lease
@@ -234,7 +236,11 @@ impl Workbench {
             return Err(error);
         }
         self.driver(entry.clone());
-        Ok(json!({"operationId":run_id,"queued":queued,"duplicate":false}))
+        Ok(crate::contracts::SubmitMessageReceipt {
+            operation_id: run_id,
+            queued,
+            duplicate: false,
+        })
     }
 
     async fn run_next(self: &Arc<Self>, entry: &Arc<Entry>) -> Result<(), String> {

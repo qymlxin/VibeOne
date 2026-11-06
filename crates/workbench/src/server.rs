@@ -1,3 +1,4 @@
+use crate::contracts::*;
 use crate::{providers::providers, state::Workbench};
 mod errors;
 mod remote;
@@ -27,7 +28,7 @@ struct Server {
     remote: Arc<remote::Remote>,
     is_remote: bool,
 }
-type ApiResult = Result<Json<Value>, (StatusCode, Json<Value>)>;
+type ApiResult<T = Value> = Result<Json<T>, (StatusCode, Json<Value>)>;
 // Keep accepted state mutations alive when a browser closes the request connection.
 async fn command<T: Send + 'static>(
     future: impl std::future::Future<Output = Result<T, String>> + Send + 'static,
@@ -296,13 +297,9 @@ async fn authorize(
     next.run(request).await
 }
 
-#[derive(Deserialize)]
-struct WorkspaceImport {
-    path: String,
-}
 async fn import_workspace(
     State(state): State<Server>,
-    Json(body): Json<WorkspaceImport>,
+    Json(body): Json<WorkspaceImportRequest>,
 ) -> ApiResult {
     command(async move { state.workbench.import_workspace(&body.path).await })
         .await
@@ -457,11 +454,10 @@ async fn plugin_prepare(State(state): State<Server>, Json(body): Json<Value>) ->
         .map(Json)
         .map_err(fail)
 }
-#[derive(Deserialize)]
-struct Ticket {
-    ticket: String,
-}
-async fn plugin_commit(State(state): State<Server>, Json(body): Json<Ticket>) -> ApiResult {
+async fn plugin_commit(
+    State(state): State<Server>,
+    Json(body): Json<PluginTicketRequest>,
+) -> ApiResult {
     command(async move {
         state
             .workbench
@@ -473,7 +469,10 @@ async fn plugin_commit(State(state): State<Server>, Json(body): Json<Ticket>) ->
     .map(Json)
     .map_err(fail)
 }
-async fn plugin_discard(State(state): State<Server>, Json(body): Json<Ticket>) -> Json<Value> {
+async fn plugin_discard(
+    State(state): State<Server>,
+    Json(body): Json<PluginTicketRequest>,
+) -> Json<Value> {
     state.workbench.plugins.discard(&body.ticket);
     Json(json!({"discarded":true}))
 }
@@ -581,19 +580,11 @@ async fn sync_view(
     ))
 }
 
-#[derive(Deserialize)]
-struct Create {
-    provider: String,
-    #[serde(default)]
-    workspace: String,
-    #[serde(rename = "profileId")]
-    profile_id: Option<String>,
-}
 async fn create(
     State(state): State<Server>,
     Extension(identity): Extension<remote::Identity>,
-    Json(body): Json<Create>,
-) -> ApiResult {
+    Json(body): Json<CreateSessionRequest>,
+) -> ApiResult<CreateSessionResponse> {
     let snapshot = state.workbench.snapshot();
     if identity.device.is_some() {
         let workspace = snapshot["workspaces"]
@@ -615,23 +606,14 @@ async fn create(
             .await
     })
     .await
-    .map(|id| Json(json!({"id":id})))
+    .map(|id| Json(CreateSessionResponse { id }))
     .map_err(fail)
-}
-#[derive(Deserialize)]
-struct Submit {
-    text: String,
-    key: Option<String>,
-    #[serde(default)]
-    files: Vec<String>,
-    #[serde(default)]
-    attachments: Vec<String>,
 }
 async fn submit(
     State(state): State<Server>,
     Path(id): Path<String>,
-    Json(body): Json<Submit>,
-) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    Json(body): Json<SubmitMessageRequest>,
+) -> Result<(StatusCode, Json<SubmitMessageReceipt>), (StatusCode, Json<Value>)> {
     command(async move {
         state
             .workbench
@@ -642,17 +624,10 @@ async fn submit(
     .map(|result| (StatusCode::ACCEPTED, Json(result)))
     .map_err(fail)
 }
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct UploadAttachment {
-    name: String,
-    mime_type: String,
-    data: String,
-}
 async fn upload_attachment(
     State(state): State<Server>,
     Path(id): Path<String>,
-    Json(body): Json<UploadAttachment>,
+    Json(body): Json<AttachmentUploadRequest>,
 ) -> ApiResult {
     state
         .workbench
@@ -716,21 +691,10 @@ async fn cancel(State(state): State<Server>, Path(id): Path<String>) -> ApiResul
         .map(|_| Json(json!({"cancelRequested":true})))
         .map_err(fail)
 }
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Queue {
-    withdraw: Option<String>,
-    #[serde(default)]
-    pause: bool,
-    #[serde(default)]
-    resume: bool,
-    #[serde(default)]
-    fresh_context: bool,
-}
 async fn queue(
     State(state): State<Server>,
     Path(id): Path<String>,
-    Json(body): Json<Queue>,
+    Json(body): Json<QueueRequest>,
 ) -> ApiResult {
     command(async move {
         state
@@ -748,15 +712,10 @@ async fn queue(
     .map(|_| Json(json!({"updated":true})))
     .map_err(fail)
 }
-#[derive(Deserialize)]
-struct Metadata {
-    title: Option<String>,
-    archived: Option<bool>,
-}
 async fn metadata(
     State(state): State<Server>,
     Path(id): Path<String>,
-    Json(body): Json<Metadata>,
+    Json(body): Json<UpdateSessionRequest>,
 ) -> ApiResult {
     command(async move {
         state
@@ -768,14 +727,10 @@ async fn metadata(
     .map(|_| Json(json!({"updated":true})))
     .map_err(fail)
 }
-#[derive(Deserialize)]
-struct Decision {
-    option: String,
-}
 async fn decide(
     State(state): State<Server>,
     Path((id, request)): Path<(String, String)>,
-    Json(body): Json<Decision>,
+    Json(body): Json<ApprovalDecisionRequest>,
 ) -> ApiResult {
     command(async move { state.workbench.decide(&id, &request, &body.option).await })
         .await

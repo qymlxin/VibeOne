@@ -1,19 +1,10 @@
 //! One transport error envelope, including router and request-extractor failures.
 use super::*;
+use crate::contracts::HttpErrorResponse;
 use axum::{
     body::{Body, to_bytes},
     http::HeaderValue,
 };
-use serde::Serialize;
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ErrorResponse {
-    pub code: String,
-    pub error: String,
-    pub status: u16,
-    pub request_id: String,
-}
 
 pub(super) fn status_code(status: StatusCode) -> &'static str {
     match status.as_u16() {
@@ -78,7 +69,7 @@ pub(super) async fn normalize(request: axum::extract::Request, next: Next) -> Re
         .and_then(|value| value["error"].as_str())
         .filter(|message| !message.is_empty())
         .unwrap_or_else(|| default_message(parts.status));
-    let envelope = ErrorResponse {
+    let envelope = HttpErrorResponse {
         code: existing.unwrap_or_else(|| status_code(parts.status)).into(),
         error: error.chars().take(4000).collect(),
         status: parts.status.as_u16(),

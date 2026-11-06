@@ -10,6 +10,7 @@ vibeone-agent-client = { path = "../agent-client" }
 vibeone-storage = { path = "../storage" }
 serde.workspace = true
 serde_json.workspace = true
+schemars = { version = "=0.8.22", features = ["derive"] }
 tokio = { workspace = true, features = ["net", "signal", "fs"] }
 uuid.workspace = true
 axum = { version = "0.8", features = ["ws"] }

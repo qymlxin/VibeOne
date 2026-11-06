@@ -93,10 +93,12 @@
 
 - [67-composer-project-skills](issues/67-composer-project-skills.md)：`/` 补齐真实项目 SKILL.md 选择及正文引用发送；保持 ACP/本地命令与 `@` 文件交互，桌面及 HTTPS 手机回归通过。
 
+- [66-generated-request-contracts](issues/66-generated-request-contracts.md)：以实际Rust请求/基本回执生成共享Schema及TypeScript，正式创建/发送接构造器，检查产物漂移与类型反例；完整业务响应仍由14跟进。
+
 ## Fog
 
 
 - 真实Claude认证及该工具的审批/取消仍由本机账号和实际工具能力决定；Codex路径和人工请求可控时间超时已有实测。
 - 物理 iOS/Android 证书信任、弱网、锁屏及 macOS 托盘/系统通知仍待人工验收。
-- 业务DTO生成与完整领域错误分类仍见14；HTTP失败信封已由65交付；插件HTTP持久异步回执、客户端游标投影增量及长历史已独立交付。
+- Profile、完整Session/Run/队列响应类型及完整领域错误分类仍见14；请求和基本回执生成已由66交付；HTTP失败信封已由65交付；插件HTTP持久异步回执、客户端游标投影增量及长历史已独立交付。
 - 公开 SDK 完整 semver/跨插件依赖、跨平台发行、签名公证后置。
