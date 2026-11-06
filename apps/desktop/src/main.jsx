@@ -25,6 +25,7 @@ import { AttachmentPicker,useAttachmentDraft } from "./Attachments.jsx";
 import { recentSessions, sessionGroups } from "./session-groups.js";
 import { AgentConfigControls } from "./AgentConfigControls.jsx";
 import { ComposerInput } from "./ComposerInput.jsx";
+import { commandPanel } from "./composer.js";
 import { useNotifications } from "./notifications.js";
 import { RemoteSettings, PhoneGate } from "./Remote.jsx";
 import { isNative } from "./api.js";
@@ -519,6 +520,8 @@ function Conversation({ session, workbench, online, act }) {
   }, [contentLength, session.tools, session.approvals.length, session.inputs?.length, session.status]);
   const send = async () => {
     if ((!draft.trim()&&!attachmentDraft.items.length) || attachmentDraft.busy || sending || !online || readOnly) return;
+    const panel=commandPanel(draft,session.agentState?.commands);
+    if(panel&&!fileReferences.length&&!attachmentDraft.items.length){setTab(panel);setDraft('');requestKey.current=null;return;}
     followLatest.current = true;
     setFollowing(true);
     setSending(true);

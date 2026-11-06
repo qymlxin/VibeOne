@@ -22,3 +22,10 @@ export function commandOptions(commands, query) {
   return [...agent,...localCommands.filter(item=>!names.has(item.name)).map(item=>({...item,source:'工作台'}))]
     .filter(item=>(item.name+' '+(item.description??'')).toLowerCase().includes(query.toLowerCase())).slice(0,50);
 }
+
+// Only an exact, argument-free workbench command is handled locally.
+export function commandPanel(text, commands) {
+  const match = /^\/([^\s]+)$/.exec(text.trim());
+  if (!match) return null;
+  return commandOptions(commands, '').find(item => item.name === match[1])?.panel ?? null;
+}

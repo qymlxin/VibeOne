@@ -63,6 +63,8 @@
 
 - [50-prototype-attachments](issues/50-prototype-attachments.md)：补齐真实附件存储/上传/预览/下载、图片粘贴拖放及ACP内容块，验证字节哈希、作用域、幂等与恢复；桌面/HTTPS手机回归通过。
 
+- [53-composer-completion](issues/53-composer-completion.md)：补齐直接发送本地指令、未知指令透传与引用目录刷新，真实 Host 桌面和 HTTPS 手机回归通过。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。

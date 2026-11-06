@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {composerToken,replaceToken,commandOptions} from '../apps/desktop/src/composer.js';
+import {composerToken,replaceToken,commandOptions,commandPanel} from '../apps/desktop/src/composer.js';
 test('composer tokens respect caret, whitespace and preserve trailing text',()=>{
   assert.equal(composerToken('https://example.com',19),null);
   assert.equal(composerToken('mail@host',9),null);
@@ -16,6 +16,13 @@ test('commands use current ACP advertisements and never shadow Agent commands',(
   assert.equal(options.find(option=>option.name==='files').source,'Agent');
   assert.equal(commandOptions(null,'终端')[0].panel,'terminal');
   assert.equal(commandOptions([], 'does-not-exist').length,0);
+});
+test('direct send handles only exact local commands and respects upstream names',()=>{
+  assert.equal(commandPanel(' /files\n',[]),'files');
+  assert.equal(commandPanel('/files src',[]),null);
+  assert.equal(commandPanel('请查看 /files',[]),null);
+  assert.equal(commandPanel('/files',[{name:'files'}]),null);
+  assert.equal(commandPanel('/not-advertised',[]),null);
 });
 
 import {codeLines} from '../apps/desktop/src/code-lines.js';

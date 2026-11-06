@@ -148,7 +148,19 @@ test(
     await composer.press('Enter');
     await page.getByRole('heading',{name:'工作区文件',exact:true}).waitFor();
     assert.equal(await composer.inputValue(),'');
+    await composer.fill('/terminal');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    await page.locator('.desktop-right-panel-header strong').getByText('终端',{exact:true}).waitFor();
+    assert.equal(await composer.inputValue(),'');
+    assert.equal(await page.locator('.desktop-message.user').count(),0);
+    await composer.fill('/files');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    await page.getByRole('heading',{name:'工作区文件',exact:true}).waitFor();
     await page.getByRole('button',{name:'引用文件',exact:true}).click();
+    await writeFile(join(directory,'new-reference.txt'),'new file after opening picker');
+    await composer.fill('@new-reference');
+    await page.getByRole('button',{name:'刷新引用目录',exact:true}).click();
+    await page.getByRole('option',{name:/new-reference.txt/}).waitFor();
     await composer.fill('@folder');
     await page.getByRole('option',{name:/folder name/}).click();
     await page.getByRole('option',{name:/child.txt/}).waitFor();
@@ -190,7 +202,7 @@ test(
     await page.getByRole('button',{name:'移除附件 dropped.txt',exact:true}).click();
     await page.screenshot({path:join(tmpdir(),'vibeone-attachment-draft.png')});
     await composer.fill('桌面集成测试 /thought');
-    await page.getByRole("button", { name: "发送消息" }).click();
+    await composer.press('Enter');
     await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000}).catch(async error=>{throw new Error(`${error.message}\nReact errors: ${JSON.stringify(errors)}\n${(await page.locator("body").innerText()).slice(-6000)}`);});
     assert.equal(await page.getByRole('button',{name:'移除引用 preview.txt'}).count(),0);
     assert.equal(await page.getByRole('button',{name:'移除附件 pixel.png'}).count(),0);
