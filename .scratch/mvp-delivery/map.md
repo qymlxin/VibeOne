@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [37 三栏工作台设计稿](issues/37-three-pane-design-review.md)：独立原型分支 `prototype/three-pane-review` 提供会话/对话/右侧工具面板与亮暗预览。仅完成设计稿，正式重构等待用户审阅批准。
+
 - [36 对话导航与语义执行摘要](issues/36-chat-navigation-semantic-events.md)：侧边短线定位当前已加载轮次，提供摘录预览与键盘跳转；读取工具按真实 ACP 类型展示文件名/完整路径，命令保留 Shell 详情。模型、桌面、手机与原生导航验证通过。
 
 - [35 嵌套过程与思考扫光](issues/35-nested-process-shimmer.md)：整轮过程、连续同类工具组与单次详情逐级展开，最终答案独立；实时状态/摘要轻微扫光，完成、离屏、隐藏和减少动画时停止。桌面、手机与原生历史验证通过。
