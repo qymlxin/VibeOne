@@ -16,6 +16,16 @@ pub(crate) enum ErrorKind {
     WorkspaceBusy,
     QueueConflict,
     DeliveryUncertain,
+    AttentionExpired,
+    DecisionConflict,
+    InvalidDecision,
+    InvalidAnswer,
+    UpstreamInvalid,
+    AgentDisconnected,
+    ConfigurationUnsupported,
+    InvalidConfiguration,
+    ConfigurationFailed,
+    SessionBusy,
     ProfileNotFound,
     ProfileConflict,
     ProfileLimit,
@@ -43,6 +53,16 @@ impl ErrorKind {
             Self::WorkspaceBusy => "WORKSPACE_BUSY",
             Self::QueueConflict => "QUEUE_CONFLICT",
             Self::DeliveryUncertain => "DELIVERY_UNCERTAIN",
+            Self::AttentionExpired => "ATTENTION_EXPIRED",
+            Self::DecisionConflict => "DECISION_CONFLICT",
+            Self::InvalidDecision => "INVALID_DECISION",
+            Self::InvalidAnswer => "INVALID_ANSWER",
+            Self::UpstreamInvalid => "UPSTREAM_INVALID",
+            Self::AgentDisconnected => "AGENT_DISCONNECTED",
+            Self::ConfigurationUnsupported => "CONFIGURATION_UNSUPPORTED",
+            Self::InvalidConfiguration => "INVALID_CONFIGURATION",
+            Self::ConfigurationFailed => "CONFIGURATION_FAILED",
+            Self::SessionBusy => "SESSION_BUSY",
             Self::ProfileNotFound => "PROFILE_NOT_FOUND",
             Self::ProfileConflict => "PROFILE_CONFLICT",
             Self::ProfileLimit => "PROFILE_LIMIT_REACHED",
@@ -55,7 +75,13 @@ impl ErrorKind {
     }
     pub(crate) fn status(self) -> u16 {
         match self {
-            Self::InvalidInput | Self::InvalidReference | Self::InvalidAttachment => 400,
+            Self::InvalidInput
+            | Self::InvalidReference
+            | Self::InvalidAttachment
+            | Self::InvalidDecision
+            | Self::InvalidAnswer
+            | Self::ConfigurationUnsupported
+            | Self::InvalidConfiguration => 400,
             Self::ProfileNotFound | Self::WorkspaceNotFound | Self::SessionNotFound => 404,
             Self::WorkspaceForbidden => 403,
             Self::ProfileConflict
@@ -69,8 +95,12 @@ impl ErrorKind {
             | Self::RunLimit
             | Self::WorkspaceBusy
             | Self::QueueConflict => 409,
+            Self::AttentionExpired
+            | Self::DecisionConflict
+            | Self::AgentDisconnected
+            | Self::SessionBusy => 409,
             Self::StorageUnavailable | Self::HostUnavailable | Self::ProviderUnavailable => 503,
-            Self::DeliveryUncertain => 502,
+            Self::DeliveryUncertain | Self::UpstreamInvalid | Self::ConfigurationFailed => 502,
             Self::Internal => 500,
         }
     }

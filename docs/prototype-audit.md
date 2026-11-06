@@ -130,3 +130,5 @@
 最终831.97MiB桌面包及仓库外smoke通过；包内Host SHA256：`057749b00ffb2f6dbc47a7d2b2453d4e901ba8a2f3ba784c31d22c0c8ab70afa`。未重启正在使用的用户Host。
 
 79：发送、停止和队列迁移明确领域错误；实际HTTP验证稳定身份及拒绝不新增Run，真实SQLite验证存储错误不泄露路径且释放预留租约；空会话新上下文选择不再崩溃。完整check含53项Node、workspace Rust（Workbench24项）、23项Host及恢复通过，Clippy/格式、桌面62.7秒、HTTPS手机23.6秒、831.99MiB包及仓库外smoke通过。包内Host SHA256为`798a35bd4e0b8910e2b03786ab42949b90545675043ccbabd03d942513fd78ea`。未操作用户Host，14和52继续保持未完成。
+
+80：审批、补充输入、配置及元数据迁移具名错误；投递未确认保持持久状态，同内容不重放，公开回答错误不含填写值，配置实际收到RPC后断开HTTP仍完成且只投递一次。另复现并修复后到的取消事件误把uncertain变为sent，SDK接收标记及虚拟时钟有专门验证。最终完整check（53项Node、workspace Rust含28项Workbench、25项Host及恢复）、Clippy/格式、桌面62.3秒、HTTPS手机23.6秒和832.13MiB包/仓库外smoke通过。SVG已渲染查看，包内Host SHA256为`5267edc40b9464dc632f2bbe6db2f826b4b9866d7f8d458626297d9b7e865148`。未操作用户Host，不替代原生/认证/物理设备待验；14、52未完成。

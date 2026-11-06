@@ -18,6 +18,23 @@ use std::{
 };
 use tokio::sync::oneshot;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputValidationError {
+    Expired,
+    InvalidAnswer,
+    InvalidSchema,
+}
+impl std::fmt::Display for InputValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Expired => "补充输入已失效或已处理",
+            Self::InvalidAnswer => "输入不符合要求，请检查字段与选项",
+            Self::InvalidSchema => "Agent 的输入要求无效，请检查诊断",
+        })
+    }
+}
+impl std::error::Error for InputValidationError {}
+
 /// Initialize only: no session/new, prompt, authentication or permission grants.
 /// Dropping the bounded SDK transport tears down its process group.
 pub async fn probe(command: PathBuf, args: Vec<String>) -> Result<Value, i32> {
@@ -251,9 +268,9 @@ impl AgentSession {
                           pending.insert(id.clone(),Input{schema:requested,reply:tx}); }
                         input_sink(json!({"type":"input","id":id,"request":request})).await.map_err(|error|Error::internal_error().data(error))?;
                         let cancellation=responder.cancellation().clone();
-                        let answer={let _waiting=input_wait.waiting_for_human();tokio::select! { value=rx=>value.unwrap_or_else(|_|json!({"action":"cancel"})), _=cancellation.cancelled()=>json!({"action":"cancel"}), _=tokio::time::sleep(Duration::from_secs(600))=>json!({"action":"cancel"}) }};
+                        let (answer,received)={let _waiting=input_wait.waiting_for_human();tokio::select! { value=rx=>match value {Ok(answer)=>(answer,true),Err(_)=>(json!({"action":"cancel"}),false)}, _=cancellation.cancelled()=>(json!({"action":"cancel"}),false), _=tokio::time::sleep(Duration::from_secs(600))=>(json!({"action":"cancel"}),false) }};
                         input_pending.lock().expect("inputs poisoned").remove(&id);
-                        input_sink(json!({"type":"input_resolved","id":id})).await.map_err(|error|Error::internal_error().data(error))?;
+                        input_sink(json!({"type":"input_resolved","id":id,"received":received})).await.map_err(|error|Error::internal_error().data(error))?;
                         responder.respond(serde_json::from_value(answer).map_err(|error|Error::invalid_params().data(error.to_string()))?)
                     }, agent_client_protocol::on_receive_request!(),
                 )
@@ -410,24 +427,29 @@ impl AgentInteractions {
             .clear();
     }
     pub fn validate_input(&self, id: &str, answer: &Value) -> Result<(), String> {
+        self.check_input(id, answer)
+            .map_err(|error| error.to_string())
+    }
+    pub fn check_input(&self, id: &str, answer: &Value) -> Result<(), InputValidationError> {
         let pending = self.inputs.lock().expect("inputs poisoned");
-        let input = pending.get(id).ok_or("补充输入已失效或已处理")?;
+        let input = pending.get(id).ok_or(InputValidationError::Expired)?;
         if !matches!(
             answer["action"].as_str(),
             Some("accept" | "decline" | "cancel")
         ) {
-            return Err("补充输入操作无效".into());
+            return Err(InputValidationError::InvalidAnswer);
         }
         if answer["action"] == "accept"
             && let Some(schema) = &input.schema
         {
-            let validator = jsonschema::validator_for(schema).map_err(|error| error.to_string())?;
+            let validator = jsonschema::validator_for(schema)
+                .map_err(|_| InputValidationError::InvalidSchema)?;
             validator
                 .validate(&answer["content"])
-                .map_err(|error| format!("输入不符合要求：{error}"))?;
+                .map_err(|_| InputValidationError::InvalidAnswer)?;
         }
         serde_json::from_value::<schema::CreateElicitationResponse>(answer.clone())
-            .map_err(|error| error.to_string())?;
+            .map_err(|_| InputValidationError::InvalidAnswer)?;
         Ok(())
     }
     pub fn answer(&self, id: &str, answer: Value) -> Result<(), String> {
@@ -472,5 +494,36 @@ impl Drop for AgentSession {
         } else {
             self.task.abort();
         }
+    }
+}
+
+#[cfg(test)]
+mod input_validation_tests {
+    use super::*;
+    #[test]
+    fn validation_is_private_typed_and_delivery_can_fail_after_a_valid_answer() {
+        let interactions = AgentInteractions::default();
+        assert_eq!(
+            interactions.check_input("missing", &json!({"action":"cancel"})),
+            Err(InputValidationError::Expired)
+        );
+        let (reply, receiver) = oneshot::channel();
+        interactions.inputs.lock().unwrap().insert("input".into(),Input {schema:Some(json!({"type":"object","properties":{"name":{"type":"string"}},"required":["name"]})),reply});
+        let invalid = interactions
+            .check_input(
+                "input",
+                &json!({"action":"accept","content":{"name":{"secret":"PRIVATE_TEST_VALUE"}}}),
+            )
+            .unwrap_err();
+        assert_eq!(invalid, InputValidationError::InvalidAnswer);
+        assert!(!invalid.to_string().contains("PRIVATE_TEST_VALUE"));
+        let answer = json!({"action":"accept","content":{"name":"valid"}});
+        assert_eq!(interactions.check_input("input", &answer), Ok(()));
+        drop(receiver);
+        assert!(interactions.answer("input", answer).is_err());
+        assert_eq!(
+            interactions.check_input("input", &json!({"action":"cancel"})),
+            Err(InputValidationError::Expired)
+        );
     }
 }

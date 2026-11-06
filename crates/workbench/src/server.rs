@@ -404,16 +404,24 @@ async fn configure_agent(
     Path(id): Path<String>,
     Json(body): Json<Value>,
 ) -> ApiResult {
-    state
-        .workbench
-        .configure(
-            &id,
-            body["id"].as_str().ok_or_else(|| fail("请选择配置项"))?,
-            body["value"].clone(),
-        )
-        .await
-        .map(|_| Json(json!({"updated":true})))
-        .map_err(fail)
+    let config_id = body["id"]
+        .as_str()
+        .ok_or_else(|| {
+            domain_fail(crate::domain_error::DomainError::new(
+                crate::domain_error::ErrorKind::InvalidInput,
+                "请选择配置项",
+            ))
+        })?
+        .to_owned();
+    domain_command(async move {
+        state
+            .workbench
+            .configure(&id, &config_id, body["value"].clone())
+            .await
+    })
+    .await
+    .map(|_| Json(json!({"updated":true})))
+    .map_err(domain_fail)
 }
 async fn artifacts(State(state): State<Server>, Path(id): Path<String>) -> Json<Value> {
     Json(state.workbench.artifacts(&id))
@@ -762,7 +770,7 @@ async fn metadata(
     Path(id): Path<String>,
     Json(body): Json<UpdateSessionRequest>,
 ) -> ApiResult {
-    command(async move {
+    domain_command(async move {
         state
             .workbench
             .metadata(&id, body.title, body.archived)
@@ -770,27 +778,27 @@ async fn metadata(
     })
     .await
     .map(|_| Json(json!({"updated":true})))
-    .map_err(fail)
+    .map_err(domain_fail)
 }
 async fn decide(
     State(state): State<Server>,
     Path((id, request)): Path<(String, String)>,
     Json(body): Json<ApprovalDecisionRequest>,
 ) -> ApiResult {
-    command(async move { state.workbench.decide(&id, &request, &body.option).await })
+    domain_command(async move { state.workbench.decide(&id, &request, &body.option).await })
         .await
         .map(|_| Json(json!({"submitted":true})))
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn answer(
     State(state): State<Server>,
     Path((id, request)): Path<(String, String)>,
     Json(body): Json<Value>,
 ) -> ApiResult {
-    command(async move { state.workbench.answer(&id, &request, body).await })
+    domain_command(async move { state.workbench.answer(&id, &request, body).await })
         .await
         .map(|_| Json(json!({"submitted":true})))
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn shutdown(State(state): State<Server>) -> Json<Value> {
     state.workbench.stop().await;

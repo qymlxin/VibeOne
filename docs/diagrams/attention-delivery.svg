@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="410" viewBox="0 0 1000 410" role="img" aria-labelledby="title desc">
+<title id="title">人工决定的受理与投递</title><desc id="desc">校验后先保存决定，再向ACP回调投递。重复同内容复用记录，不同内容冲突，投递失败保存未确认状态，不自动重放。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#555"/></marker></defs>
+<rect width="1000" height="410" rx="12" fill="#fafafa"/>
+<g font-family="system-ui,sans-serif" font-size="14" fill="#222"><text x="28" y="36" font-size="20" font-weight="600">审批 / 补充信息：保存决定与投递结果是两件事</text>
+<g fill="#fff" stroke="#aaa"><rect x="28" y="95" width="200" height="90" rx="8"/><rect x="290" y="95" width="280" height="90" rx="8"/><rect x="658" y="95" width="314" height="90" rx="8"/><rect x="290" y="250" width="280" height="90" rx="8"/><rect x="658" y="250" width="314" height="90" rx="8"/></g>
+<text x="43" y="122" font-weight="600">桌面 / 获准手机</text><text x="43" y="149">HTTP 提交选项或回答</text><text x="43" y="172">成功仅表示已受理</text>
+<text x="306" y="122" font-weight="600">Host · 请求锁内校验</text><text x="306" y="149">权限、过期、选项 / Schema</text><text x="306" y="172">无效输入不消费人工请求</text>
+<text x="674" y="122" font-weight="600">SQLite · 唯一决定</text><text x="674" y="149">先保存 pending，再投递 ACP 回调</text><text x="674" y="172">数据库失败：停止，不投递</text>
+<text x="306" y="277" font-weight="600">重复提交</text><text x="306" y="304">同内容复用；不同内容返回 409</text><text x="306" y="327">未确认的同内容仍返回未确认</text>
+<text x="674" y="277" font-weight="600">投递结果异步回到 Host</text><text x="674" y="304">回调接收：sent；失败：uncertain</text><text x="674" y="327">WS 通知 → 客户端读取最新状态</text>
+<g fill="none" stroke="#555" marker-end="url(#arrow)"><path d="M228 140H282"/><path d="M570 140H650"/><path d="M430 185V242"/><path d="M815 185V242"/><path d="M658 295H578"/></g>
+<text x="582" y="122" font-size="11">持久写入</text><text x="28" y="380" fill="#666">决定保存不等于工具动作完成；未确认不自动重放。上游原始校验错误和用户回答值不进入公开错误提示。</text></g></svg>

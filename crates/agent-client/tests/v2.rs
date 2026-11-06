@@ -256,7 +256,8 @@ async fn initialization_resumes_work_timeout_after_human_answer() {
             serde_json::json!({"action":"accept","content":{"name":"ready"}}),
         )
         .unwrap();
-    until(&mut events, |event| event["type"] == "input_resolved").await;
+    let resolved = until(&mut events, |event| event["type"] == "input_resolved").await;
+    assert_eq!(resolved["received"], true);
     tokio::time::pause();
     tokio::time::advance(Duration::from_secs(31)).await;
     tokio::task::yield_now().await;
@@ -280,7 +281,8 @@ async fn initialization_human_request_still_expires_and_rejects_late_answers() {
     tokio::time::advance(Duration::from_secs(601)).await;
     tokio::task::yield_now().await;
     tokio::time::resume();
-    until(&mut events, |event| event["type"] == "input_resolved").await;
+    let resolved = until(&mut events, |event| event["type"] == "input_resolved").await;
+    assert_eq!(resolved["received"], false);
     assert!(
         control
             .answer(

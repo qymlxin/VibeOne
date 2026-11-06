@@ -264,3 +264,7 @@ Host 快照通过 `features: ["queuePause"]` 声明支持，旧主机的暂停�
 ## HTTP失败契约
 
 HTTP4xx/5xx统一使用Rust错误DTO输出code/error/status/requestId，客户端HostRequestError保留原身份和旧主机兼容。鉴权、路由、参数、正文和专用业务错误均走同一信封，保留真实HTTP状态；内部领域错误与业务DTO生成仍分步完善。见[HTTP错误契约](http-errors.md)。
+
+## 人工决定与会话控制错误
+
+审批和补充信息明确区分无效输入、过期、已保存决定冲突及投递未确认。保存后的投递失败持久标记uncertain，同内容重试不重放，也不把未确认结果变为成功。配置更新使用独立命令任务，客户端断开不撤销已开始的操作；已声明select/boolean先校验值，归档、执行、排队、恢复或其他配置更新期间拒绝冲突写入。详细错误码、验证边界及服务流程图见[HTTP错误契约](http-errors.md)。

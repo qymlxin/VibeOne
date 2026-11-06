@@ -119,6 +119,8 @@
 
 - [79-execution-domain-errors](issues/79-execution-domain-errors.md)：发送/停止/队列领域错误、附件受理存储身份及空会话新上下文修复完成；完整check、桌面/手机、Clippy与包外检查通过。人工决定及其余旧领域错误仍由14继续。
 
+- [80-attention-session-errors](issues/80-attention-session-errors.md)：人工决定与配置/元数据领域错误、未确认不重放、回答错误隐私和配置断线完成已交付；取消事件误记sent有红/绿修复。完整check、桌面/手机、Clippy与包外检查通过，其余旧业务错误由14继续。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

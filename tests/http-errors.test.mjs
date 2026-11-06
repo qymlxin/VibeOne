@@ -94,3 +94,78 @@ test('execution domain failures reject work with stable codes before creating re
  await failure(path+'/messages',{text:'overflow'},409,'RUN_LIMIT_REACHED');
  await call(path+'/cancel',{});await wait(first.id,item=>item.status==='idle'&&item.stopReason==='cancelled'&&item.queuePaused);
 });
+
+test('human decisions and session controls expose typed conflicts without consuming invalid answers',{timeout:25000},async t=>{
+ const {connection,call,directory,wait}=await host(t);
+ const failure=async(path,body,status,code)=>{
+  const response=await fetch(connection.url+'/v1'+path,{method:'POST',headers:{Authorization:`Bearer ${connection.token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const value=await response.json();assert.equal(response.status,status,JSON.stringify(value));assert.equal(value.code,code);assert.equal(value.status,status);return value;
+ };
+ for(const suffix of ['approvals/none','inputs/none','configure','metadata']){
+  await failure('/sessions/missing/'+suffix,suffix==='configure'?{id:'mode',value:'safe'}:suffix==='metadata'?{title:'new'}:suffix.startsWith('inputs')?{action:'cancel'}:{option:'allow'},404,'SESSION_NOT_FOUND');
+ }
+ const {id}=await call('/sessions',{provider:'demo',workspace:directory});const base=`/sessions/${id}`;
+ await failure(base+'/metadata',{title:' '},400,'INVALID_INPUT');
+ const send=async text=>{const result=await call(base+'/messages',{text});return result.operationId;};
+ const ended=runId=>wait(id,s=>s.runs.some(run=>run.id===runId&&run.status==='completed'));
+ await ended(await send('warmup'));
+ await failure(base+'/configure',{id:'missing',value:'safe'},400,'CONFIGURATION_UNSUPPORTED');
+ await failure(base+'/configure',{id:'mode',value:'private-invalid-choice'},400,'INVALID_CONFIGURATION');
+ await call(base+'/configure',{id:'mode',value:'normal'});
+ const approvedRun=await send('/approve');const approval=(await wait(id,s=>s.approvals.length===1)).approvals[0];
+ await failure(base+'/configure',{id:'mode',value:'safe'},409,'CONFIGURATION_BUSY');
+ await failure(base+'/metadata',{archived:true},409,'SESSION_BUSY');
+ await failure(base+`/approvals/${approval.id}`,{option:'not-advertised'},400,'INVALID_DECISION');
+ assert.equal((await call('/snapshot')).sessions.find(s=>s.id===id).approvals.length,1);
+ await call(base+`/approvals/${approval.id}`,{option:'allow'});
+ await call(base+`/approvals/${approval.id}`,{option:'allow'});
+ await failure(base+`/approvals/${approval.id}`,{option:'reject'},409,'DECISION_CONFLICT');
+ await ended(approvedRun);
+ const inputRun=await send('/input');const input=(await wait(id,s=>s.inputs.length===1)).inputs[0];
+ const invalid=await failure(base+`/inputs/${input.id}`,{action:'accept',content:{name:{secret:'PRIVATE_ANSWER_MARKER'}}},400,'INVALID_ANSWER');
+ assert.equal(JSON.stringify(invalid).includes('PRIVATE_ANSWER_MARKER'),false);
+ assert.equal((await call('/snapshot')).sessions.find(s=>s.id===id).inputs.length,1);
+ const answer={action:'accept',content:{name:'valid-name'}};
+ await call(base+`/inputs/${input.id}`,answer);await call(base+`/inputs/${input.id}`,answer);
+ await failure(base+`/inputs/${input.id}`,{action:'cancel'},409,'DECISION_CONFLICT');
+ const answered=await ended(inputRun);assert.equal(answered.decisions.filter(item=>item.requestId===input.id).length,1);
+ await send('/input');const abandoned=(await wait(id,s=>s.inputs.length===1)).inputs[0];
+ await call(base+'/cancel',{});await wait(id,s=>s.status==='idle'&&s.stopReason==='cancelled');
+ await failure(base+`/inputs/${abandoned.id}`,answer,409,'ATTENTION_EXPIRED');
+ await failure(base+'/approvals/missing',{option:'allow'},409,'ATTENTION_EXPIRED');
+ await call(base+'/metadata',{archived:true});
+ await failure(base+'/configure',{id:'mode',value:'safe'},409,'CONFIGURATION_BUSY');
+ const {resolve}=await import('node:path');
+ const profile=await call('/profiles',{name:'reject-config',provider:'demo',command:process.execPath,args:[resolve('crates/agent-client/fixtures/demo-agent.mjs'),'--reject-config']});
+ const other=await call('/sessions',{provider:'demo',workspace:directory,profileId:profile.id});
+ const receipt=await call(`/sessions/${other.id}/messages`,{text:'warmup'});
+ await wait(other.id,s=>s.runs.some(run=>run.id===receipt.operationId&&run.status==='completed'));
+ const rejected=await failure(`/sessions/${other.id}/configure`,{id:'mode',value:'normal'},502,'CONFIGURATION_FAILED');
+ assert.equal(JSON.stringify(rejected).includes('Fixture rejected'),false);
+});
+
+test('accepted configuration survives HTTP disconnect and blocks conflicting writes while waiting for ACP',{timeout:18000},async t=>{
+ const {join,resolve}=await import('node:path');
+ const {readFile,writeFile}=await import('node:fs/promises');
+ const {setTimeout:sleep}=await import('node:timers/promises');
+ const {connection,call,directory,wait}=await host(t);
+ const trace=join(directory,'config.trace'),release=join(directory,'config.release');
+ const profile=await call('/profiles',{name:'gated-config',provider:'demo',command:process.execPath,args:[resolve('tests/fixtures/config-gated-agent.mjs'),trace,release]});
+ const {id}=await call('/sessions',{provider:'demo',workspace:directory,profileId:profile.id});
+ const {operationId}=await call(`/sessions/${id}/messages`,{text:'warmup'});
+ await wait(id,s=>s.runs.some(run=>run.id===operationId&&run.status==='completed'));
+ const controller=new AbortController();
+ const pending=fetch(connection.url+`/v1/sessions/${id}/configure`,{method:'POST',headers:{Authorization:`Bearer ${connection.token}`,'Content-Type':'application/json'},body:JSON.stringify({id:'mode',value:'normal'}),signal:controller.signal}).then(response=>({status:response.status}),()=>({aborted:true}));
+ t.after(()=>controller.abort());
+ let seen=false;for(let attempt=0;attempt<150;attempt++){try{seen=(await readFile(trace,'utf8')).includes('normal');if(seen)break;}catch{}await sleep(20);}
+ assert.ok(seen,'Agent must actually receive configuration before the client disconnects');
+ for(const [suffix,body,code] of [['configure',{id:'mode',value:'safe'},'CONFIGURATION_BUSY'],['messages',{text:'must-not-run'},'CONFIGURATION_BUSY'],['metadata',{archived:true},'SESSION_BUSY']]){
+  const response=await fetch(connection.url+`/v1/sessions/${id}/`+suffix,{method:'POST',headers:{Authorization:`Bearer ${connection.token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  assert.equal(response.status,409);assert.equal((await response.json()).code,code);
+ }
+ controller.abort();assert.equal((await pending).aborted,true);
+ await writeFile(release,'release');
+ const updated=await wait(id,s=>s.agentState.configOptions.some(option=>option.configId==='mode'&&option.currentValue==='normal'));
+ assert.equal(updated.runs.length,1);assert.equal(updated.archived,false);
+ assert.equal((await readFile(trace,'utf8')).trim().split('\n').length,1,'configuration is delivered once');
+});

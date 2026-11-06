@@ -9,7 +9,7 @@
 | [原上下文恢复](upstream-context-resume.md) | 显式选择原生上下文、下一轮连接、失败处理及 ACP v2 服务流程 |
 | [CLI配置选择](cli-profiles.md) | 列出配置、按ID检查环境和创建会话，共享Host修订与权限 |
 | [Agent环境探测](provider-probe.md) | 初始化握手、版本能力、CLI登录状态及认证引导 |
-| [HTTP错误契约](http-errors.md) | 统一错误信封、稳定错误码、响应身份和旧主机兼容 |
+| [HTTP错误契约](http-errors.md) | 统一错误信封、领域错误、人工决定投递与配置断线处理 |
 | [插件后台操作回执](plugin-operations.md) | 202受理、幂等、持久结果、断线对账及重启中断 |
 | [游标增量同步](cursor-sync.md) | WS通知、HTTP授权增量、快照恢复与客户端去重 |
 | [持久会话历史](conversation-history.md) | 完整档案、分页、旧数据回填与阅读位置 |

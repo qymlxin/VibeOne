@@ -737,7 +737,12 @@ impl Workbench {
                 .iter_mut()
                 .find(|item| event["id"] == item.request_id)
         {
-            decision.delivery = "sent".into();
+            decision.delivery = if event["received"] == true {
+                "sent"
+            } else {
+                "uncertain"
+            }
+            .into();
         }
         event["runEnded"] = json!(was_active && !view.active);
         self.commit(entry, view, "agent.update", &event).await?;
@@ -884,5 +889,57 @@ impl Workbench {
         }
         self.driver(entry.clone());
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod input_delivery_tests {
+    use super::*;
+    #[tokio::test]
+    async fn cancelled_input_resolution_cannot_upgrade_an_uncertain_decision_to_sent() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(
+            directory.path(),
+            vec![Provider {
+                id: "demo".into(),
+                name: "Demo".into(),
+                available: true,
+                description: String::new(),
+                command: PathBuf::from("unused"),
+                args: vec![],
+            }],
+        )
+        .await
+        .unwrap();
+        let id = workbench
+            .create("demo", directory.path().to_str().unwrap(), None)
+            .await
+            .unwrap();
+        let entry = workbench.entry(&id).unwrap();
+        entry.view.lock().unwrap().decisions.push(serde_json::from_value(json!({"id":"saved-input","requestId":"input","answer":{"action":"accept","content":{"name":"value"}},"delivery":"uncertain"})).unwrap());
+        workbench
+            .apply_event(
+                &entry,
+                0,
+                "connection",
+                json!({"type":"input_resolved","id":"input","received":false}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            entry.view.lock().unwrap().decisions[0].delivery,
+            "uncertain"
+        );
+        workbench
+            .apply_event(
+                &entry,
+                0,
+                "connection",
+                json!({"type":"input_resolved","id":"input","received":true}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(entry.view.lock().unwrap().decisions[0].delivery, "sent");
+        workbench.close().await;
     }
 }

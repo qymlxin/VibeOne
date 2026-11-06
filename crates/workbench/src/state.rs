@@ -579,10 +579,16 @@ impl Workbench {
         self.changed(cursor);
         Ok(id)
     }
-    pub async fn decide(&self, id: &str, request: &str, option: &str) -> Result<(), String> {
-        self.available()?;
-        let entry = self.entry(id)?;
+    pub(crate) async fn decide(
+        &self,
+        id: &str,
+        request: &str,
+        option: &str,
+    ) -> Result<(), DomainError> {
+        self.command_available()?;
+        let entry = self.command_entry(id)?;
         let _gate = entry.gate.lock().await;
+        self.command_available()?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
         if let Some(decision) = view
             .decisions
@@ -590,22 +596,31 @@ impl Workbench {
             .find(|item| item.request_id == request)
         {
             return if decision.option.as_deref() == Some(option) {
-                Ok(())
+                decision_receipt(&decision.delivery)
             } else {
-                Err("该请求已选择其他选项".into())
+                Err(DomainError::new(
+                    ErrorKind::DecisionConflict,
+                    "该请求已选择其他选项",
+                ))
             };
         }
         let approval = view
             .approvals
             .iter()
             .find(|approval| approval.id == request)
-            .ok_or("审批已失效或已处理")?;
+            .ok_or_else(|| DomainError::new(ErrorKind::AttentionExpired, "审批已失效或已处理"))?;
+        if approval
+            .expires_at
+            .is_some_and(|expires| expires <= execution::now())
+        {
+            return Err(DomainError::new(ErrorKind::AttentionExpired, "审批已过期"));
+        }
         if !approval
             .options
             .as_ref()
             .is_some_and(|options| options.iter().any(|item| item.option_id == option))
         {
-            return Err("审批选项无效".into());
+            return Err(DomainError::new(ErrorKind::InvalidDecision, "审批选项无效"));
         }
         view.approvals.retain(|approval| approval.id != request);
         let connection = entry
@@ -613,7 +628,9 @@ impl Workbench {
             .lock()
             .expect("interactions poisoned")
             .clone()
-            .ok_or("Agent 未连接")?;
+            .ok_or_else(|| {
+                DomainError::new(ErrorKind::AgentDisconnected, "Agent 未连接，请检查会话状态")
+            })?;
         view.decisions.push(crate::contracts::DecisionRecord {
             id: uuid::Uuid::new_v4().to_string(),
             request_id: request.into(),
@@ -630,31 +647,25 @@ impl Workbench {
             "approval.submitted",
             &json!({"requestId":request,"option":option}),
         )
-        .await?;
-        if let Err(error) = connection.decide(request, option) {
-            let mut view = entry.view.lock().expect("view poisoned").clone();
-            if let Some(decision) = view
-                .decisions
-                .iter_mut()
-                .find(|item| item.request_id == request)
-            {
-                decision.delivery = "uncertain".into();
-            }
-            self.commit(
-                &entry,
-                view,
-                "approval.delivery_uncertain",
-                &json!({"requestId":request}),
-            )
-            .await?;
-            return Err(error);
+        .await
+        .map_err(|_| DomainError::storage())?;
+        if connection.decide(request, option).is_err() {
+            self.attention_delivery_uncertain(&entry, request, "approval.delivery_uncertain")
+                .await?;
+            return Err(decision_delivery_error());
         }
         Ok(())
     }
-    pub async fn answer(&self, id: &str, request: &str, answer: Value) -> Result<(), String> {
-        self.available()?;
-        let entry = self.entry(id)?;
+    pub(crate) async fn answer(
+        &self,
+        id: &str,
+        request: &str,
+        answer: Value,
+    ) -> Result<(), DomainError> {
+        self.command_available()?;
+        let entry = self.command_entry(id)?;
         let _gate = entry.gate.lock().await;
+        self.command_available()?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
         if let Some(previous) = view
             .decisions
@@ -662,21 +673,44 @@ impl Workbench {
             .find(|item| item.request_id == request)
         {
             return if previous.answer.as_ref() == Some(&answer) {
-                Ok(())
+                decision_receipt(&previous.delivery)
             } else {
-                Err("该问题已提交其他回答".into())
+                Err(DomainError::new(
+                    ErrorKind::DecisionConflict,
+                    "该问题已提交其他回答",
+                ))
             };
         }
-        if !view.inputs.iter().any(|input| input.id == request) {
-            return Err("补充输入已失效或已处理".into());
+        if !view.inputs.iter().any(|input| {
+            input.id == request
+                && !input
+                    .expires_at
+                    .is_some_and(|expires| expires <= execution::now())
+        }) {
+            return Err(DomainError::new(
+                ErrorKind::AttentionExpired,
+                "补充输入已失效或已处理",
+            ));
         }
         let connection = entry
             .interactions
             .lock()
             .expect("interactions poisoned")
             .clone()
-            .ok_or("Agent 未连接")?;
-        connection.validate_input(request, &answer)?;
+            .ok_or_else(|| {
+                DomainError::new(ErrorKind::AgentDisconnected, "Agent 未连接，请检查会话状态")
+            })?;
+        connection.check_input(request, &answer).map_err(|error| {
+            use vibeone_agent_client::InputValidationError;
+            DomainError::new(
+                match error {
+                    InputValidationError::Expired => ErrorKind::AttentionExpired,
+                    InputValidationError::InvalidAnswer => ErrorKind::InvalidAnswer,
+                    InputValidationError::InvalidSchema => ErrorKind::UpstreamInvalid,
+                },
+                error.to_string(),
+            )
+        })?;
         view.inputs.retain(|input| input.id != request);
         view.decisions.push(crate::contracts::DecisionRecord {
             id: uuid::Uuid::new_v4().to_string(),
@@ -693,42 +727,78 @@ impl Workbench {
             "input.submitted",
             &json!({"requestId":request}),
         )
-        .await?;
-        connection.answer(request, answer)
+        .await
+        .map_err(|_| DomainError::storage())?;
+        if connection.answer(request, answer).is_err() {
+            self.attention_delivery_uncertain(&entry, request, "input.delivery_uncertain")
+                .await?;
+            return Err(decision_delivery_error());
+        }
+        Ok(())
     }
-    pub async fn configure(&self, id: &str, config_id: &str, value: Value) -> Result<(), String> {
-        self.available()?;
-        let entry = self.entry(id)?;
+    pub(crate) async fn configure(
+        &self,
+        id: &str,
+        config_id: &str,
+        value: Value,
+    ) -> Result<(), DomainError> {
+        self.command_available()?;
+        let entry = self.command_entry(id)?;
         let connection = {
             let _gate = entry.gate.lock().await;
+            self.command_available()?;
             let view = entry.view.lock().expect("view poisoned");
             if view.active
                 || !view.queue.is_empty()
                 || view.history_only
+                || view.archived
+                || matches!(
+                    view.agent_state["contextRestoreState"].as_str(),
+                    Some("pending" | "restoring")
+                )
                 || entry.configuring.load(Ordering::SeqCst)
             {
-                return Err("请在当前执行与队列结束后修改配置".into());
+                return Err(DomainError::new(
+                    ErrorKind::ConfigurationBusy,
+                    "请在当前执行、队列及上下文恢复结束且取消归档后修改配置",
+                ));
             }
-            if !view.agent_state["configOptions"]
+            let option = view.agent_state["configOptions"]
                 .as_array()
-                .is_some_and(|options| options.iter().any(|option| option["configId"] == config_id))
-            {
-                return Err("配置项不存在或 Agent 未声明支持".into());
-            }
+                .and_then(|options| {
+                    options
+                        .iter()
+                        .find(|option| option["configId"] == config_id)
+                })
+                .ok_or_else(|| {
+                    DomainError::new(
+                        ErrorKind::ConfigurationUnsupported,
+                        "配置项不存在或 Agent 未声明支持",
+                    )
+                })?;
+            validate_config_value(option, &value)?;
             let connection = entry
                 .connection
                 .lock()
                 .expect("connection poisoned")
                 .clone()
-                .ok_or("Agent 未连接")?;
+                .ok_or_else(|| {
+                    DomainError::new(ErrorKind::AgentDisconnected, "Agent 未连接，请检查会话状态")
+                })?;
             entry.configuring.store(true, Ordering::SeqCst);
             connection
         };
         let _reset = FlagReset(&entry.configuring);
         let result = connection.configure(config_id, value).await;
         let _gate = entry.gate.lock().await;
+        self.command_available()?;
         entry.configuring.store(false, Ordering::SeqCst);
-        let response = result?;
+        let response = result.map_err(|_| {
+            DomainError::new(
+                ErrorKind::ConfigurationFailed,
+                "Agent 配置更新未确认，请刷新实际配置后重试",
+            )
+        })?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
         view.agent_state["configOptions"] = response["configOptions"].clone();
         self.commit(
@@ -738,36 +808,64 @@ impl Workbench {
             &json!({"configId":config_id}),
         )
         .await
+        .map_err(|_| DomainError::storage())
     }
-    pub async fn metadata(
+    pub(crate) async fn metadata(
         &self,
         id: &str,
         title: Option<String>,
         archived: Option<bool>,
-    ) -> Result<(), String> {
-        self.available()?;
-        let entry = self.entry(id)?;
+    ) -> Result<(), DomainError> {
+        self.command_available()?;
+        let entry = self.command_entry(id)?;
         let _gate = entry.gate.lock().await;
+        self.command_available()?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
         if let Some(title) = title {
             let title = title.trim();
             if title.is_empty() || title.chars().count() > 120 {
-                return Err("会话标题须为 1–120 个字符".into());
+                return Err(DomainError::new(
+                    ErrorKind::InvalidInput,
+                    "会话标题须为 1–120 个字符",
+                ));
             }
             view.title = title.into();
         }
         if let Some(archived) = archived {
             if view.active
+                || entry.configuring.load(Ordering::SeqCst)
                 || !view.queue.is_empty()
                 || !view.approvals.is_empty()
                 || !view.inputs.is_empty()
             {
-                return Err("请先完成或停止运行并清空队列".into());
+                return Err(DomainError::new(
+                    ErrorKind::SessionBusy,
+                    "请先完成或停止运行并清空队列",
+                ));
             }
             view.archived = archived;
         }
         self.commit(&entry, view, "session.metadata_updated", &json!({}))
             .await
+            .map_err(|_| DomainError::storage())
+    }
+    async fn attention_delivery_uncertain(
+        &self,
+        entry: &Entry,
+        request: &str,
+        event: &str,
+    ) -> Result<(), DomainError> {
+        let mut view = entry.view.lock().expect("view poisoned").clone();
+        if let Some(decision) = view
+            .decisions
+            .iter_mut()
+            .find(|item| item.request_id == request)
+        {
+            decision.delivery = "uncertain".into();
+        }
+        self.commit(entry, view, event, &json!({"requestId":request}))
+            .await
+            .map_err(|_| DomainError::storage())
     }
     pub async fn stop(&self) {
         if self.stopping.swap(true, Ordering::SeqCst) {
@@ -1059,5 +1157,203 @@ mod cancel_gap_tests {
         assert!(!entry.view.lock().unwrap().active);
         assert!(entry.view.lock().unwrap().messages.is_empty());
         workbench.close().await;
+    }
+}
+
+fn decision_delivery_error() -> DomainError {
+    DomainError::new(
+        ErrorKind::DeliveryUncertain,
+        "决定已保存，但投递未确认，请查看执行状态；不会自动重发",
+    )
+}
+fn decision_receipt(delivery: &str) -> Result<(), DomainError> {
+    if matches!(delivery, "pending" | "sent") {
+        Ok(())
+    } else {
+        Err(decision_delivery_error())
+    }
+}
+fn validate_config_value(option: &Value, value: &Value) -> Result<(), DomainError> {
+    let kind = option["type"].as_str();
+    let supplied = if value.is_object()
+        && ((kind == Some("select") && value["type"] == "id")
+            || (kind == Some("boolean") && value["type"] == "boolean"))
+    {
+        &value["value"]
+    } else {
+        value
+    };
+    let valid = match kind {
+        Some("boolean") => supplied.is_boolean(),
+        Some("select") => {
+            supplied.is_string()
+                && option["options"].as_array().is_some_and(|options| {
+                    options.iter().any(|item| {
+                        if let Some(group) = item["options"].as_array() {
+                            group.iter().any(|choice| choice["value"] == *supplied)
+                        } else {
+                            item["value"] == *supplied
+                        }
+                    })
+                })
+        }
+        // Future/custom ACP value kinds remain the upstream Agent's responsibility.
+        _ => true,
+    };
+    if valid {
+        Ok(())
+    } else {
+        Err(DomainError::new(
+            ErrorKind::InvalidConfiguration,
+            "配置值不在 Agent 声明的选项中或类型不符，请刷新后选择",
+        ))
+    }
+}
+
+#[cfg(test)]
+mod attention_command_tests {
+    use super::*;
+    async fn setup() -> (tempfile::TempDir, Arc<Workbench>, String) {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(
+            directory.path(),
+            vec![Provider {
+                id: "demo".into(),
+                name: "Demo".into(),
+                available: true,
+                description: String::new(),
+                command: PathBuf::from("unused"),
+                args: vec![],
+            }],
+        )
+        .await
+        .unwrap();
+        let id = workbench
+            .create("demo", directory.path().to_str().unwrap(), None)
+            .await
+            .unwrap();
+        (directory, workbench, id)
+    }
+    fn approval() -> crate::contracts::PendingRequest {
+        serde_json::from_value(json!({"id":"permission","options":[{"optionId":"allow","name":"Allow","kind":"allow_once"}]})).unwrap()
+    }
+    #[tokio::test]
+    async fn missing_permission_callback_keeps_a_durable_uncertain_receipt_and_never_replays() {
+        let (_directory, workbench, id) = setup().await;
+        let entry = workbench.entry(&id).unwrap();
+        entry.view.lock().unwrap().approvals.push(approval());
+        // Simulate a timeout that removed its callback before the projection catches up.
+        *entry.interactions.lock().unwrap() = Some(Arc::new(AgentInteractions::default()));
+        assert_eq!(
+            workbench
+                .decide(&id, "permission", "allow")
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::DeliveryUncertain
+        );
+        let revision = entry.revision.load(Ordering::SeqCst);
+        assert_eq!(
+            workbench
+                .decide(&id, "permission", "allow")
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::DeliveryUncertain
+        );
+        assert_eq!(entry.revision.load(Ordering::SeqCst), revision);
+        assert_eq!(
+            workbench
+                .decide(&id, "permission", "reject")
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::DecisionConflict
+        );
+        let saved = workbench.store.sessions().await.unwrap();
+        let view = &saved.iter().find(|item| item.id == id).unwrap().snapshot;
+        assert_eq!(view["decisions"].as_array().unwrap().len(), 1);
+        assert_eq!(view["decisions"][0]["delivery"], "uncertain");
+        assert_eq!(view["approvals"], json!([]));
+        // Input uses the same durable transition after a send failure.
+        let answer = json!({"action":"cancel"});
+        entry.view.lock().unwrap().decisions.push(serde_json::from_value(json!({"id":"decision-input","requestId":"input","delivery":"pending","answer":answer})).unwrap());
+        workbench
+            .attention_delivery_uncertain(&entry, "input", "input.delivery_uncertain")
+            .await
+            .unwrap();
+        assert_eq!(
+            workbench
+                .answer(&id, "input", answer)
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::DeliveryUncertain
+        );
+        let saved = workbench.store.sessions().await.unwrap();
+        assert!(
+            saved.iter().find(|item| item.id == id).unwrap().snapshot["decisions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| item["requestId"] == "input" && item["delivery"] == "uncertain")
+        );
+        workbench.close().await;
+    }
+    #[tokio::test]
+    async fn storage_failure_and_expiry_never_consume_an_approval_or_publish_a_decision() {
+        for expired in [false, true] {
+            let (_directory, workbench, id) = setup().await;
+            let entry = workbench.entry(&id).unwrap();
+            let mut pending = approval();
+            if expired {
+                pending.expires_at = Some(1);
+            }
+            entry.view.lock().unwrap().approvals.push(pending);
+            *entry.interactions.lock().unwrap() = Some(Arc::new(AgentInteractions::default()));
+            if !expired {
+                workbench.store.close().await;
+            }
+            let result = workbench
+                .decide(&id, "permission", "allow")
+                .await
+                .unwrap_err();
+            assert_eq!(
+                result.kind,
+                if expired {
+                    ErrorKind::AttentionExpired
+                } else {
+                    ErrorKind::StorageUnavailable
+                }
+            );
+            {
+                let view = entry.view.lock().unwrap();
+                assert_eq!(view.approvals.len(), 1);
+                assert!(view.decisions.is_empty());
+            }
+            workbench.close().await;
+        }
+    }
+    #[test]
+    fn known_config_values_validate_grouped_selects_and_boolean_types() {
+        let select =
+            json!({"type":"select","options":[{"group":"models","options":[{"value":"model-a"}]}]});
+        assert!(validate_config_value(&select, &json!("model-a")).is_ok());
+        assert!(validate_config_value(&select, &json!({"type":"id","value":"model-a"})).is_ok());
+        assert_eq!(
+            validate_config_value(&select, &json!("unknown"))
+                .unwrap_err()
+                .kind,
+            ErrorKind::InvalidConfiguration
+        );
+        assert!(validate_config_value(&json!({"type":"boolean"}), &json!(false)).is_ok());
+        assert!(validate_config_value(&json!({"type":"boolean"}), &json!("false")).is_err());
+        assert!(
+            validate_config_value(
+                &json!({"type":"_future"}),
+                &json!({"type":"_future","value":3})
+            )
+            .is_ok()
+        );
     }
 }
