@@ -209,6 +209,6 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 ## 原型逐项审计与资源独立性（52/55/56）
 
-已按批准原型逐个核对工作台、工具面板及八类设置控件，遗漏的目录路径导入已补齐并通过桌面真实Host回归。桌面包增加完整锁定桥接器闭包，当前macOS调试产物827.29MiB；`npm run bundle:smoke`通过仓库外副本证明两个v2握手、CLI启动、可信HTTPS页面、Worker上下文、插件Provider及历史均不依赖开发目录。最终完整check通过，workspace/原生Clippy通过；SVG已做XML与浏览器渲染检查。
+已按批准原型逐个核对工作台、工具面板及八类设置控件，遗漏的目录路径导入已补齐并通过桌面真实Host回归。桌面包增加完整锁定桥接器闭包，当前macOS调试产物827.31MiB；`npm run bundle:smoke`通过仓库外副本证明两个v2握手、CLI启动、可信HTTPS页面、Worker上下文、插件Provider及历史均不依赖开发目录。最终完整check通过，workspace/原生Clippy通过；SVG已做XML与浏览器渲染检查。
 
 原生窗口仍被Mac锁屏阻止，尚未切换用户正在运行的旧Host；未终止其会话或丢弃草稿。真实Codex固定文本对话复验通过，Claude仍未认证。完整矩阵与待验步骤见[原型逐项验收](prototype-audit.md)，此处不把这些人工项改成通过。

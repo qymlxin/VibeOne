@@ -87,9 +87,11 @@ async function run(sessionId, prompt, userId, epoch, blocks=[]) {
       state(sessionId,'requires_action');
       const id=`input:${++sequence}`;
       const answer=new Promise(resolve=>pending.set(id,{sessionId,resolve}));
-      send({id,method:'elicitation/create',params:{mode:'form',sessionId,message:'请输入演示项目名称',requestedSchema:{type:'object',properties:{name:{type:'string',minLength:2,title:'项目名称'}},required:['name']}}});
+      const choices=prompt.includes('/input-choices'),complex=prompt.includes('/input-json');
+      const requestedSchema=choices?{type:'object',properties:{color:{type:'string',title:'选择颜色',oneOf:[{const:'blue',title:'蓝色',description:'使用蓝色方案'},{const:'green',title:'绿色',description:'使用绿色方案'}]},count:{type:'integer',title:'数量',minimum:1,maximum:10,default:2},notify:{type:'boolean',title:'启用提醒'},tags:{type:'array',title:'包含内容',items:{type:'string',enum:['code','docs'],enumNames:['代码','文档']}},note:{type:'string',title:'补充说明'}},required:['color','count','notify']} : complex?{type:'object',properties:{config:{type:'object',properties:{enabled:{type:'boolean'}},required:['enabled']}},required:['config']}:{type:'object',properties:{name:{type:'string',minLength:2,title:'项目名称'}},required:['name']};
+      send({id,method:'elicitation/create',params:{mode:'form',sessionId,message:choices?'请选择本轮测试偏好':complex?'请补充复杂配置':'请输入演示项目名称',requestedSchema}});
       const result=await answer;if(!active())return;state(sessionId,'running');
-      response=result?.action==='accept' ? `已收到项目名称：${result.content.name}` : '已取消补充输入。';
+      response=result?.action==='accept' ? choices||complex?`已收到结构化回答：${JSON.stringify(result.content)}`:`已收到项目名称：${result.content.name}` : '已取消补充输入。';
     }
     if (prompt.includes('/approve')) {
       state(sessionId, 'requires_action');

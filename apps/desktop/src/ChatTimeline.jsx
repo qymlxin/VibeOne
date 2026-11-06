@@ -108,7 +108,7 @@ export function ActivityFeed({turn,status,hasInput,onReadHistory}) {
     </button>
     {!expanded && live && <div className="desktop-activity-preview" aria-label="最新处理动态">
       {preview.map(item=><div key={item.id} className={`desktop-activity-preview-row ${item.type}`}><span>{typeLabel[item.type]}</span><span className={motion && item.id===latestThought?'thinking-shimmer':''}>{activityTail(item.text) || '正在接收摘要…'}</span>{item.type==='tool' && <span>{toolStatus[item.item.status] ?? item.item.status}</span>}</div>)}
-      {!preview.length && <div className="desktop-live-status"><span>{turn.answer?.text?'正在接收回复':'Agent 正在处理，等待输出'}</span>{status==='running' && !turn.answer?.text && elapsed>=3 && <small>尚未收到可展示的思考摘要；收到后会自动显示。</small>}</div>}
+      {!preview.length && <div className="desktop-live-status"><span>{hasInput?'等待你处理下方请求后继续。':turn.answer?.text?'正在接收回复':'Agent 正在处理，等待输出'}</span>{!hasInput && status==='running' && !turn.answer?.text && elapsed>=3 && <small>尚未收到可展示的思考摘要；收到后会自动显示。</small>}</div>}
     </div>}
     {expanded && <div className="desktop-activity-history">
       {groups.map(group=>group.type==='tools'?<ToolGroup key={group.id} group={group} onInspect={onReadHistory}/>:group.type==='note'?<div key={group.id} className="desktop-process-note" data-history-order={group.event.item.historyOrder}>{group.event.unknownRole&&<small>历史消息（角色未记录）</small>}<MarkdownBody text={group.event.text}/><Truncated item={group.event.item}/></div>:<ActivityItem key={group.id} activity={group.event} onInspect={onReadHistory}/>)}

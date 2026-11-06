@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="520" viewBox="0 0 1000 520" role="img" aria-labelledby="title desc">
+<title id="title">补充信息请求与回答链路</title><desc id="desc">Agent经stdio ACP发送Schema，Host持久请求后异步同步界面；表单或JSON回答经HTTP提交，Host完整校验后响应原请求。</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#555"/></marker></defs>
+<rect width="1000" height="520" rx="16" fill="#fff"/>
+<g font-family="system-ui,sans-serif" fill="#242424">
+<text x="35" y="39" font-size="21" font-weight="650">按真实字段回答，校验与决定归Host</text>
+<text x="35" y="67" font-size="13" fill="#666">桌面与手机共享请求状态；界面渲染不替代服务端Schema及权限校验</text>
+<g fill="#f4f4f4" stroke="#ddd"><rect x="35" y="96" width="235" height="43" rx="9"/><rect x="380" y="96" width="235" height="43" rx="9"/><rect x="730" y="96" width="235" height="43" rx="9"/></g>
+<g text-anchor="middle" font-size="15" font-weight="600"><text x="152" y="123">Agent</text><text x="497" y="123">Rust Host</text><text x="847" y="123">桌面 / 手机 React</text></g>
+<g stroke="#ddd" stroke-dasharray="5 5"><path d="M152 143V486M497 143V486M847 143V486"/></g>
+<g fill="none" stroke="#555" marker-end="url(#arrow)"><path d="M152 184H497"/><path d="M497 236H847" stroke-dasharray="5 4"/><path d="M847 353H497"/><path d="M497 407H847" stroke-dasharray="5 4"/><path d="M497 465H152" stroke-dasharray="5 4"/></g>
+<g font-size="13"><text x="175" y="174">stdio ACP · elicitation/create</text><text x="523" y="226">WebSocket通知 → HTTP快照</text><text x="523" y="343">HTTP POST /inputs/{requestId}</text><text x="523" y="397">决定受理 / 错误 · 回执异步更新</text><text x="175" y="455">ACP响应 · 原请求（与HTTP回执异步）</text></g>
+<rect x="704" y="264" width="280" height="56" rx="9" fill="#f7f7f7" stroke="#ddd"/><text x="719" y="286" font-size="12">常见字段 → 原生表单</text><text x="719" y="305" font-size="12">复杂Schema → JSON · 保留原始值</text>
+<text x="300" y="378" font-size="12">完整Schema与权限校验</text><text x="300" y="396" font-size="12">事务记录唯一决定</text>
+<rect x="355" y="264" width="280" height="56" rx="9" fill="#f7f7f7" stroke="#ddd"/><text x="370" y="286" font-size="12">登记请求ID、有效期及范围</text><text x="370" y="305" font-size="12">保留上游Schema与原请求身份</text>
+<text x="35" y="506" font-size="12" fill="#666">提交失败保留输入；离线或过期禁止提交；拒绝/取消不要求先填完字段。</text>
+</g></svg>

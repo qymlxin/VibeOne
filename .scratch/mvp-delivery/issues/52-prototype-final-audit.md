@@ -26,3 +26,5 @@ Blocked by: 50, 51
 本轮末再次通过CUA读取dev.vibeone.desktop，仍明确返回Mac locked，已结束本次CUA检查；没有停止实际Host。除外部实机条件外，本轮实现与自动验证已落地。保留claimed，等待可观察的原生窗口和外部认证/设备条件，不能标为resolved。
 
 58/59继续补上真实Codex人工请求验收，并发现和修复提前idle但工具仍运行的取消缺口。真实批准/拒绝、旧请求失效、取消待审批、工具进程退出、只读配置恢复、计划模式结构化输入均已有证据。本轮CUA再次明确Mac locked；未操作用户Host或草稿。原生/Claude/物理手机缺口继续保留，52仍claimed。
+
+61补齐补充信息的实际原生字段、候选选择与JSON回退，并验证局部失败保留、快速连点、离线、过期和停止中禁用。桌面54秒、HTTPS移动23秒回归通过，亮暗与手机操作区截图已核对，包外资源检查通过。只读复查本机Claude auth status为loggedIn=false/authMethod=none；CUA仍明确Mac locked。用户Host可读，5会话、0活动和0队列；未据此替代草稿/原生界面检查或重启它。

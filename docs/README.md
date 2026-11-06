@@ -11,6 +11,7 @@
 | [原型补齐清单](prototype-completion.md) | 批准原型功能的实际交付与待验状态 |
 | [附件与图片](attachments.md) | 上传、持久附件、媒体能力与ACP内容块链路 |
 | [停止执行与进程排空](cancellation.md) | 取消受理、进程清理与新上下文配置恢复 |
+| [补充信息表单](structured-input.md) | 按Agent字段回答、JSON回退、错误保留与提交状态 |
 | [输入框指令与引用](composer-interactions.md) | `/` 指令、`@` 文件引用、键盘操作与发送链路 |
 | [体验与验收](acceptance.md) | 当前可体验功能、自动验证、实机清单与已知边界 |
 | [插件作者指南](plugin-authoring.md) | JS/TS/TSX 创建、构建、打包、Context、扩展点与更新规则 |

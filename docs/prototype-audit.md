@@ -16,7 +16,7 @@
 | W02 | 选择、搜索会话；Cmd/Ctrl+K | `main.jsx`、`SessionIdentity.jsx` | 桌面搜索、无结果、快捷键与焦点自动通过 |
 | W03 | 项目分组、最近列表、添加项目、侧栏开合 | `session-groups.js`、工作区设置 | 项目分组折叠、活动时间持久排序及侧栏自动通过 |
 | W04 | 会话菜单中的命名/归档意图 | 标题处重命名、归档与归档筛选 | 正式操作使用直接入口；桌面与恢复测试自动通过 |
-| W05 | 待处理入口与数量 | `main.jsx` attention列表 | 真实审批/输入请求定位、角色校验和处理回执自动通过 |
+| W05 | 待处理入口与数量 | `main.jsx` attention列表、InputRequest | 审批/输入定位、角色与回执自动通过；61补齐结构化表单、失败保留、连点及过期/离线状态 |
 | W06 | 头像颜色、六种形状、关闭/移出、动画 | `SessionIdentity.jsx` | 11色/6形、即时更新、设备保存和刷新恢复自动通过；减少动画已有CSS约束 |
 | W07 | 用户输入与回复分段、复制回答 | `ChatTimeline.jsx` | 原始Markdown复制、正文间距及浏览器回归自动通过 |
 | W08 | 整轮过程、同类工具组、单工具详情 | `chat-timeline.js`、`ChatTimeline.jsx`、`ToolDetails.jsx` | 顺序、嵌套折叠、搜索/命令/文件解析、旧数据兼容自动通过 |
@@ -83,13 +83,13 @@
 | `npm run remote:test` | 23秒通过：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
 | `cargo clippy --workspace --all-targets -- -D warnings` | 通过 |
 | 原生Cargo测试 / Clippy | 4项测试通过；原生Clippy通过；系统回调的实际窗口观察仍未完成 |
-| `npm run desktop:bundle` | 通过，当前macOS调试包827.29MiB；包标识dev.vibeone.desktop，最低系统10.15 |
+| `npm run desktop:bundle` | 通过，当前macOS调试包827.31MiB；包标识dev.vibeone.desktop，最低系统10.15 |
 | `npm run bundle:smoke` | 通过：复制全部资源到仓库外，两个桥接器v2握手和原生CLI启动、可信HTTPS网页、Worker反向调用、插件Provider及历史 |
 | `npm run agent:smoke -- codex claude` | Codex目标文本/end_turn通过；Claude失败，Authentication required，未冒充双工具完成 |
 | `npm run agent:controls` / `-- --input-only` | 真实Codex批准/拒绝、取消待审批、旧请求失效、进程退出、只读恢复及结构化输入通过 |
 | `cargo test -p vibeone-agent-client` | 全5项通过，新增真实stdio请求配合可控时钟验证600秒超时及迟到答案失效；客户端Clippy通过 |
 
-包内Host SHA-256：`7ca41a9a19c810c5134fd6d8c4afb11965d6e1a55c7738bdbfd93b6b119ecdbd`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
+包内Host SHA-256：`b3e7ff86ed91849e8169dc060e59f9244525248fe06bf2edd94d4ca52da024f7`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
 
 ## 解锁后的原生核对顺序
 

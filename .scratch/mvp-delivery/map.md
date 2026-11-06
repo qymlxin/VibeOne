@@ -81,6 +81,8 @@
 
 - [60-interaction-timeouts](issues/60-interaction-timeouts.md)：真实stdio权限及输入请求等待后推进Tokio时钟601秒，验证超时解除和迟到答案拒绝；客户端全5项及Clippy通过。04真实审批票由此完成。
 
+- [61-structured-input-form](issues/61-structured-input-form.md)：补齐原生结构化控件、JSON回退及失败/连点/离线/过期/停止状态；桌面和HTTPS移动回归、类型单元与打包通过。原生窗口仍待解锁。
+
 ## Fog
 
 - 真实Claude认证及该工具的审批/取消仍由本机账号和实际工具能力决定；Codex路径和人工请求可控时间超时已有实测。

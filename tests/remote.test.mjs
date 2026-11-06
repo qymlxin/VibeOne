@@ -184,6 +184,20 @@ test(
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-mobile.png')});
     await page.getByText('本轮执行结束',{exact:true}).waitFor();
 
+    await page.getByRole('textbox',{name:'发送任务'}).fill('/input-choices');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    const inputPanel=page.getByRole('region',{name:'需要补充信息',exact:true});
+    await inputPanel.getByRole('radio',{name:/绿色/}).check();
+    await inputPanel.getByRole('checkbox',{name:/启用提醒/}).check();
+    await inputPanel.getByRole('radio',{name:/绿色/}).scrollIntoViewIfNeeded();
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-structured-input-mobile.png')});
+    assert.ok(await inputPanel.getByRole('button',{name:'提交回答',exact:true}).evaluate(node=>node.getBoundingClientRect().height>=44));
+    await inputPanel.getByRole('button',{name:'提交回答',exact:true}).scrollIntoViewIfNeeded();
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-structured-input-mobile-actions.png')});
+    await inputPanel.getByRole('button',{name:'提交回答',exact:true}).click();
+    await page.getByText('已收到结构化回答：{"color":"green","count":2,"notify":true}',{exact:true}).waitFor();
+
     await page.getByRole('textbox',{name:'发送任务'}).fill('/rich-tools');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
     await page.getByText('工具视图演示已完成。没有搜索网页或执行命令。',{exact:true}).waitFor();

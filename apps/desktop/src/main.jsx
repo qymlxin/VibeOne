@@ -62,6 +62,12 @@ const labels = {
   interrupted: "已中断",
   error: "执行失败",
 };
+function sessionLabel(session) {
+  if (session.inputs?.length && ["starting", "running", "requires_action"].includes(session.status)) {
+    return session.approvals?.length ? "等待处理" : "等待补充信息";
+  }
+  return labels[session.status] ?? session.status;
+}
 function savedTheme() {
   try {
     return localStorage.getItem("vibeone-theme") || "system";
@@ -137,7 +143,7 @@ function App() {
       return null;
     }
   };
-  const renderSession=item=><SessionRow key={item.id} item={item} selected={!creating&&item.id===selected} provider={workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={labels[item.status]??item.status} onSelect={()=>{setSelected(item.id);setCreating(false);setShowList(false);setSettings(false);}}/>;
+  const renderSession=item=><SessionRow key={item.id} item={item} selected={!creating&&item.id===selected} provider={workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={sessionLabel(item)} onSelect={()=>{setSelected(item.id);setCreating(false);setShowList(false);setSettings(false);}}/>;
   return (
     <div className={`desktop-app ${showList ? "mobile-list" : ""} ${settings?"settings-open":""} ${sidebarOpen?"":"sidebar-closed"}`}>
       <aside className="desktop-sidebar">
@@ -611,13 +617,13 @@ function Conversation({ session, workbench, online, act }) {
           </p>
         </div>
         <span
-          className={`desktop-status ${session.status === "requires_action" ? "attention" : ""}`}
+          className={`desktop-status ${session.status === "requires_action" || session.inputs?.length ? "attention" : ""}`}
         >
           {active ? (
             <LoaderCircle
               size={13}
               className={
-                session.status === "requires_action" ? "" : "desktop-spin"
+                session.status === "requires_action" || session.inputs?.length ? "" : "desktop-spin"
               }
             />
           ) : ["error", "disconnected"].includes(session.status) ? (
@@ -625,7 +631,7 @@ function Conversation({ session, workbench, online, act }) {
           ) : (
             <Check size={13} />
           )}
-          {labels[session.status] ?? session.status}
+          {sessionLabel(session)}
         </span>
       </header>
       <nav className="desktop-session-tabs" aria-label="会话视图">

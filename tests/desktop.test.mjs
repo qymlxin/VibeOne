@@ -328,12 +328,50 @@ test(
     await page.getByRole("textbox", { name: "发送任务" }).fill("/input");
     await page.getByRole("button", { name: "发送消息", exact: true }).click();
     await page
-      .getByRole("textbox", { name: "补充输入 JSON" })
-      .fill(JSON.stringify({ name: "desktop-input" }));
+      .getByRole("textbox", { name: /项目名称/ })
+      .fill("desktop-input");
     await page.getByRole("button", { name: "提交回答", exact: true }).click();
     await page
       .getByText("已收到项目名称：desktop-input", { exact: true })
       .waitFor();
+    await composer.fill('/input-choices');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    const inputPanel=page.getByRole('region',{name:'需要补充信息',exact:true});
+    await page.locator('.desktop-status').getByText('等待补充信息',{exact:true}).waitFor();
+    await page.getByText('等待你处理下方请求后继续。',{exact:true}).waitFor();
+    assert.equal(await inputPanel.getByRole('radio',{name:/蓝色/}).isChecked(),false);
+    await inputPanel.getByRole('radio',{name:/蓝色/}).check();
+    await inputPanel.getByRole('radio',{name:/蓝色/}).press('ArrowDown');
+    assert.equal(await inputPanel.getByRole('radio',{name:/绿色/}).isChecked(),true);
+    await inputPanel.getByRole('radio',{name:/绿色/}).press('ArrowUp');
+    await inputPanel.getByRole('spinbutton',{name:/数量/}).fill('3');
+    await inputPanel.getByRole('checkbox',{name:/启用提醒/}).check();
+    await inputPanel.getByRole('checkbox',{name:'code',exact:true}).check();
+    await inputPanel.getByRole('button',{name:'使用JSON输入',exact:true}).click();
+    assert.deepEqual(JSON.parse(await inputPanel.getByRole('textbox',{name:'补充输入 JSON'}).inputValue()),{color:'blue',count:3,notify:true,tags:['code']});
+    await inputPanel.getByRole('button',{name:'返回表单',exact:true}).click();
+    await page.route('**/v1/sessions/*/inputs/*',route=>route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'测试：稍后再提交'})}));
+    await inputPanel.getByRole('button',{name:'提交回答',exact:true}).click();
+    await inputPanel.getByRole('alert').getByText('测试：稍后再提交',{exact:true}).waitFor();
+    assert.equal(await inputPanel.getByRole('radio',{name:/蓝色/}).isChecked(),true);
+    await page.unroute('**/v1/sessions/*/inputs/*');
+    await inputPanel.getByRole('radio',{name:/蓝色/}).scrollIntoViewIfNeeded();
+    await page.screenshot({path:join(tmpdir(),'vibeone-structured-input-light.png')});
+    await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('dark');
+    assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
+    await page.screenshot({path:join(tmpdir(),'vibeone-structured-input-dark.png')});
+    await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('light');
+    await inputPanel.getByRole('button',{name:'提交回答',exact:true}).click();
+    await page.getByText('已收到结构化回答：{"color":"blue","count":3,"notify":true,"tags":["code"]}',{exact:true}).waitFor();
+    await composer.fill('/input-json');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    await inputPanel.getByRole('textbox',{name:'补充输入 JSON'}).fill('{invalid');
+    await inputPanel.getByRole('button',{name:'提交回答',exact:true}).click();
+    await inputPanel.getByRole('alert').getByText('JSON格式有误，请检查后再提交',{exact:true}).waitFor();
+    await inputPanel.getByRole('textbox',{name:'补充输入 JSON'}).fill('{"config":{"enabled":true}}');
+    await inputPanel.getByRole('button',{name:'提交回答',exact:true}).click();
+    await page.getByText('已收到结构化回答：{"config":{"enabled":true}}',{exact:true}).waitFor();
+
     await page.getByRole("textbox", { name: "发送任务" }).fill("/wait");
     await page.getByRole("button", { name: "发送消息" }).click();
     await page.waitForFunction(() =>
@@ -760,6 +798,40 @@ test(
     assert.equal(await rail.getByRole('button').count(),200);
     assert.ok(await page.locator('[data-history-nav-fixture] .desktop-conversation-marks').evaluate(node=>node.scrollTop>0));
     await page.evaluate(()=>{window.__navFixture.root.unmount();window.__navFixture.mount.remove();delete window.__navFixture;});
+    // Exercise the real form component's rapid submission and local-only states.
+    await page.evaluate(async()=>{
+      const React=window.__vibeoneReact,{createRoot}=window.__vibeoneReactDOMClient,{InputRequest}=await import('/src/InputRequest.jsx');
+      const mount=document.createElement('div');mount.dataset.inputFixture='true';Object.assign(mount.style,{position:'fixed',inset:'12px',padding:'12px',overflow:'auto',zIndex:1000,background:'var(--surface)',color:'var(--ink)'});document.body.append(mount);
+      const root=createRoot(mount),calls=[],releases=[];
+      const workbench={call:async(path,body)=>{calls.push({path,body});return new Promise(resolve=>releases.push(resolve));}};
+      window.__inputFixture={root,mount,calls,releases,render:(request,online=true,status='idle')=>root.render(React.createElement(InputRequest,{key:request.id,request,session:{id:'fixture',status},workbench,online,act:operation=>operation()}))};
+      window.__inputFixture.render({id:'rapid',mode:'form',message:'测试长内容、可选字段与提交状态。'.repeat(12),requestedSchema:{type:'object',properties:{list:{type:'array',title:'批量选项',items:{type:'string',enum:Array.from({length:8},(_,index)=>`option${index}`)}},flag:{type:'boolean',title:'可选开关'},secret:{type:'string',title:'私密回答',_meta:{codex:{isSecret:true}}}}}});
+    });
+    const fixture=page.locator('[data-input-fixture]');
+    await fixture.getByRole('listbox',{name:/批量选项/}).selectOption(['0','7']);
+    await fixture.getByRole('combobox',{name:/可选开关/}).selectOption('false');
+    assert.equal(await fixture.locator('input[type=password]').count(),1);
+    assert.equal(await fixture.locator('input[type=password]').getAttribute('autocomplete'),'off');
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await fixture.evaluate(node=>node.scrollWidth<=node.clientWidth),true);
+    await fixture.getByRole('button',{name:'提交回答',exact:true}).evaluate(button=>{for(let index=0;index<10;index++)button.click();});
+    await page.waitForFunction(()=>window.__inputFixture.calls.length===1);
+    assert.deepEqual(await page.evaluate(()=>window.__inputFixture.calls[0].body.content),{flag:false,list:['option0','option7']});
+    assert.equal(await fixture.getByRole('button',{name:'正在提交…',exact:true}).isDisabled(),true);
+    await page.evaluate(()=>window.__inputFixture.releases[0]({accepted:true}));
+    await fixture.getByText('已交给主机',{exact:true}).waitFor();
+    assert.equal(await fixture.getByRole('button',{name:'提交回答',exact:true}).isDisabled(),true);
+    await page.evaluate(()=>window.__inputFixture.render({id:'offline',mode:'form',message:'离线测试',requestedSchema:{type:'object',properties:{}}},false));
+    await fixture.getByText('当前无法提交，请检查连接或设备操作权限。',{exact:true}).waitFor();
+    assert.equal(await fixture.getByRole('button',{name:'取消',exact:true}).isDisabled(),true);
+    await page.evaluate(()=>window.__inputFixture.render({id:'stopping',mode:'form',message:'停止中的请求',requestedSchema:{type:'object',properties:{}}},true,'cancelling'));
+    await fixture.getByText('正在停止，无法提交回答。',{exact:true}).waitFor();
+    assert.equal(await fixture.getByRole('button',{name:'提交回答',exact:true}).isDisabled(),true);
+    await page.evaluate(()=>window.__inputFixture.render({id:'expired',mode:'form',message:'过期测试',expiresAt:Date.now()+100,requestedSchema:{type:'object',properties:{}}}));
+    await fixture.getByText('已过期',{exact:true}).waitFor();
+    assert.equal(await fixture.getByRole('button',{name:'提交回答',exact:true}).isDisabled(),true);
+    await page.evaluate(()=>{window.__inputFixture.root.unmount();window.__inputFixture.mount.remove();delete window.__inputFixture;});
+    await page.setViewportSize({width:1360,height:900});
     assert.deepEqual(errors, []);
     assert.equal(
       await page.evaluate(
