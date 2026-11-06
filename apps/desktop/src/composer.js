@@ -10,6 +10,13 @@ export function composerToken(text, caret) {
 export function replaceToken(text, token, value) {
   return text.slice(0,token.start)+value+text.slice(token.end);
 }
+export function referenceOptions(entries, query, skills = [], directory = '') {
+  const needle=query.toLowerCase();
+  const files=(entries??[]).filter(item=>['file','directory'].includes(item.kind)&&item.name.toLowerCase().includes(needle))
+    .sort((a,b)=>(a.kind==='directory'?0:1)-(b.kind==='directory'?0:1)||a.name.localeCompare(b.name));
+  const matchingSkills=directory?[]:skills.filter(item=>(item.name+' '+item.path).toLowerCase().includes(needle));
+  return [...files,...matchingSkills];
+}
 export const localCommands = [
   {name:'files',description:'打开工作区文件',panel:'files'},
   {name:'changes',description:'查看工作区变更',panel:'changes'},

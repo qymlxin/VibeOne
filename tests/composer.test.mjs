@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {composerToken,replaceToken,commandOptions,commandPanel} from '../apps/desktop/src/composer.js';
+import {composerToken,replaceToken,commandOptions,commandPanel,referenceOptions} from '../apps/desktop/src/composer.js';
 test('composer tokens respect caret, whitespace and preserve trailing text',()=>{
   assert.equal(composerToken('https://example.com',19),null);
   assert.equal(composerToken('mail@host',9),null);
@@ -73,4 +73,14 @@ test('project skill discovery uses authorized paths, ignores symlinks and preser
 test('skill discovery reports real read failures rather than presenting a false empty catalog',async()=>{
  await assert.rejects(discoverComposerSkills(async()=>{throw Error('offline');},'session'),/offline/);
  assert.deepEqual(await discoverComposerSkills(async()=>({entries:[]}), 'session'),[]);
+});
+
+test('@ groups real files and skills without shadowing names or following links',()=>{
+ const entries=[{name:'review',kind:'file'},{name:'review-dir',kind:'directory'},{name:'review-link',kind:'symlink'}];
+ const skills=[{name:'review',kind:'skill',path:'.agents/skills/review/SKILL.md'}];
+ assert.deepEqual(referenceOptions(entries,'review',skills).map(item=>item.kind),['directory','file','skill']);
+ assert.equal(referenceOptions(entries,'review',skills,'src/').some(item=>item.kind==='skill'),false);
+ assert.equal(referenceOptions(entries,'SKILL.md',skills)[0].path,skills[0].path);
+ assert.deepEqual(referenceOptions(undefined,'missing',skills),[]);
+ assert.deepEqual(entries.map(item=>item.kind),['file','directory','symlink']);
 });

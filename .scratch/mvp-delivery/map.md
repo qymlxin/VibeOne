@@ -113,6 +113,8 @@
 
 - [76-cli-profile-selection](issues/76-cli-profile-selection.md)：配置摘要、CLI按ID探测/创建及本地传输限制已交付，完整回归与包外检查通过；02结合75由此完成。
 
+- [78-composer-context-skills](issues/78-composer-context-skills.md)：`@` 补齐项目技能分组引用、筛选与键盘选择，正文实际进入消息；保持 `/` 指令、目录导航和权限边界，桌面/HTTPS 手机回归通过。
+
 ## Fog
 
 - 最终验收需核对core-functions.md的显式会话恢复要求与当前“新上下文继续”策略；协议能力声明不等于已实现上游上下文恢复。

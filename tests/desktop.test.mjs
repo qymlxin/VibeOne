@@ -176,6 +176,13 @@ test(
     await page.getByRole('heading',{name:'工作区',exact:true,level:1}).waitFor();
     await page.getByRole('button',{name:'返回工作台',exact:true}).click();
     const composer=page.getByRole('textbox',{name:'发送任务'});
+    await composer.fill('@composer-review');
+    await page.getByRole('option',{name:/composer-review/}).waitFor();
+    await page.screenshot({path:join(tmpdir(),'vibeone-composer-at-skills.png')});
+    await composer.press('Tab');
+    assert.equal(await composer.inputValue(),'使用技能「composer-review」处理以下任务：');
+    await page.getByRole('button',{name:'移除引用 .agents/skills/composer-review/SKILL.md'}).click();
+    assert.equal(await page.locator('.desktop-message.user').count(),0,'choosing a reference never submits a task');
     await composer.fill('/composer-review');
     await page.getByRole('option',{name:/composer-review/}).waitFor();
     await page.screenshot({path:join(tmpdir(),'vibeone-composer-skills.png')});
@@ -250,7 +257,7 @@ test(
     await page.evaluate(()=>{const transfer=new DataTransfer();transfer.items.add(new File(['drop fixture'],'dropped.txt',{type:'text/plain'}));document.querySelector('.desktop-composer').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));});
     await page.getByRole('button',{name:'移除附件 dropped.txt',exact:true}).click();
     await page.screenshot({path:join(tmpdir(),'vibeone-attachment-draft.png')});
-    await composer.fill('/composer-review');
+    await composer.fill('@composer-review');
     await page.getByRole('option',{name:/composer-review/}).click();
     await composer.fill('桌面集成测试 /thought');
     await composer.press('Enter');
