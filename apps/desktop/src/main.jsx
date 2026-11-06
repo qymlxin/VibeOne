@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowUp,
@@ -29,7 +29,10 @@ import { Management } from "./Management.jsx";
 import { ChatMessage, AgentResponse } from "./ChatTimeline.jsx";
 import { ConversationNav } from "./ConversationNav.jsx";
 import { buildTurns } from "./chat-timeline.js";
-import {SettingsCenter} from "./SettingsCenter.jsx";
+import {SessionRow} from "./SessionIdentity.jsx";
+import {AppearanceSettings,useAppearance} from "./AppearanceSettings.jsx";
+import {readAppearance,applyAppearance} from "./appearance.js";
+const SettingsCenter=lazy(()=>import("./SettingsCenter.jsx").then(module=>({default:module.SettingsCenter})));
 import {SplitHandle} from "./SplitHandle.jsx";
 import {PreviewContext} from "./PreviewLinks.jsx";
 import {BrowserPreview} from "./BrowserPreview.jsx";
@@ -64,6 +67,7 @@ function applyTheme(theme) {
       : theme;
 }
 applyTheme(savedTheme());
+applyAppearance(readAppearance(),document.documentElement.dataset.theme);
 
 function App() {
   const workbench = useWorkbench();
@@ -77,6 +81,8 @@ function App() {
   const [archived, setArchived] = useState(false);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(savedTheme);
+  const appearance=useAppearance(theme);
+  useEffect(()=>{const update=()=>document.documentElement.toggleAttribute('data-motion-paused',document.hidden);document.addEventListener('visibilitychange',update);update();return()=>document.removeEventListener('visibilitychange',update);},[]);
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
     const apply = () => applyTheme(theme);
@@ -175,24 +181,7 @@ function App() {
         <div className="desktop-session-list">
           {sessions.length ? (
             sessions.map((item) => (
-              <button
-                key={item.id}
-                className={`desktop-session ${!creating && item.id === selected ? "selected" : ""}`}
-                onClick={() => {
-                  setSelected(item.id);
-                  setCreating(false);
-                  setShowList(false);
-                  setSettings(false);
-                }}
-              >
-                <strong>{item.title}</strong>
-                <span>
-                  {workbench.providers.find(
-                    (provider) => provider.id === item.provider,
-                  )?.name ?? item.provider}
-                  <small>{labels[item.status] ?? item.status}</small>
-                </span>
-              </button>
+              <SessionRow key={item.id} item={item} selected={!creating&&item.id===selected} provider={workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={labels[item.status]??item.status} onSelect={()=>{setSelected(item.id);setCreating(false);setShowList(false);setSettings(false);}}/>
             ))
           ) : (
             <p className="desktop-list-empty">
@@ -286,7 +275,7 @@ function App() {
           </div>
         )}
         {settings ? (
-          <SettingsCenter workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)}/>
+          <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance}/>}/></Suspense>
         ) : creating || !session ? (
           <NewSession
             workbench={workbench}

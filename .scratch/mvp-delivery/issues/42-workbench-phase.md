@@ -1,8 +1,12 @@
 # 42 · 外观头像与阅读导航
 
-Status: unclaimed
+Status: resolved
 Type: task
 
 ## 范围
 
 按已批准原型实施，详见 docs/workbench-redesign.md。复用真实 Host 链路，每阶段验证、更新文档并提交。
+
+## Answer
+
+外观、头像和阅读导航按批准方案接入正式版，本地偏好持久化且不影响 Agent 权限；颜色反序列化和对比度模型验证通过。新原生图标已生成，设置按需加载，前端生产构建通过。整体交互回归由 43 核对。

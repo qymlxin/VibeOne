@@ -35,7 +35,7 @@ export function ConversationNav({turns,timeline,onNavigate}) {
       if(!node)return;onNavigate();
       const root=timeline.current;root.scrollTop+=node.getBoundingClientRect().top-root.getBoundingClientRect().top-16;
       setActive(entry.id);setPreview(null);
-    }}><span aria-hidden="true"/></button>)}</div>
+    }}><span aria-hidden="true" style={{width:preview===null?8:Math.max(8,38-Math.abs(index-entries.findIndex(item=>item.id===preview))*7)}}/></button>)}</div>
     {selected && <div className="desktop-conversation-preview" id="conversation-nav-preview" role="tooltip"><strong>{selected.title || '空消息'}</strong><p>{selected.answer || '查看这一轮处理过程'}</p></div>}
   </nav>;
 }

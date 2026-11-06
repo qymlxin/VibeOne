@@ -1,6 +1,6 @@
 # 43 · 正式版集成与原生交付
 
-Status: unclaimed
+Status: claimed
 Type: task
 
 ## 范围

@@ -53,3 +53,10 @@ test('preview links separate web URLs and workspace paths, rejecting traversal a
  assert.equal(workspacePath('file:///workspace/src/a.ts','/workspace'),'src/a.ts');
  for(const value of ['../secret','%2e%2e/secret','/other/a','file://remote/workspace/a','https://example.com/a','C:\\private'])assert.equal(workspacePath(value,'/workspace'),null);
 });
+
+import {normalizeAppearance,contrastRatio} from '../apps/desktop/src/appearance.js';
+test('appearance storage accepts only six-digit colors and isolates light and dark values',()=>{
+ const value=normalizeAppearance({accent:'url(javascript:x)',light:{background:'#f4f1eb',foreground:'red'},dark:{foreground:'#FFFFFF'}});
+ assert.equal(value.accent,'#3564F5');assert.deepEqual(value.light,{background:'#f4f1eb'});assert.deepEqual(value.dark,{foreground:'#FFFFFF'});
+ assert.ok(contrastRatio('#FFFFFF','#181818')>17);assert.equal(contrastRatio('#FFFFFF','#FFFFFF'),1);
+});

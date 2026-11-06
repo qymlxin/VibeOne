@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [42 界面偏好](issues/42-workbench-phase.md)：本设备持久外观和头像、距离衰减索引、新原生图标已接入，存储与减少动画回退明确。
+
 - [41 统一设置](issues/41-workbench-phase.md)：八分类设置接回真实业务，Agent 和插件采用列表详情；保留本机/远程管理权限边界。
 
 - [40 侧边工具与预览](issues/40-workbench-phase.md)：真实文件/差异/产物、只读终端、工作区文件链接与隔离网页预览接入，可调整面板宽度。
