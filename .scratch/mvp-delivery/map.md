@@ -73,6 +73,8 @@
 
 - [56-packaged-acp-bridges](issues/56-packaged-acp-bridges.md)：移除桌面包对开发仓库桥接器的隐式依赖，随包复制锁定适配器/生产闭包/本平台CLI；仓库外两个v2握手、CLI、网页、Worker、插件Provider与历史验证通过。
 
+- [52-prototype-final-audit](issues/52-prototype-final-audit.md)：逐控件矩阵已保存，当前自动检查和包外资源验证通过；Mac锁屏、Claude认证及物理设备/系统界面仍未验收，总目标未完成。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。
