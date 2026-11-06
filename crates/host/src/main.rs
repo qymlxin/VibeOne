@@ -27,7 +27,7 @@ async fn run() -> Result<()> {
     }
     if args.is_empty() || args[0] == "--help" {
         println!(
-            "VibeOne Host (P0)\n\n  vibeone-host plugin scan --workspace <directory>\n\nRuns the local workspace-tools plugin through Rust → Node → Rust."
+            "VibeOne Host (P0)\n\n  vibeone-host serve --data-dir <directory>\n  vibeone-host plugin scan --workspace <directory>\n\nserve starts the authenticated local ACP v2 workbench; plugin scan runs Rust → Node → Rust."
         );
         return Ok(());
     }

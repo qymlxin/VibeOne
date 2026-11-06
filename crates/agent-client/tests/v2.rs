@@ -97,3 +97,26 @@ async fn v1_response_is_rejected_instead_of_silent_downgrade() {
     .await;
     assert!(result.is_err());
 }
+
+#[tokio::test]
+async fn malformed_handshake_and_crashed_agent_fail_without_hanging() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/demo-agent.mjs");
+    let result = tokio::time::timeout(
+        Duration::from_secs(5),
+        AgentSession::connect(
+            "node".into(),
+            vec![fixture.to_string_lossy().into_owned(), "--malformed".into()],
+            std::env::current_dir().unwrap(),
+            Arc::new(|_| {}),
+        ),
+    )
+    .await
+    .unwrap();
+    assert!(result.is_err());
+    let (session, mut events) = open(&["--crash"]).await;
+    let result = tokio::time::timeout(Duration::from_secs(5), session.prompt("crash fixture"))
+        .await
+        .unwrap();
+    assert!(result.is_err());
+    until(&mut events, |event| event["type"] == "disconnected").await;
+}

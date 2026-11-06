@@ -59,6 +59,17 @@ impl SessionView {
                     self.status = "idle".into();
                     self.active = false;
                     self.stop_reason = update["stopReason"].as_str().map(str::to_owned);
+                    if update["stopReason"] == "error" {
+                        self.status = "error".into();
+                        self.error = Some(
+                            update["error"]["message"]
+                                .as_str()
+                                .unwrap_or("Agent 报告执行失败，请检查本机工具认证、模型配置或网络")
+                                .chars()
+                                .take(4000)
+                                .collect(),
+                        );
+                    }
                     self.approvals.clear();
                 }
                 Some("idle") => {} // A ready-state update is not completion of a newly submitted prompt.
@@ -175,6 +186,15 @@ mod tests {
             active: true,
             observed_active: false,
         }
+    }
+    #[test]
+    fn idle_error_retains_the_protocol_failure_details() {
+        let mut view = view();
+        view.update(&json!({"sessionUpdate":"state_update","state":"running"}));
+        view.update(&json!({"sessionUpdate":"state_update","state":"idle","stopReason":"error","error":{"code":-32000,"message":"Authentication required"}}));
+        assert_eq!(view.status, "error");
+        assert_eq!(view.error.as_deref(), Some("Authentication required"));
+        assert!(!view.active);
     }
     #[test]
     fn early_idle_does_not_complete_prompt_and_message_snapshots_replace_chunks() {
