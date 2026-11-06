@@ -27,7 +27,8 @@
     "prototype:build": "vite build prototype --outDir ../prototype-dist",
     "storage:test": "cargo build -p vibeone-host && node --test tests/recovery.test.mjs",
     "remote:test": "npm run build:web -w @vibeone/desktop && cargo build -p vibeone-host && node --test tests/remote.test.mjs",
-    "plugin:dev": "node scripts/plugin.mjs"
+    "plugin:dev": "node scripts/plugin.mjs",
+    "agent:controls": "cargo build -p vibeone-host && node scripts/smoke-real-controls.mjs"
   },
   "dependencies": {
     "@tauri-apps/plugin-notification": "^2.8.0",

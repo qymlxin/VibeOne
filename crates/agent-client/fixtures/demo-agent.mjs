@@ -75,8 +75,9 @@ async function run(sessionId, prompt, userId, epoch, blocks=[]) {
       response='演示处理已完成。以上思考摘要与工具事件用于验证实时活动视图，没有读取文件或执行命令。';
     }
     if (prompt.includes('/wait')) {
-      if(process.argv.includes('--stubborn')) {
+      if(process.argv.includes('--stubborn')||process.argv.includes('--idle-with-child')) {
         const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});
+        update(sessionId,{sessionUpdate:'tool_call_update',toolCallId:`child:${userId}`,title:'Fixture child process',status:'in_progress'});
         update(sessionId,{sessionUpdate:'agent_message',messageId:`pid:${userId}`,content:[{type:'text',text:`stubborn-child-pid:${child.pid}`}]});
       }
       while (active()) await sleep(50);
@@ -141,6 +142,7 @@ for await (const line of input) {
       send({id:inputId,method:'elicitation/create',params:{mode:'form',requestId:id,message:'创建会话前的演示输入',requestedSchema:{type:'object',properties:{name:{type:'string',minLength:2}},required:['name']}}});
     }else open();
   } else if (method === 'session/set_config_option') {
+    if(process.argv.includes('--reject-config')){send({id,error:{code:-32602,message:'Fixture rejected restored config'}});continue;}
     if(params.configId!=='mode'||params.type!=='id'||!['safe','normal'].includes(params.value)){send({id,error:{code:-32602,message:'Invalid option'}});continue;}
     update(params.sessionId,{sessionUpdate:'config_option_update',configOptions:configOptions(params.value)});
     send({id,result:{configOptions:configOptions(params.value)}});
@@ -161,6 +163,7 @@ for await (const line of input) {
     send({ id, result: { messageId: userId } });
     void run(params.sessionId, prompt, userId, epoch, params.prompt);
   } else if (method === 'session/cancel' || method === 'session/close') {
+    if(method==='session/close'&&process.argv.includes('--slow-close'))await sleep(1500);
     if(process.argv.includes('--stubborn'))continue;
     const session = sessions.get(params.sessionId);
     if (session) session.epoch++;

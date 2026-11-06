@@ -112,6 +112,55 @@ test("an unresponsive ACP process is closed after the grace period with its chil
   assert.equal(alive,false,"SDK process-group cleanup must also stop the fixture child");
 });
 
+test("cancel drains a child even when the agent acknowledges idle before stopping it",{timeout:20000,skip:process.platform==="win32"},async t=>{
+  const {directory,call,wait}=await host(t);
+  const profile=await call('/profiles',{name:'early idle fixture',provider:'demo',args:[join(directory,'demo-agent.mjs'),'--idle-with-child','--slow-close']});
+  const {id}=await call('/sessions',{provider:'demo',workspace:directory,profileId:profile.id});
+  const peer=await call('/sessions',{provider:'demo',workspace:directory});
+  await call(`/sessions/${id}/messages`,{text:'initialize configuration'});
+  await wait(id,s=>s.stopReason==='end_turn');
+  await call(`/sessions/${id}/cancel`,{});
+  const alreadyFinished=(await call('/snapshot')).sessions.find(s=>s.id===id);
+  assert.equal(alreadyFinished.stopReason,'end_turn');
+  assert.equal(alreadyFinished.queuePaused,false);
+  assert.equal(alreadyFinished.agentState.contextRestartedAt,undefined);
+  await call(`/sessions/${id}/configure`,{id:'mode',value:'normal'});
+  await call(`/sessions/${id}/messages`,{text:'/wait'});
+  const running=await wait(id,s=>s.messages.some(m=>m.text.startsWith('stubborn-child-pid:')));
+  const pid=Number(running.messages.find(m=>m.text.startsWith('stubborn-child-pid:')).text.split(':')[1]);
+  t.after(()=>{try{process.kill(pid,'SIGKILL');}catch{}});
+  await call(`/sessions/${id}/configure`,{id:'mode',value:'normal'},false);
+  await call(`/sessions/${id}/cancel`,{});
+  assert.equal((await call('/snapshot')).sessions.find(s=>s.id===id).status,'cancelling');
+  await call(`/sessions/${peer.id}/messages`,{text:'must not overlap cleanup'},false);
+  const stopped=await wait(id,s=>s.stopReason==='cancelled');
+  assert.ok(stopped.tools.some(tool=>tool.status==='cancelled'));
+  assert.ok(stopped.messages.some(message=>message.text==='initialize configuration'));
+
+  let alive=true;for(let i=0;i<20;i++){try{process.kill(pid,0);}catch{alive=false;break;}await new Promise(resolve=>setTimeout(resolve,30));}
+  assert.equal(alive,false,'idle acknowledgement must not leave the owned subprocess running');
+  const {operationId}=await call(`/sessions/${id}/messages`,{text:'continue after process cleanup'});
+  const continued=await wait(id,s=>s.runs.some(r=>r.id===operationId&&r.status==='completed'));
+  assert.ok(continued.agentState.contextRestartedAt);
+  assert.equal(continued.agentState.configOptions.find(o=>o.configId==='mode').currentValue,'normal');
+});
+
+test('a failed configuration restore never sends the next prompt with default permissions',{timeout:20000,skip:process.platform==='win32'},async t=>{
+  const {directory,call,wait}=await host(t);
+  const profile=await call('/profiles',{name:'reject restored config',provider:'demo',args:[join(directory,'demo-agent.mjs'),'--idle-with-child','--reject-config']});
+  const {id}=await call('/sessions',{provider:'demo',workspace:directory,profileId:profile.id});
+  await call(`/sessions/${id}/messages`,{text:'/wait'});
+  await wait(id,s=>s.messages.some(m=>m.text.startsWith('stubborn-child-pid:')));
+  await call(`/sessions/${id}/cancel`,{});
+  await wait(id,s=>s.stopReason==='cancelled');
+  const {operationId}=await call(`/sessions/${id}/messages`,{text:'MUST_NOT_REACH_AGENT'});
+  const failed=await wait(id,s=>s.runs.some(r=>r.id===operationId&&r.status==='failed'));
+  assert.match(failed.error,/Fixture rejected restored config/);
+  assert.equal(failed.queuePaused,true);
+  assert.equal(failed.agentState.reconnectConfigOptions[0].currentValue,'safe');
+  assert.equal(failed.messages.some(m=>m.role==='assistant'&&m.text.includes('MUST_NOT_REACH_AGENT')),false);
+});
+
 test("request-scoped input can be answered before ACP session creation completes",{timeout:20000},async t=>{
   const {directory,call,wait}=await host(t);
   const profile=await call("/profiles",{name:"session input",provider:"demo",args:[join(directory,"demo-agent.mjs"),"--input-before-session"]});

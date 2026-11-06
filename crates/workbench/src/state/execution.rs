@@ -28,6 +28,15 @@ fn finish(view: &mut SessionView, status: &str) {
         run["status"] = json!(status);
         run["finishedAt"] = json!(now());
         run["error"] = json!(view.error);
+        if status == "cancelled" {
+            for tool in &mut view.tools {
+                if tool["runId"] == run["id"]
+                    && matches!(tool["status"].as_str(), Some("pending" | "in_progress"))
+                {
+                    tool["status"] = json!("cancelled");
+                }
+            }
+        }
     }
 }
 // Git worktrees have independent roots. Nested directories in the same worktree share a lease.
@@ -300,6 +309,13 @@ impl Workbench {
         let result = self
             .execute(entry, &text, &attachment_ids, &mut cancelled)
             .await;
+        // An upstream idle/cancelled notification does not prove its tool
+        // descendants have exited. Retire the connection on every stop.
+        let result = if *cancelled.borrow() {
+            Err("执行已取消".to_owned())
+        } else {
+            result
+        };
         if let Err(error) = result {
             entry.generation.fetch_add(1, Ordering::SeqCst);
             let connection = entry.connection.lock().expect("connection poisoned").take();
@@ -318,6 +334,11 @@ impl Workbench {
             if *cancelled.borrow() {
                 view.status = "idle".into();
                 view.stop_reason = Some("cancelled".into());
+                if view.agent_state["reconnectConfigOptions"].is_null() {
+                    view.agent_state["reconnectConfigOptions"] =
+                        view.agent_state["configOptions"].clone();
+                }
+                view.agent_state["contextRestartedAt"] = json!(now());
                 finish(&mut view, "cancelled");
             } else {
                 view.status = "error".into();
@@ -337,6 +358,10 @@ impl Workbench {
         attachment_ids: &[String],
         cancelled: &mut watch::Receiver<bool>,
     ) -> Result<(), String> {
+        let restore_options =
+            entry.view.lock().expect("view poisoned").agent_state["reconnectConfigOptions"]
+                .as_array()
+                .cloned();
         let existing = entry
             .connection
             .lock()
@@ -412,6 +437,28 @@ impl Workbench {
             }
         };
         *entry.connection.lock().expect("connection poisoned") = Some(connection.clone());
+        if let Some(options) = restore_options {
+            let mut restored = None;
+            for option in options {
+                let config_id = option["configId"].as_str().ok_or("上次 Agent 配置无效")?;
+                let response = tokio::select! {
+                    response = connection.configure(config_id, option["currentValue"].clone()) => response?,
+                    _ = cancelled.changed() => return Err("恢复 Agent 配置时已停止".into()),
+                };
+                restored = Some(response["configOptions"].clone());
+            }
+            let _gate = entry.gate.lock().await;
+            let mut view = entry.view.lock().expect("view poisoned").clone();
+            if let Some(options) = restored {
+                view.agent_state["configOptions"] = options;
+            }
+            view.agent_state
+                .as_object_mut()
+                .expect("Agent state object")
+                .remove("reconnectConfigOptions");
+            self.commit(entry, view, "agent.configuration_restored", &json!({}))
+                .await?;
+        }
         if *cancelled.borrow() || self.available().is_err() {
             let _ = connection.cancel();
             return Err("执行已取消".into());
@@ -435,26 +482,15 @@ impl Workbench {
         }
         loop {
             let notified = entry.wake.notified();
+            if *cancelled.borrow() {
+                let _ = connection.cancel();
+                return Err("执行已取消，正在排空 Agent 进程".into());
+            }
             if !entry.view.lock().expect("view poisoned").active {
                 break;
             }
             if self.stopping.load(Ordering::SeqCst) {
                 return Ok(());
-            }
-            if *cancelled.borrow() {
-                let _ = connection.cancel();
-                tokio::time::timeout(Duration::from_secs(5), async {
-                    loop {
-                        let wake = entry.wake.notified();
-                        if !entry.view.lock().expect("view poisoned").active {
-                            break;
-                        }
-                        wake.await;
-                    }
-                })
-                .await
-                .map_err(|_| "停止宽限期已到，正在关闭 Agent 连接".to_owned())?;
-                break;
             }
             tokio::select! { _ = notified => {}, _ = cancelled.changed() => {} }
         }
@@ -502,6 +538,20 @@ impl Workbench {
         )
         .await?;
         view.apply(&event);
+        let cancelling = entry
+            .cancel
+            .lock()
+            .expect("cancel poisoned")
+            .as_ref()
+            .is_some_and(|cancel| *cancel.borrow());
+        if was_active && cancelling {
+            // Only run_next may publish terminal cancellation after shutdown.
+            view.active = true;
+            view.status = "cancelling".into();
+            view.stop_reason = None;
+            view.approvals.clear();
+            view.inputs.clear();
+        }
         history::annotate(
             &mut view,
             &event,
@@ -623,10 +673,11 @@ impl Workbench {
         let entry = self.entry(id)?;
         let _gate = entry.gate.lock().await;
         let mut view = entry.view.lock().expect("view poisoned").clone();
-        view.queue_paused = true;
-        if view.active {
-            view.status = "cancelling".into();
+        if !view.active {
+            return Ok(());
         }
+        view.queue_paused = true;
+        view.status = "cancelling".into();
         self.commit(&entry, view, "run.cancel_requested", &json!({}))
             .await?;
         if let Some(control) = entry
