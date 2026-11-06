@@ -2,7 +2,7 @@
 
 基于 ACP 的 Agent 工作台设计，面向桌面操作与手机远程查看、控制和审批。
 
-当前包含 Tauri + React 桌面开发预览版、独立 Rust Host、ACP v2 客户端，以及 JS/TS 插件 SDK 和 Node 执行引擎。桌面可操作真实 Host 的会话、消息、审批和取消；另保留原先的模拟数据 UI 原型。数据库历史、手机配对及完整 MVP 验收仍待实施。
+当前包含 Tauri + React 桌面开发预览版、独立 Rust Host、ACP v2 客户端，以及 JS/TS 插件 SDK 和 Node 执行引擎。桌面可操作真实 Host 的会话、消息、审批和取消；另保留原先的模拟数据 UI 原型。已接入 SQLite 本地历史；手机配对及完整 MVP 验收仍待实施。
 
 ## 体验桌面应用（macOS）
 
@@ -15,11 +15,13 @@ npm run desktop
 
 构建不依赖 Vite 开发服务器的本地 `.app`：`npm run desktop:bundle`。产物位于 `apps/desktop/src-tauri/target/debug/bundle/macos/VibeOne.app`；这是本地开发包，尚未做正式签名、公证和分发验收。`npm run desktop:build` 构建 release 包。
 
-当前桌面通过仅监听 loopback 且需要认证的 HTTP/WS 连接独立 Host。关闭窗口不停止 Host；重开应用会连接同一主机。会话暂时只保留到本次 Host 停止，重启 Host 不恢复历史，运行中暂不提供下一轮消息排队。
+当前桌面通过仅监听 loopback 且需要认证的 HTTP/WS 连接独立 Host。关闭窗口不停止 Host；重开应用会连接同一主机。会话、消息、审批快照与工作区保存在本机 SQLite 数据库。重启后历史可查看，未结束执行标记为中断，旧审批失效；恢复的非空会话暂时只读，请新建会话开始新的执行。支持标题搜索、重命名、归档和已保存工作区选择；运行中暂不提供下一轮消息排队。
+
+如果设置页提示当前主机仅在运行期间保留会话，先结束所有执行，再点击“保存会话并升级主机”。升级会先导出旧版会话，随后重启并导入 SQLite，不自动续跑。数据库位于应用数据目录的 `vibeone.sqlite3`；macOS 默认目录为 `~/Library/Application Support/dev.vibeone.desktop/`。
 
 ACP 显式使用 `protocolVersion: 2`（官方 Draft），Rust SDK 锁定 `5.0.0`，不静默降级 v1。prompt 回执表示接受，执行完成等待独立的会话 idle 更新。Plugin RPC v1 保持独立。
 
-测试：`npm run check` 验证插件、ACP 与 Host；`npm run desktop:test` 验证 React 界面连接真实本地 Host 的流程，macOS 默认使用已安装的 Google Chrome，其他环境可设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE`。
+测试：`npm run check` 验证插件、ACP、Host 与 SQLite 崩溃恢复；`npm run storage:test` 可单独检查崩溃恢复与旧版快照导入；`npm run desktop:test` 验证 React 界面连接真实本地 Host 的流程，macOS 默认使用已安装的 Google Chrome，其他环境可设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE`。
 
 ## 运行真实插件链路
 

@@ -1,6 +1,6 @@
 # 21 · 历史、变更查看与诊断界面
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: C
 Blocked by: 08, 16, 19, 20
@@ -11,7 +11,7 @@ Blocked by: 08, 16, 19, 20
 
 ## 依赖
 
-[08](./08-storage-recovery.md)、[16](./16-workspace-changes.md)、[19](./19-chat-ui.md)、[20](./20-attention-ui.md)。本任务为待评审计划，尚未开始实现。
+[08](./08-storage-recovery.md)、[16](./16-workspace-changes.md)、[19](./19-chat-ui.md)、[20](./20-attention-ui.md)。提前落地依赖 08 的历史整理切片；变更查看与诊断仍等待其余依赖。
 
 ## 验收
 
@@ -26,3 +26,7 @@ Blocked by: 08, 16, 19, 20
 3. 诊断状态及脱敏导出。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## Comments
+
+2026-11-06：已接入 SQLite 历史、标题搜索、重命名、归档/取消归档、历史只读提示和设置中的旧主机升级入口。桌面测试连接真实 Host，覆盖重命名、归档禁发与恢复。只读 diff、产物和脱敏诊断导出未实现，本任务保持 claimed。
