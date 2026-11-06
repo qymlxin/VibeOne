@@ -972,3 +972,8 @@ p {
   background: var(--surface);
   padding: 7px;
 }
+
+.desktop-input-request {border:1px solid var(--line);background:var(--soft);padding:16px;margin:12px 0;border-radius:6px;}
+.desktop-input-request textarea {width:100%;min-height:100px;background:var(--surface);border:1px solid var(--line);padding:8px;}
+.desktop-input-request pre {white-space:pre-wrap;overflow-wrap:anywhere;}
+.desktop-input-request button {margin:8px 8px 0 0;}

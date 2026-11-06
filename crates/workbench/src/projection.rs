@@ -12,6 +12,8 @@ pub struct SessionView {
     pub messages: Vec<Value>,
     pub tools: Vec<Value>,
     pub approvals: Vec<Value>,
+    #[serde(default)]
+    pub inputs: Vec<Value>,
     pub error: Option<String>,
     pub stop_reason: Option<String>,
     #[serde(default)]
@@ -38,6 +40,12 @@ impl SessionView {
     pub fn apply(&mut self, event: &Value) {
         match event["type"].as_str() {
             Some("update") => self.update(&event["notification"]["update"]),
+            Some("input") => {
+                let mut request = event["request"].clone();
+                request["id"] = event["id"].clone();
+                self.inputs.push(request);
+            }
+            Some("input_resolved") => self.inputs.retain(|input| input["id"] != event["id"]),
             Some("permission") => {
                 let mut request = event["request"].clone();
                 request["id"] = event["id"].clone();
@@ -51,6 +59,7 @@ impl SessionView {
             Some("disconnected") => {
                 self.active = false;
                 self.approvals.clear();
+                self.inputs.clear();
                 self.status = "disconnected".into();
                 self.error = Some(
                     event["error"]
@@ -85,6 +94,7 @@ impl SessionView {
                         );
                     }
                     self.approvals.clear();
+                    self.inputs.clear();
                 }
                 Some("idle") => {} // A ready-state update is not completion of a newly submitted prompt.
                 Some(state) => {
@@ -195,6 +205,7 @@ mod tests {
             messages: vec![],
             tools: vec![],
             approvals: vec![],
+            inputs: vec![],
             error: None,
             stop_reason: None,
             history_only: false,

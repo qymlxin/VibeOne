@@ -75,6 +75,7 @@ impl Workbench {
                     view.error = Some(error);
                     view.queue_paused = true;
                     view.approvals.clear();
+                    view.inputs.clear();
                     finish(&mut view, "failed");
                     let _ = workbench
                         .commit(&entry, view, "run.failed", &json!({}))
@@ -216,6 +217,7 @@ impl Workbench {
             let mut view = entry.view.lock().expect("view poisoned").clone();
             view.active = false;
             view.approvals.clear();
+            view.inputs.clear();
             view.queue_paused = true;
             if *cancelled.borrow() {
                 view.status = "idle".into();
@@ -372,6 +374,15 @@ impl Workbench {
                 } else {
                     "uncertain"
                 });
+            }
+        }
+        if event["type"] == "input_resolved" {
+            if let Some(decision) = view
+                .decisions
+                .iter_mut()
+                .find(|item| item["requestId"] == event["id"])
+            {
+                decision["delivery"] = json!("sent");
             }
         }
         self.commit(entry, view, "agent.update", &event).await?;

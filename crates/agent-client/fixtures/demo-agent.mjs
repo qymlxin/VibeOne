@@ -27,6 +27,14 @@ async function run(sessionId, prompt, userId, epoch) {
       while (active()) await sleep(50);
       return;
     }
+    if (prompt.includes('/input')) {
+      state(sessionId,'requires_action');
+      const id=`input:${++sequence}`;
+      const answer=new Promise(resolve=>pending.set(id,{sessionId,resolve}));
+      send({id,method:'elicitation/create',params:{mode:'form',sessionId,message:'请输入演示项目名称',requestedSchema:{type:'object',properties:{name:{type:'string',minLength:2,title:'项目名称'}},required:['name']}}});
+      const result=await answer;if(!active())return;state(sessionId,'running');
+      response=result?.action==='accept' ? `已收到项目名称：${result.content.name}` : '已取消补充输入。';
+    }
     if (prompt.includes('/approve')) {
       state(sessionId, 'requires_action');
       const id = `permission:${++sequence}`;

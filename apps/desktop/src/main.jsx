@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { chooseWorkspace } from "./api.js";
 import { useWorkbench } from "./use-workbench.js";
+import { InputRequest } from "./InputRequest.jsx";
 import { SessionTools, Queue } from "./SessionTools.jsx";
 import { Management } from "./Management.jsx";
 import mark from "../../../assets/brand/vibeone-logo-mark.svg";
@@ -85,7 +86,8 @@ function App() {
         .includes(query.toLowerCase()),
   );
   const pending = workbench.sessions.reduce(
-    (count, session) => count + session.approvals.length,
+    (count, session) =>
+      count + session.approvals.length + (session.inputs?.length ?? 0),
     0,
   );
   const act = async (operation) => {
@@ -117,7 +119,7 @@ function App() {
           className="desktop-nav"
           onClick={() => {
             const attention = workbench.sessions.find(
-              (session) => session.approvals.length,
+              (session) => session.approvals.length || session.inputs?.length,
             );
             if (attention) {
               setSelected(attention.id);
@@ -620,6 +622,16 @@ function Conversation({ session, workbench, online, act }) {
             ))}
           </section>
         )}
+        {(session.inputs ?? []).map((request) => (
+          <InputRequest
+            key={request.id}
+            request={request}
+            session={session}
+            workbench={workbench}
+            online={online}
+            act={act}
+          />
+        ))}
         {session.approvals.map((approval) => (
           <section className="desktop-approval" key={approval.id}>
             <h2>

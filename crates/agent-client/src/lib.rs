@@ -26,6 +26,11 @@ struct Permission {
     options: HashSet<String>,
     reply: oneshot::Sender<Option<String>>,
 }
+struct Input {
+    schema: Option<Value>,
+    reply: oneshot::Sender<Value>,
+}
+type Inputs = Arc<Mutex<HashMap<String, Input>>>;
 type Permissions = Arc<Mutex<HashMap<String, Permission>>>;
 
 struct LaunchGuard(Option<tokio::task::JoinHandle<()>>);
@@ -40,6 +45,7 @@ impl Drop for LaunchGuard {
 pub struct AgentSession {
     session: ActiveSession<Agent>,
     permissions: Permissions,
+    inputs: Inputs,
     stop: Option<oneshot::Sender<()>>,
     task: tokio::task::JoinHandle<()>,
 }
@@ -52,6 +58,9 @@ impl AgentSession {
         sink: Sink,
     ) -> Result<Self, String> {
         let permissions: Permissions = Arc::default();
+        let inputs: Inputs = Arc::default();
+        let input_pending = inputs.clone();
+        let input_sink = sink.clone();
         let (ready_tx, ready_rx) = oneshot::channel();
         let ready = Arc::new(Mutex::new(Some(ready_tx)));
         let task_ready = ready.clone();
@@ -126,6 +135,25 @@ impl AgentSession {
                     },
                     agent_client_protocol::on_receive_request!(),
                 )
+                .on_receive_request(
+                    async move |request: schema::CreateElicitationRequest, responder: Responder<schema::CreateElicitationResponse>, _cx: ConnectionTo<Agent>| {
+                        let id=uuid::Uuid::new_v4().to_string();
+                        let raw=serde_json::to_value(&request).map_err(|error|Error::internal_error().data(error.to_string()))?;
+                        if !matches!(raw["mode"].as_str(),Some("form"|"url")) { return Err(Error::invalid_params().data("未知补充输入模式")); }
+                        let requested=if raw["mode"]=="form" { Some(raw["requestedSchema"].clone()) } else { None };
+                        if let Some(schema)=&requested { jsonschema::validator_for(schema).map_err(|error|Error::invalid_params().data(error.to_string()))?; }
+                        let (tx,rx)=oneshot::channel();
+                        { let mut pending=input_pending.lock().expect("inputs poisoned");
+                          if pending.len()>=16 { return Err(Error::invalid_params().data("补充输入数量已达到上限")); }
+                          pending.insert(id.clone(),Input{schema:requested,reply:tx}); }
+                        input_sink(json!({"type":"input","id":id,"request":request})).await.map_err(|error|Error::internal_error().data(error))?;
+                        let cancellation=responder.cancellation().clone();
+                        let answer=tokio::select! { value=rx=>value.unwrap_or_else(|_|json!({"action":"cancel"})), _=cancellation.cancelled()=>json!({"action":"cancel"}), _=tokio::time::sleep(Duration::from_secs(600))=>json!({"action":"cancel"}) };
+                        input_pending.lock().expect("inputs poisoned").remove(&id);
+                        input_sink(json!({"type":"input_resolved","id":id})).await.map_err(|error|Error::internal_error().data(error))?;
+                        responder.respond(serde_json::from_value(answer).map_err(|error|Error::invalid_params().data(error.to_string()))?)
+                    }, agent_client_protocol::on_receive_request!(),
+                )
                 .connect_with(
                     AcpAgent::new(AcpAgentConfig::new(command).args(args)),
                     async move |cx| {
@@ -133,7 +161,7 @@ impl AgentSession {
                             .send_request(schema::InitializeRequest::new(
                                 ProtocolVersion::V2,
                                 schema::Implementation::new("vibeone", env!("CARGO_PKG_VERSION")),
-                            ))
+                            ).capabilities(schema::ClientCapabilities::new().elicitation(schema::ElicitationCapabilities::new().form(schema::ElicitationFormCapabilities::new()).url(schema::ElicitationUrlCapabilities::new()))))
                             .block_task()
                             .await?;
                         if init.capabilities.session.is_none() {
@@ -166,6 +194,7 @@ impl AgentSession {
             Ok(Ok(Ok(session))) => Ok(Self {
                 session,
                 permissions,
+                inputs,
                 stop: Some(stop_tx),
                 task: launch.0.take().expect("launch task"),
             }),
@@ -188,7 +217,40 @@ impl AgentSession {
         .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string()))
     }
 
+    pub fn validate_input(&self, id: &str, answer: &Value) -> Result<(), String> {
+        let pending = self.inputs.lock().expect("inputs poisoned");
+        let input = pending.get(id).ok_or("补充输入已失效或已处理")?;
+        if !matches!(
+            answer["action"].as_str(),
+            Some("accept" | "decline" | "cancel")
+        ) {
+            return Err("补充输入操作无效".into());
+        }
+        if answer["action"] == "accept"
+            && let Some(schema) = &input.schema
+        {
+            let validator = jsonschema::validator_for(schema).map_err(|error| error.to_string())?;
+            validator
+                .validate(&answer["content"])
+                .map_err(|error| format!("输入不符合要求：{error}"))?;
+        }
+        serde_json::from_value::<schema::CreateElicitationResponse>(answer.clone())
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    }
+    pub fn answer(&self, id: &str, answer: Value) -> Result<(), String> {
+        self.validate_input(id, &answer)?;
+        self.inputs
+            .lock()
+            .expect("inputs poisoned")
+            .remove(id)
+            .ok_or("补充输入已失效")?
+            .reply
+            .send(answer)
+            .map_err(|_| "补充输入已失效".into())
+    }
     pub fn cancel(&self) -> Result<(), String> {
+        self.inputs.lock().expect("inputs poisoned").clear();
         self.permissions
             .lock()
             .expect("permissions poisoned")
@@ -215,6 +277,7 @@ impl AgentSession {
 
 impl Drop for AgentSession {
     fn drop(&mut self) {
+        self.inputs.lock().expect("inputs poisoned").clear();
         self.permissions
             .lock()
             .expect("permissions poisoned")

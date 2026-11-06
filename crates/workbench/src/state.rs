@@ -181,6 +181,7 @@ impl Workbench {
                 view.status = "error".into();
                 view.error = Some(message.clone());
                 view.approvals.clear();
+                view.inputs.clear();
             }
         }
         self.changed(self.revision.load(Ordering::SeqCst));
@@ -296,6 +297,7 @@ impl Workbench {
             messages: vec![],
             tools: vec![],
             approvals: vec![],
+            inputs: vec![],
             error: None,
             stop_reason: None,
             active: false,
@@ -396,6 +398,43 @@ impl Workbench {
         }
         Ok(())
     }
+    pub async fn answer(&self, id: &str, request: &str, answer: Value) -> Result<(), String> {
+        self.available()?;
+        let entry = self.entry(id)?;
+        let _gate = entry.gate.lock().await;
+        let mut view = entry.view.lock().expect("view poisoned").clone();
+        if let Some(previous) = view
+            .decisions
+            .iter()
+            .find(|item| item["requestId"] == request)
+        {
+            return if previous["answer"] == answer {
+                Ok(())
+            } else {
+                Err("该问题已提交其他回答".into())
+            };
+        }
+        if !view.inputs.iter().any(|input| input["id"] == request) {
+            return Err("补充输入已失效或已处理".into());
+        }
+        let connection = entry
+            .connection
+            .lock()
+            .expect("connection poisoned")
+            .clone()
+            .ok_or("Agent 未连接")?;
+        connection.validate_input(request, &answer)?;
+        view.inputs.retain(|input| input["id"] != request);
+        view.decisions.push(json!({"id":uuid::Uuid::new_v4().to_string(),"requestId":request,"answer":answer,"delivery":"pending","createdAt":execution::now()}));
+        self.commit(
+            &entry,
+            view,
+            "input.submitted",
+            &json!({"requestId":request}),
+        )
+        .await?;
+        connection.answer(request, answer)
+    }
     pub async fn metadata(
         &self,
         id: &str,
@@ -442,6 +481,7 @@ impl Workbench {
                 view.status = "interrupted".into();
                 view.stop_reason = Some("interrupted".into());
                 view.approvals.clear();
+                view.inputs.clear();
                 let _ = self
                     .commit(
                         &entry,

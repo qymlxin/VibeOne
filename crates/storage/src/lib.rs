@@ -213,6 +213,7 @@ impl Store {
                 Some("starting" | "running" | "requires_action" | "cancelling")
             );
             session.snapshot["approvals"] = json!([]);
+            session.snapshot["inputs"] = json!([]);
             session.snapshot["queuePaused"] = json!(
                 session.snapshot["queue"]
                     .as_array()

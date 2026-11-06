@@ -106,6 +106,7 @@ pub async fn serve(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error + 
         .route("/v1/sessions/{id}/tree",get(tree))
         .route("/v1/sessions/{id}/metadata",post(metadata))
         .route("/v1/sessions/{id}/approvals/{request}",post(decide))
+        .route("/v1/sessions/{id}/inputs/{request}",post(answer))
         .route("/v1/host/stop",post(shutdown))
         .layer(DefaultBodyLimit::max(40_000))
         .layer(middleware::from_fn_with_state(state.clone(),authorize))
@@ -341,6 +342,18 @@ async fn decide(
     state
         .workbench
         .decide(&id, &request, &body.option)
+        .await
+        .map(|_| Json(json!({"submitted":true})))
+        .map_err(fail)
+}
+async fn answer(
+    State(state): State<Server>,
+    Path((id, request)): Path<(String, String)>,
+    Json(body): Json<Value>,
+) -> ApiResult {
+    state
+        .workbench
+        .answer(&id, &request, body)
         .await
         .map(|_| Json(json!({"submitted":true})))
         .map_err(fail)
