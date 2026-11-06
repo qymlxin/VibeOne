@@ -1,6 +1,6 @@
 # 07 · 独立 Host 生命周期与本地鉴权
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: B
 Blocked by: 05, 06
@@ -11,7 +11,7 @@ Blocked by: 05, 06
 
 ## 依赖
 
-[05](./05-second-agent-matrix.md)、[06](./06-app-plugin-sdk.md)。本任务为待评审计划，尚未开始实现。
+[05](./05-second-agent-matrix.md)、[06](./06-app-plugin-sdk.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 05, 06
 3. 独立存活与退出策略。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## 实现进度
+
+2026-11-06：单实例锁、loopback 本机鉴权/Origin、受限发现文件、启动附着与 Host 停止已实现；浏览器断开不终止执行。原生窗口隐藏、退出桌面而 Host 保活及系统级退出行为已接线，等待 macOS 人工验收。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

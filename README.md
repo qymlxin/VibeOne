@@ -2,7 +2,7 @@
 
 基于 ACP 的 Agent 工作台设计，面向桌面操作与手机远程查看、控制和审批。
 
-当前包含 Tauri + React 桌面开发预览版、独立 Rust Host、ACP v2 客户端，以及 JS/TS 插件 SDK 和 Node 执行引擎。桌面可操作真实 Host 的会话、消息、审批和取消；另保留原先的模拟数据 UI 原型。已接入 SQLite 本地历史；手机配对及完整 MVP 验收仍待实施。
+当前提供 Tauri + React 主要功能预览版：独立 Rust Host、ACP v2 对话与人工处理、执行队列、SQLite 恢复、工作区文件和 Git 差异、文本产物、JS/TS 插件管理，以及 HTTPS 手机配对和控制。已自动验证的范围与待实机项目见 [体验与验收清单](docs/acceptance.md)，插件开发见 [作者指南](docs/plugin-authoring.md)。Codex 隔离对话验证通过，Claude Code 当前受本机认证阻塞；不将浏览器测试当作真实手机验收。
 
 ## 体验桌面应用（macOS）
 
@@ -15,13 +15,17 @@ npm run desktop
 
 构建不依赖 Vite 开发服务器的本地 `.app`：`npm run desktop:bundle`。产物位于 `apps/desktop/src-tauri/target/debug/bundle/macos/VibeOne.app`；这是本地开发包，尚未做正式签名、公证和分发验收。`npm run desktop:build` 构建 release 包。
 
-当前桌面通过仅监听 loopback 且需要认证的 HTTP/WS 连接独立 Host。关闭窗口不停止 Host；重开应用会连接同一主机。会话、消息、审批快照与工作区保存在本机 SQLite 数据库。重启后历史可查看，未结束执行标记为中断，旧审批失效；恢复的非空会话暂时只读，请新建会话开始新的执行。支持标题搜索、重命名、归档和已保存工作区选择；运行中暂不提供下一轮消息排队。
+桌面通过 loopback HTTP/WS 与 Host 通信；手机使用另行开启的私有地址 HTTPS/WSS 入口和可撤销设备凭据。关闭窗口隐藏到托盘，退出桌面与停止 Host 分开。会话、消息、审批决定、队列、配置、插件目录和通知 outbox 保存在本机 SQLite 中。正常执行结束后继续下一条，失败或取消后暂停；重启不自动续跑旧任务。历史默认只读，恢复队列需要明确选择新的 Agent 上下文。
 
-如果设置页提示当前主机仅在运行期间保留会话，先结束所有执行，再点击“保存会话并升级主机”。升级会先导出旧版会话，随后重启并导入 SQLite，不自动续跑。数据库位于应用数据目录的 `vibeone.sqlite3`；macOS 默认目录为 `~/Library/Application Support/dev.vibeone.desktop/`。
+工作台提供对话、文件、只读变更、执行记录、文本产物和 Agent 当前配置；设置中管理工作区、Profile、可信本地插件、设备与通知。手机按工作区和角色共享会话事实，支持新建、发送、审批、补充输入、停止、查看变更和重连。UI 继续沿用紧凑布局、系统字体及亮暗模式。
+
+旧主机不会被自动停止。打开新版桌面后，如提示主机版本较旧，请结束执行并在设置中重启；旧内存版会先保存快照再升级。数据库位于应用数据目录的 `vibeone.sqlite3`，macOS 默认为 `~/Library/Application Support/dev.vibeone.desktop/`。
+
+插件可用 JS/TS/TSX 开发，构建为 JS ESM；支持 App 面板、命令、设置、声明式 ACP Provider、通知渠道和 Node Worker。安装与更新经过候选准备和发布，已有 Provider 会话保留代次租约。SDK 与插件均为仓库内预览 API，未开放插件市场与跨插件依赖解析。
 
 ACP 显式使用 `protocolVersion: 2`（官方 Draft），Rust SDK 锁定 `5.0.0`，不静默降级 v1。prompt 回执表示接受，执行完成等待独立的会话 idle 更新。Plugin RPC v1 保持独立。
 
-测试：`npm run check` 验证插件、ACP、Host 与 SQLite 崩溃恢复；`npm run storage:test` 可单独检查崩溃恢复与旧版快照导入；`npm run desktop:test` 验证 React 界面连接真实本地 Host 的流程，macOS 默认使用已安装的 Google Chrome，其他环境可设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE`。
+测试：`npm run check` 验证 SDK、作者工具、ACP、队列、审批竞争、Host、文件范围、插件消费与 SQLite 恢复；`npm run desktop:test` 验证真实 Host 的桌面与动态 React 插件；`npm run remote:test` 验证 TLS、配对、角色、手机页面与设备撤销。浏览器测试在 macOS 默认使用本机 Chrome，其他环境可设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE`。
 
 ## 运行真实插件链路
 
@@ -54,6 +58,8 @@ npm run prototype
 
 ## 设计入口
 
+- [体验与验收清单](docs/acceptance.md)
+- [插件作者指南](docs/plugin-authoring.md)
 - [文档索引](docs/README.md)
 - [核心功能设计](docs/core-functions.md)
 - [插件机制设计](docs/plugin-design.md)

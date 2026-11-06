@@ -1,6 +1,6 @@
 # 23 · Provider 与通知扩展接入主流程
 
-Status: needs-triage
+Status: resolved
 Type: task
 Batch: C
 Blocked by: 02, 10, 12, 19, 22
@@ -11,7 +11,7 @@ Blocked by: 02, 10, 12, 19, 22
 
 ## 依赖
 
-[02](./02-provider-discovery.md)、[10](./10-sessions.md)、[12](./12-events-outbox.md)、[19](./19-chat-ui.md)、[22](./22-local-plugin-product.md)。本任务为待评审计划，尚未开始实现。
+[02](./02-provider-discovery.md)、[10](./10-sessions.md)、[12](./12-events-outbox.md)、[19](./19-chat-ui.md)、[22](./22-local-plugin-product.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 02, 10, 12, 19, 22
 3. 通知扩展与 outbox 消费。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## Answer
+
+2026-11-06：示例插件实际贡献 Provider、React 面板、命令、设置与通知渠道；会话持有 Provider 代次租约，停用后已有租约继续排空；通知来自事务 outbox，独立超时重试。自动验证业务链路通过；操作系统通知权限及外部通知渠道另行人工验证。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

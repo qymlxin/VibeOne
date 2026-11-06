@@ -1,6 +1,6 @@
 # 18 · 工作区与 Agent 设置页面
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: C
 Blocked by: 02, 09, 10, 14, 17
@@ -11,7 +11,7 @@ Blocked by: 02, 09, 10, 14, 17
 
 ## 依赖
 
-[02](./02-provider-discovery.md)、[09](./09-workspaces.md)、[10](./10-sessions.md)、[14](./14-host-http.md)、[17](./17-tauri-shell.md)。本任务为待评审计划，尚未开始实现。
+[02](./02-provider-discovery.md)、[09](./09-workspaces.md)、[10](./10-sessions.md)、[14](./14-host-http.md)、[17](./17-tauri-shell.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 02, 09, 10, 14, 17
 3. 真实会话创建入口。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## 实现进度
+
+2026-11-06：真实工作区列表/导入、持久 Profile 新增修改删除、默认参数覆盖、能力与配置显示及真实空会话创建已实现，保留紧凑布局与亮暗模式。通用版本/认证流程引导尚未完成，参见任务 02。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

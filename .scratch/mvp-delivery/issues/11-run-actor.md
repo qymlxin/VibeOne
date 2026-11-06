@@ -1,6 +1,6 @@
 # 11 · Run 状态机、排队与取消
 
-Status: needs-triage
+Status: resolved
 Type: task
 Batch: B
 Blocked by: 03, 08, 10
@@ -11,7 +11,7 @@ Blocked by: 03, 08, 10
 
 ## 依赖
 
-[03](./03-first-agent-cli.md)、[08](./08-storage-recovery.md)、[10](./10-sessions.md)。本任务为待评审计划，尚未开始实现。
+[03](./03-first-agent-cli.md)、[08](./08-storage-recovery.md)、[10](./10-sessions.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 03, 08, 10
 3. 取消、超时和失败后的暂停恢复。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## Answer
+
+2026-11-06：串行 Run、20 条队列、幂等提交、撤回、工作区互斥、失败/取消暂停与显式恢复已实现。集成测试还验证不响应取消/关闭的假 Agent 及其真实子进程在宽限期后被清理。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

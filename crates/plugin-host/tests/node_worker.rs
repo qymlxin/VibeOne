@@ -206,7 +206,13 @@ async fn rust_deadline_bounds_a_worker_that_blocks_the_node_event_loop() {
     host.activate(activation(&[])).await.unwrap();
     let started = std::time::Instant::now();
     let result = host
-        .invoke(&key(), "block", Value::Null, None, Duration::from_millis(100))
+        .invoke(
+            &key(),
+            "block",
+            Value::Null,
+            None,
+            Duration::from_millis(100),
+        )
         .await;
     assert!(matches!(result, Err(Error::Timeout)));
     assert!(started.elapsed() < Duration::from_secs(2));

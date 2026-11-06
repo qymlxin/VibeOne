@@ -107,20 +107,20 @@ def plugin_runtime():
 
 
 def plugin_service_boundaries():
-    d = Diagram('plugin-service-boundaries.svg', '服务划分与通信协议', '桌面、手机、Rust Host、插件 Worker 与 Agent 的进程边界；以下为目标设计', height=960)
+    d = Diagram('plugin-service-boundaries.svg', '服务划分与通信协议', '桌面、手机、Rust Host、插件 Worker 与 Agent 的进程边界；当前主要功能版', height=960)
     d.parts.append('<rect x="440" y="135" width="800" height="560" rx="8" fill="#ffffff" stroke="#d3d5cd"/>')
     d.text(460, 165, '同一个 Rust Host 进程，不拆成网络微服务', 17, '#252622', 600)
     d.box(40, 165, '桌面端：Tauri WebView', ['React / App 插件 / SDK', 'Registry 为本地同步注册', '后台调用返回 Promise'], width=300, height=140)
     d.box(40, 340, 'Tauri 原生壳', ['目录选择、托盘、系统通知'], width=300, height=90)
     d.arrow([(190, 305), (190, 340)])
     d.text(207, 327, 'IPC：invoke / Promise', 12)
-    d.box(40, 470, '手机端：浏览器 / PWA', ['React / 兼容的 App 插件', '不运行 Node / native Worker', 'HTTPS/WSS · Promise'], width=300, height=140)
+    d.box(40, 470, '手机端：浏览器', ['React 移动工作台', '不运行 Node / native / App ESM', 'HTTPS/WSS · Promise'], width=300, height=140)
     d.box(480, 190, 'API 与事件网关', ['命令与查询：HTTP(S)；事件订阅与推送：WS(S)'], width=700, height=100)
-    d.box(480, 340, '插件调度模块', ['贡献目录、实例、代次和路由', '持久化操作状态，管理 Worker', 'Rust 内部 async fn / 事件通道'], width=330, height=135)
+    d.box(480, 340, '插件调度模块', ['贡献目录、实例、代次和路由', '持久化插件目录，管理 Worker', 'Rust 内部 async fn / 事件通道'], width=330, height=135)
     d.box(850, 340, '核心业务与 Agent 接入', ['鉴权、工作区、审批、会话', '反向宿主调用与 Agent 监督', 'Rust 内部 async fn'], width=330, height=135)
     d.box(850, 530, 'SQLite：Host 内嵌存储', ['操作 / 回执 / 事件 / 业务状态', '库调用，不是独立网络服务'], width=330, height=110)
-    d.box(480, 735, '后台插件 Worker', ['Node.js 或可选 native 进程', '运行 handler，响应或报告进度', 'Node 可按逻辑实例共享进程'], width=330, height=115)
-    d.box(850, 735, 'Agent / ACP 桥接程序', ['独立进程，执行 Coding Agent', '长请求、更新通知与权限请求', '不经过 App 插件或 Worker 中转'], width=330, height=115)
+    d.box(480, 735, '后台插件 Worker', ['Node.js 独立进程', '运行 handler，响应或报告进度', '本版按候选代次启动 Runner'], width=330, height=115)
+    d.box(850, 735, 'Agent / ACP 桥接程序', ['独立进程，执行 Coding Agent', '请求受理、更新通知与权限请求', '不经过 App 插件或 Worker 中转'], width=330, height=115)
     d.arrow([(340, 225), (480, 225)], color='#486778')
     d.arrow([(480, 260), (340, 260)], dashed=True)
     d.text(347, 211, 'HTTP / WS', 12)
@@ -139,18 +139,18 @@ def plugin_service_boundaries():
     d.text(710, 613, '请求 / 响应 / 通知', 12)
     d.arrow([(1180, 395), (1200, 395), (1200, 715), (1015, 715), (1015, 735)], color='#486778')
     d.arrow([(1065, 735), (1065, 700), (1215, 700), (1215, 440), (1180, 440)], dashed=True)
-    d.text(895, 675, 'stdio ACP：长请求 + 更新通知', 13)
+    d.text(895, 675, 'stdio ACP v2：请求受理 + 更新通知', 13)
     d.text(40, 900, '跨端调用均为异步 I/O；await 只等待结果，不表示阻塞整个界面或 Host。', 15)
     d.text(40, 931, '手机经可信 HTTPS/WSS 入口访问，可由前置 TLS 代理转发；桌面首版统一走 loopback HTTP/WS。', 14)
     d.save()
 
 
 def plugin_call_flow():
-    d = Diagram('plugin-call-flow.svg', '插件后台调用时序', 'HTTP 返回受理回执，业务在后台执行；进度与最终结果经 WS(S) 返回，SDK Promise 等到最终结果才结束', height=1100)
+    d = Diagram('plugin-call-flow.svg', '插件后台调用时序', '插件 HTTP 等待最终结果，Worker 经 stdio RPC 执行；进度用 WS 变更通知与快照读取，SDK 异步等待', height=1100)
     d.parts.append('<rect x="270" y="125" width="735" height="855" rx="8" fill="#ffffff" stroke="#d3d5cd"/>')
     d.text(290, 148, '同一个 Rust Host 进程：内部调用不经过 HTTP', 13)
     xs = [140, 390, 640, 885, 1130]
-    headers = [('桌面 / 手机 App', '浏览器 SDK'), ('API 与事件网关', 'HTTP(S) / WS(S)'), ('插件调度模块', '路由 / 操作状态'), ('宿主业务模块', '文件 / 数据 / 凭据'), ('后台插件 Worker', 'Node.js / native')]
+    headers = [('桌面 / 手机 App', '浏览器 SDK'), ('API 与事件网关', 'HTTP(S) / WS(S)'), ('插件调度模块', '路由 / 代次租约'), ('宿主业务模块', '文件 / 数据 / 凭据'), ('后台插件 Worker', 'Node.js')]
     for x, (title, subtitle) in zip(xs, headers):
         d.box(x-100, 170, title, [subtitle], width=200, height=84)
         d.parts.append(f'<line x1="{x}" y1="254" x2="{x}" y2="960" stroke="#c6c8c0" stroke-dasharray="4 5"/>')
@@ -159,21 +159,21 @@ def plugin_call_flow():
         d.arrow([(xs[a], y), (xs[b], y)], dashed=kind=='response', color=color)
         d.parts.append(f'<text x="{(xs[a]+xs[b])/2}" y="{y-11}" text-anchor="middle" font-size="13" fill="{color}">{escape(label)}</text>')
     message(0, 1, 285, '① HTTP(S) POST：提交插件命令')
-    message(1, 2, 340, '② 内部 async fn：校验并记录操作')
-    message(2, 1, 385, '返回 operationId', 'response')
-    message(1, 0, 430, '③ HTTP 202：仅表示已受理', 'response')
+    message(1, 2, 340, '② 内部调用：校验权限与代次')
+    message(2, 1, 385, '返回本地代次租约', 'response')
+    d.text(40, 430, '③ 客户端 Promise 挂起；HTTP 等待最终结果', 13)
     message(2, 4, 485, '④ stdio JSON-RPC 请求：plugin/invoke')
     message(4, 3, 545, '⑤ 按需反向请求：host/call')
     message(3, 4, 600, 'RPC result / error', 'response')
     message(4, 2, 655, '⑥ 无需响应的通知：plugin/progress', 'event')
-    message(2, 1, 710, '落库后，通过内部事件通道发布进度', 'event')
-    message(1, 0, 765, '⑦ WS(S) 推送：progress', 'event')
+    message(2, 1, 710, '更新内存进度投影，发布变更通知', 'event')
+    message(1, 0, 765, '⑦ WS(S)：changed / cursor', 'event')
     message(4, 2, 820, '⑧ 原请求的 JSON-RPC result / error', 'response')
-    message(2, 1, 875, '落库后，发布 completed / failed 事件', 'event')
-    message(1, 0, 930, '⑨ WS(S) 推送：最终结果', 'event')
+    message(2, 1, 875, '返回最终 JSON / 错误', 'response')
+    message(1, 0, 930, '⑨ HTTP 200 / error', 'response')
     d.text(40, 1010, '此时 SDK 才 resolve / reject Promise。蓝色为请求，虚线为响应，绿色为单向事件。', 15)
-    d.text(40, 1042, '查询类调用：HTTP 200 返回数据；后台命令：HTTP 202 + operationId，断线后可 GET 查询操作状态。', 14)
-    d.text(40, 1072, 'SDK 先建立事件订阅再提交命令，避免漏掉快速结果；已落库的结果也可查询，不仅依赖实时推送。', 14)
+    d.text(40, 1042, 'Agent Run 提交另走 HTTP 202 + operationId；插件 invoke 当前等待最终 HTTP 响应。', 14)
+    d.text(40, 1072, '会话与人工决定持久保存；插件临时进度为内存投影。手机按工作区角色访问业务 API。', 14)
     d.save()
 
 

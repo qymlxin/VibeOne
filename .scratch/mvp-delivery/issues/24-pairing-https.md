@@ -1,6 +1,6 @@
 # 24 · 手机可信 HTTPS 配对与设备授权
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: D
 Blocked by: 05, 07, 14, 15
@@ -11,7 +11,7 @@ Blocked by: 05, 07, 14, 15
 
 ## 依赖
 
-[05](./05-second-agent-matrix.md)、[07](./07-host-lifecycle.md)、[14](./14-host-http.md)、[15](./15-event-client.md)。本任务为待评审计划，尚未开始实现。
+[05](./05-second-agent-matrix.md)、[07](./07-host-lifecycle.md)、[14](./14-host-http.md)、[15](./15-event-client.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 05, 07, 14, 15
 3. 设备身份和工作区角色。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## 实现进度
+
+2026-11-06：私有地址 HTTPS/WSS、独立 CA、二维码、短期配对码、电脑确认、设备哈希凭据与工作区角色授权已实现。Node 使用生成的 CA 验证 TLS，浏览器自动化验证 Cookie/角色/越权；物理 iOS/Android 的 CA 信任与网络仍待人工验收。远程只授予 viewer/approver/operator，owner 仅本机。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

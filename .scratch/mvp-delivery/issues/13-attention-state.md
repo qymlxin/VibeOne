@@ -1,6 +1,6 @@
 # 13 · 审批与补充输入的可靠状态机
 
-Status: needs-triage
+Status: resolved
 Type: task
 Batch: B
 Blocked by: 04, 11, 12
@@ -11,7 +11,7 @@ Blocked by: 04, 11, 12
 
 ## 依赖
 
-[04](./04-real-approval-cli.md)、[11](./11-run-actor.md)、[12](./12-events-outbox.md)。本任务为待评审计划，尚未开始实现。
+[04](./04-real-approval-cli.md)、[11](./11-run-actor.md)、[12](./12-events-outbox.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 04, 11, 12
 3. 投递记录与不确定状态处理。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## Answer
+
+2026-11-06：审批与结构化输入分别持久化，包含原始选项/Schema、有效期和 Run；唯一决定、同决定重试、冲突及投递不确定状态已实现，恢复后不重放批准。测试覆盖并发决定、Schema 拒绝及 session/new 尚未完成时的输入回应。真实工具验证仍由任务 04 跟踪。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

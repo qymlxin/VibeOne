@@ -1,6 +1,6 @@
 # VibeOne 插件机制设计
 
-日期：2026-11-05。状态：实现草案。本文细化 [架构设计](architecture.md) 与 [核心功能设计](core-functions.md) 的扩展机制。包格式、SDK 和示例均待实现与验证，不代表已有公开兼容承诺。
+日期：2026-11-06。状态：主要功能预览，公开兼容契约尚未冻结。本文细化 [架构设计](architecture.md) 与 [核心功能设计](core-functions.md) 的扩展机制。App/Worker SDK、本地包管理和示例已实现；当前可运行约定见 [插件作者指南](plugin-authoring.md)，实机检查见 [验收清单](acceptance.md)。
 
 ## 1. 语言与运行方式
 
@@ -36,9 +36,9 @@ App 模块运行在客户端的宿主前端环境中，通过 `activate(ctx)` �
 
 后台 Worker 运行在执行主机上，用于本地文件、网络、进程调用、通知、探测和需要持续运行的业务。手机不运行 Node.js 或原生 Worker，而是向所属 Host 发起授权调用。
 
-Host 管理 Node.js 运行时及 Worker runner。Node 插件可在共享运行进程中按插件 ID 与 generation 建立独立的逻辑实例；原生 Worker 使用独立进程。逻辑实例、资源 Scope 和操作系统进程分别建模，不能将逻辑隔离宣传为安全沙箱。
+Host 管理 Node.js 运行时及 Worker runner。引擎支持同进程多逻辑实例；当前安装器按候选代次启动独立 Runner，准备失败时保留旧进程，Provider 租约继续绑定原代次。逻辑实例、Scope 和进程分别管理；JS 插件作为可信本机代码运行。native Worker 属于后续可选实现。
 
-共享 Node 进程崩溃会影响其中的多个插件实例，Host 按受影响集合更新状态并按预算重启。不能宣称一个插件的任何崩溃都只影响它自己。Agent 进程继续由独立监督模块持有，不归通知或界面插件所有。
+当前自动重启预算为 0，错误交给管理页显示并由用户修复后重新启用。若后续启用共享 Runner，需按共享进程记录受影响的实例集合。Agent ACP 进程仍由 Host 的执行模块持有。
 
 ### 2.3 三条不同通道
 
@@ -63,18 +63,18 @@ Host 管理 Node.js 运行时及 Worker runner。Node 插件可在共享运行�
 | Worker → 宿主业务 | 同一控制通道上的反向 `host/call` | 异步请求响应；两端持续读取，避免等待对方响应时死锁 |
 | Host → SQLite | SQLx 等库调用 | `await` 持久化结果，SQLite 内嵌于 Host，不是网络数据库服务 |
 | Host → App | WS / WSS 事件订阅 | 单向异步推送，客户端不向每条业务通知返回 RPC 结果 |
-| Host ↔ Agent | 独立 stdio ACP | prompt 为长请求响应，进展为通知；权限请求是 Agent 发起的反向请求 |
+| Host ↔ Agent | 独立 stdio ACP | prompt 回执表示接受，完成来自 state_update；审批与补充输入是 Agent 发起的反向请求 |
 
-查询和后台命令采用不同契约：
+当前实现采用以下契约：
 
-- 查询使用 HTTP 200 直接返回当前数据，调用方异步等待该次响应。
-- 插件后台命令使用 `POST /v1/commands`，由 `plugin.command.invoke` 分派。Host 记录操作后返回 HTTP 202、`operationId` 和当前状态，表示已受理，不表示业务完成。
-- Worker 后台执行；进度使用 `plugin/progress` 通知，最终回复 `plugin/invoke` 的 JSON-RPC 请求。Host 持久化操作状态与对应事件，再通过 WS/WSS 推送。
-- `ctx.worker.invoke()` 对作者仍表现为 Promise，但 SDK 等待最终事件或状态查询结果后才 resolve / reject，不在收到 HTTP 202 时结束。
-- SDK 先建立事件订阅再提交命令，按 operationId 关联、去重。断线或快速结果缺失时，使用 `GET /v1/operations/{operationId}` 查询；请求重试复用原幂等键。
-- 操作状态为 queued、running、completed、failed、cancelled；崩溃导致外部结果不确定时另记 uncertainty，不自动重放可能产生副作用的命令。Worker 可能在 HTTP 回执到达客户端前启动，客户端不能依赖固定网络先后顺序。
+- 查询通过 HTTP 200 返回数据；客户端以 Promise 等待响应。
+- Agent 消息提交返回 HTTP 202 与 `operationId`，表示受理或进入下一轮队列；Run 状态随后由 Host 发布。
+- 插件命令调用 `POST /v1/plugins/{id}/invoke`，该 HTTP 请求等待最终 JSON 或错误。Rust 内部获取代次租约，经 stdio `plugin/invoke` 调用 Node。`ctx.services.invokeWorker()` 的 Promise 在最终 HTTP 响应后结束，最长调用预算 30 秒。
+- Worker 用 `plugin/progress` 单向通知 Host。当前进度放入有上限的内存投影，Host 发 WS `changed/cursor` 通知，客户端再获取快照；没有把临时插件进度作为业务历史持久化。
+- 会话、Run、审批、输入和通知 outbox 通过 SQLite 事务保存；重连以快照恢复。通用插件命令的持久 `operationId` 查询尚未交付，不能用 Agent Run 的 202 契约代表所有插件调用。
+- 本版插件管理和第三方 App ESM 运行面只在桌面开放；手机共享工作台业务 API，并经过设备与工作区角色校验。手机不运行本地 Worker。
 
-这些路径是待实现契约；当前 React 原型尚未连接上述 Host 服务。
+更完整的增量事件客户端、通用插件操作记录和 native Worker 仍是后续范围。
 
 ## 3. 插件包结构
 

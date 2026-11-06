@@ -1,6 +1,6 @@
 # 06 · App 插件 SDK 与最小动态面板
 
-Status: needs-triage
+Status: resolved
 Type: task
 Batch: A
 Blocked by: 01
@@ -11,7 +11,7 @@ Blocked by: 01
 
 ## 依赖
 
-[01](./01-acp-harness.md)。本任务为待评审计划，尚未开始实现。
+[01](./01-acp-harness.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 01
 3. 动态面板、服务及 Hook 验证。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## Answer
+
+2026-11-06：AppRuntime 提供候选激活、面板/命令/设置、Scope 与服务/Hook；共享宿主 React、React DOM、SDK，支持 JS 与 TS/TSX 编译的 ESM。SDK 生命周期测试及真实 Host 的浏览器动态面板测试通过。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

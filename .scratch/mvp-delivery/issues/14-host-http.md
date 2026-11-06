@@ -11,7 +11,7 @@ Blocked by: 07, 09, 10, 11, 12, 13
 
 ## 依赖
 
-[07](./07-host-lifecycle.md)、[09](./09-workspaces.md)、[10](./10-sessions.md)、[11](./11-run-actor.md)、[12](./12-events-outbox.md)、[13](./13-attention-state.md)。本任务为待评审计划，尚未开始实现。
+[07](./07-host-lifecycle.md)、[09](./09-workspaces.md)、[10](./10-sessions.md)、[11](./11-run-actor.md)、[12](./12-events-outbox.md)、[13](./13-attention-state.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -29,4 +29,6 @@ Blocked by: 07, 09, 10, 11, 12, 13
 
 ## 实现进度
 
-已实现桌面所需的最小认证 HTTP API、实例锁、连接发现与 202 受理；数据库、命令幂等和完整异步操作对账尚未实现。
+2026-11-06：主要业务查询和控制接口已实现，包含持久会话、Profile、队列、输入、文件、插件和设备权限；Run 提交返回 202/operationId 并支持幂等键。通用 DTO 代码生成、统一持久异步插件操作对账尚未提供；插件调用当前 HTTP 200 等待最终结果，文档已同步。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

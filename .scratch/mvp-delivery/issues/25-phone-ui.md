@@ -1,6 +1,6 @@
 # 25 · 手机真实会话与审批页面
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: D
 Blocked by: 19, 20, 21, 24
@@ -11,7 +11,7 @@ Blocked by: 19, 20, 21, 24
 
 ## 依赖
 
-[19](./19-chat-ui.md)、[20](./20-attention-ui.md)、[21](./21-history-diagnostics-ui.md)、[24](./24-pairing-https.md)。本任务为待评审计划，尚未开始实现。
+[19](./19-chat-ui.md)、[20](./20-attention-ui.md)、[21](./21-history-diagnostics-ui.md)、[24](./24-pairing-https.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 19, 20, 21, 24
 3. 发送、取消及移动端状态适配。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## 实现进度
+
+2026-11-06：手机复用会话/聊天/队列/审批/补充输入/文件与 diff 页面，并按角色禁用控制；390×844 浏览器通过真实 HTTPS/WSS 完成配对、新建会话、发送、审批、取消与撤销退出，无横向溢出。真机触控、切后台与锁屏待人工验收。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

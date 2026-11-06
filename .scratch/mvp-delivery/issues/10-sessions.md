@@ -1,6 +1,6 @@
 # 10 · 本地会话与 Agent Profile 绑定
 
-Status: needs-triage
+Status: resolved
 Type: task
 Batch: B
 Blocked by: 02, 09
@@ -11,7 +11,7 @@ Blocked by: 02, 09
 
 ## 依赖
 
-[02](./02-provider-discovery.md)、[09](./09-workspaces.md)。本任务为待评审计划，尚未开始实现。
+[02](./02-provider-discovery.md)、[09](./09-workspaces.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -25,3 +25,9 @@ Blocked by: 02, 09
 2. 标题筛选、重命名和归档。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## Answer
+
+2026-11-06：会话由 Host 持久化，支持延迟启动、标题搜索/重命名/归档；Profile 修订、插件 Provider 代次及上游身份分别保存。活动执行禁止归档，历史恢复不自动启动。Host、恢复与桌面测试通过。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

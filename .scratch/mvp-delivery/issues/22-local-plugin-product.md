@@ -1,6 +1,6 @@
 # 22 · 本地插件目录与管理界面
 
-Status: needs-triage
+Status: resolved
 Type: task
 Batch: C
 Blocked by: 06, 08, 14, 17
@@ -11,7 +11,7 @@ Blocked by: 06, 08, 14, 17
 
 ## 依赖
 
-[06](./06-app-plugin-sdk.md)、[08](./08-storage-recovery.md)、[14](./14-host-http.md)、[17](./17-tauri-shell.md)。本任务为待评审计划，尚未开始实现。
+[06](./06-app-plugin-sdk.md)、[08](./08-storage-recovery.md)、[14](./14-host-http.md)、[17](./17-tauri-shell.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 06, 08, 14, 17
 3. App/Worker 更新协调及管理页面。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## Answer
+
+2026-11-06：可信本地包检查、授权范围、配置校验、持久安装/更新/停用/重新启用与管理界面已实现；App 候选先成功再发布 Worker 路由，失败保留旧代次。每候选独立 Runner，自动重启预算明确为 0。Node/Rust/Host/桌面测试通过。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

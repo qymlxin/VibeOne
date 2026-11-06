@@ -1,6 +1,6 @@
 # 27 · 核心 MVP 验收与 macOS 打包
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: E
 Blocked by: 05, 16, 17, 21, 23, 26
@@ -11,7 +11,7 @@ Blocked by: 05, 16, 17, 21, 23, 26
 
 ## 依赖
 
-[05](./05-second-agent-matrix.md)、[16](./16-workspace-changes.md)、[17](./17-tauri-shell.md)、[21](./21-history-diagnostics-ui.md)、[23](./23-plugin-consumers.md)、[26](./26-phone-recovery-revoke.md)。本任务为待评审计划，尚未开始实现。
+[05](./05-second-agent-matrix.md)、[16](./16-workspace-changes.md)、[17](./17-tauri-shell.md)、[21](./21-history-diagnostics-ui.md)、[23](./23-plugin-consumers.md)、[26](./26-phone-recovery-revoke.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 05, 16, 17, 21, 23, 26
 3. 两工具及真实手机的首版验收记录。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## 实现进度
+
+2026-11-06：主要功能版与 macOS 调试包已生成，包内携带 Host、Web、Node Runner/SDK 和示例插件；本机仍需 Node 22+ 与实际工具认证。最终 42 项自动化回归、Clippy 与桌面打包通过，并在项目目录之外验证包内 Host/Runner/示例 Provider；自动化覆盖执行、审批、恢复、插件和 HTTPS 手机链路；真实 Claude 认证、真机、系统通知/托盘、跨平台与签名公证保留人工清单，不宣称正式发行验收通过。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

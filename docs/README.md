@@ -4,6 +4,8 @@
 
 | 文档 | 阅读目标 |
 | --- | --- |
+| [体验与验收](acceptance.md) | 当前可体验功能、自动验证、实机清单与已知边界 |
+| [插件作者指南](plugin-authoring.md) | JS/TS/TSX 创建、构建、打包、Context、扩展点与更新规则 |
 | [主要功能设计](core-functions.md) | 当前 UI 基线下的核心范围、用户操作、队列与执行规则、模块职责和开发切片 |
 | [插件机制设计](plugin-design.md) | JS/TS 作者体验、App 动态注册、Node/native Worker、SDK、生命周期和验收 |
 | [领域术语](../GLOSSARY.md) | Workspace、Session、Run、审批和队列的统一含义 |
@@ -40,6 +42,6 @@
 
 系统架构、审批、插件生命周期和重连图通过 [生成脚本](tools/generate_svgs.py)维护：在仓库根运行 `python3 docs/tools/generate_svgs.py`。修改后需同时检查 SVG XML、文档链接和实际渲染效果。
 
-核心工作流、执行队列、插件运行结构、服务划分与调用时序由 [generate_core_diagrams.py](tools/generate_core_diagrams.py) 维护，运行 `python3 docs/tools/generate_core_diagrams.py` 生成。当前已确认紧凑 UI 原型作为阶段视觉基线，主要功能仍为待实施设计。
+核心工作流、执行队列、插件运行结构、服务划分与调用时序由 [generate_core_diagrams.py](tools/generate_core_diagrams.py) 维护，运行 `python3 docs/tools/generate_core_diagrams.py` 生成。当前已确认紧凑 UI 原型作为阶段视觉基线，主要功能已经接入真实 Host；最新实现与待验状态以验收清单为准。
 
 界面以 [交互原型](../prototype/README.md) 和 [UI 规范](ui-specification.md) 为准，不再维护早期静态界面图、比较调研或过程评审记录。

@@ -1,6 +1,6 @@
 # 20 · 桌面审批与补充输入
 
-Status: claimed
+Status: resolved
 Type: task
 Batch: C
 Blocked by: 13, 19
@@ -11,7 +11,7 @@ Blocked by: 13, 19
 
 ## 依赖
 
-[13](./13-attention-state.md)、[19](./19-chat-ui.md)。本任务为待评审计划，尚未开始实现。
+[13](./13-attention-state.md)、[19](./19-chat-ui.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,6 +26,8 @@ Blocked by: 13, 19
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
 
-## 实现进度
+## Answer
 
-已接入 Host 的临时权限请求和上游选项；演示 Agent 与原生窗口审批验证通过，持久决定、竞争投递及 Input Request 未实现。
+2026-11-06：审批与 Input Request 接入持久决定；保留上游选项，表单 JSON Schema 校验，支持接受/拒绝/取消和独立回执状态。桌面与手机浏览器链路、冲突与恢复测试通过；真实工具复杂授权待人工验收。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

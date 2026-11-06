@@ -1,6 +1,6 @@
 # 12 · 事务事件、游标与 outbox
 
-Status: needs-triage
+Status: resolved
 Type: task
 Batch: B
 Blocked by: 08, 11
@@ -11,7 +11,7 @@ Blocked by: 08, 11
 
 ## 依赖
 
-[08](./08-storage-recovery.md)、[11](./11-run-actor.md)。本任务为待评审计划，尚未开始实现。
+[08](./08-storage-recovery.md)、[11](./11-run-actor.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 08, 11
 3. 快照及增量读取。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## Answer
+
+2026-11-06：状态、单调游标事件及通知 outbox 同事务提交；投递独立异步执行、有限退避重试、稳定 eventId，恢复时淘汰旧待处理通知。SQLite、事件查询、恢复及真实插件消费测试通过。客户端当前通过 WS 通知后获取快照，增量 reducer 属于任务 15 的剩余项。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。

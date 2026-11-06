@@ -1,6 +1,6 @@
 # 29 · 插件作者工具与公开 SDK 文档
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: F
 Blocked by: 28
@@ -11,7 +11,7 @@ Blocked by: 28
 
 ## 依赖
 
-[28](./28-sdk-compatibility.md)。本任务为待评审计划，尚未开始实现。
+[28](./28-sdk-compatibility.md)。实现与验收状态见本文件末尾。
 
 ## 验收
 
@@ -26,3 +26,9 @@ Blocked by: 28
 3. 公开文档及示例验收。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## 实现进度
+
+2026-11-06：已提前实现本地作者 CLI：create/build/check/pack，支持 JS/TS/TSX 与自包含 ESM；脚手架打包测试及可运行 Provider/面板/通知示例通过。插件作者文档已提供；依赖任务 28 的公开稳定 SDK 与完整 semver/依赖生态仍后置。
+
+完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。
