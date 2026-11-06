@@ -1,46 +1,64 @@
 //! Durable receipts for trusted local plugin commands; interrupted work is never replayed.
 use super::*;
+use crate::contracts::{
+    PluginOperationError, PluginOperationReceipt, PluginOperationRecord, PluginOperationSummary,
+};
 use sha2::{Digest, Sha256};
 
 impl Workbench {
-    pub(crate) fn operation_summaries(&self) -> Vec<Value> {
-        let mut records = self.catalog("operation");
-        records.sort_by_key(|record| std::cmp::Reverse(record["createdAt"].as_u64().unwrap_or(0)));
+    fn operation_records(&self) -> Vec<(String, Value)> {
+        let catalog = self.catalog.lock().expect("catalog poisoned");
+        let mut records: Vec<_> = catalog
+            .get("operation")
+            .into_iter()
+            .flatten()
+            .map(|(id, record)| (id.clone(), record.clone()))
+            .collect();
+        records.sort_by(|a, b| a.0.cmp(&b.0));
+        records
+    }
+    pub(crate) fn operation_summaries(&self) -> Vec<PluginOperationSummary> {
+        let mut records = self.operation_records();
+        records.sort_by_key(|(_, record)| {
+            std::cmp::Reverse(record["createdAt"].as_u64().unwrap_or(0))
+        });
         let mut terminal = 0;
         records
             .into_iter()
-            .filter_map(|mut record| {
+            .filter_map(|(id, record)| {
                 if !matches!(record["state"].as_str(), Some("accepted" | "running")) {
                     terminal += 1;
                     if terminal > 100 {
                         return None;
                     }
                 }
-                if let Some(object) = record.as_object_mut() {
-                    object.remove("result");
-                    object.remove("fingerprint");
-                }
-                Some(record)
+                Some(operation_summary(&id, &record))
             })
             .collect()
     }
-    pub(crate) fn operation(&self, id: &str) -> Result<Value, DomainError> {
-        let mut record = self
-            .catalog("operation")
+    pub(crate) fn operation(&self, id: &str) -> Result<PluginOperationRecord, DomainError> {
+        let record = self
+            .operation_records()
             .into_iter()
-            .find(|item| item["id"] == id)
+            .find(|(key, _)| key == id)
+            .map(|(_, record)| record)
             .ok_or_else(|| DomainError::new(ErrorKind::OperationNotFound, "操作记录不存在"))?;
-        record
-            .as_object_mut()
-            .ok_or_else(|| DomainError::new(ErrorKind::Internal, "操作记录格式无效"))?
-            .remove("fingerprint");
-        Ok(record)
+        if !record.is_object() || record["id"] != id || !record["state"].is_string() {
+            return Err(DomainError::new(
+                ErrorKind::Internal,
+                "操作记录身份或状态格式无效",
+            ));
+        }
+        Ok(PluginOperationRecord {
+            summary: operation_summary(id, &record),
+            result: record.get("result").cloned(),
+        })
     }
     pub(crate) async fn submit_plugin_operation(
         self: &Arc<Self>,
         plugin: &str,
         mut body: Value,
-    ) -> Result<Value, DomainError> {
+    ) -> Result<PluginOperationReceipt, DomainError> {
         self.command_available()?;
         let key = body["key"]
             .as_str()
@@ -64,19 +82,28 @@ impl Workbench {
             .collect::<String>();
         let _gate = self.operation_gate.lock().await;
         self.command_available()?;
-        let records = self.catalog("operation");
-        if let Some(record) = records.iter().find(|record| record["key"] == key) {
+        let records = self.operation_records();
+        if let Some((id, record)) = records.iter().find(|(_, record)| record["key"] == key) {
             if record["fingerprint"] != fingerprint {
                 return Err(DomainError::new(
                     ErrorKind::IdempotencyConflict,
                     "同一幂等键的插件操作内容不同",
                 ));
             }
-            return Ok(json!({"operationId":record["id"],"state":record["state"]}));
+            if record["id"] != *id {
+                return Err(DomainError::new(ErrorKind::Internal, "操作回执身份无效"));
+            }
+            let state = record["state"]
+                .as_str()
+                .ok_or_else(|| DomainError::new(ErrorKind::Internal, "操作回执状态无效"))?;
+            return Ok(PluginOperationReceipt {
+                operation_id: id.clone(),
+                state: state.to_owned(),
+            });
         }
         if records
             .iter()
-            .filter(|record| matches!(record["state"].as_str(), Some("accepted" | "running")))
+            .filter(|(_, record)| matches!(record["state"].as_str(), Some("accepted" | "running")))
             .count()
             >= 32
         {
@@ -89,7 +116,10 @@ impl Workbench {
         let id = uuid::Uuid::new_v4().to_string();
         let record = json!({"id":id,"key":key,"fingerprint":fingerprint,"pluginId":plugin,"generation":prepared.generation(),"handler":body["handler"],"title":prepared.title,"pluginName":prepared.plugin_name,"workspaceId":body["workspaceId"],"state":"accepted","createdAt":execution::now()});
         self.save_catalog("operation", &id, record.clone()).await?;
-        let receipt = json!({"operationId":id,"state":"accepted"});
+        let receipt = PluginOperationReceipt {
+            operation_id: id.clone(),
+            state: "accepted".into(),
+        };
         let workbench = self.clone();
         tokio::spawn(async move {
             let mut record = record;
@@ -125,9 +155,111 @@ impl Workbench {
     }
 }
 
+fn operation_summary(id: &str, record: &Value) -> PluginOperationSummary {
+    let invalid = record["id"] != id || !record["state"].is_string();
+    let invalid_error = || PluginOperationError {
+        code: "OPERATION_RECORD_INVALID".into(),
+        message: "操作记录格式异常，请核对诊断；不要直接重复执行。".into(),
+    };
+    let error = if invalid {
+        Some(invalid_error())
+    } else {
+        record
+            .get("error")
+            .filter(|value| !value.is_null())
+            .map(|value| serde_json::from_value(value.clone()).unwrap_or_else(|_| invalid_error()))
+    };
+    let text = |key: &str| record[key].as_str().map(str::to_owned);
+    PluginOperationSummary {
+        id: id.to_owned(),
+        state: text("state").unwrap_or_else(|| "invalid".into()),
+        key: text("key"),
+        plugin_id: text("pluginId"),
+        plugin_name: text("pluginName"),
+        generation: record["generation"].as_u64(),
+        handler: text("handler"),
+        title: text("title"),
+        workspace_id: text("workspaceId"),
+        created_at: record["createdAt"].as_u64(),
+        finished_at: record["finishedAt"].as_u64(),
+        error,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn operation_public_records_preserve_results_without_private_storage_fields() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(directory.path(), vec![]).await.unwrap();
+        for (index, result) in [
+            Value::Null,
+            json!(false),
+            json!(0),
+            json!({"nested":[1,false,null]}),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let id = format!("result-{index}");
+            workbench.save_catalog("operation",&id,json!({"id":id,"state":"succeeded","result":result,"fingerprint":"PRIVATE_FINGERPRINT","futurePrivate":"PRIVATE_NEW_FIELD"})).await.unwrap();
+            let detail = serde_json::to_value(workbench.operation(&id).unwrap()).unwrap();
+            assert!(
+                detail.get("result").is_some(),
+                "null result is different from an absent result"
+            );
+            assert_eq!(detail["result"], result);
+            assert!(!detail.to_string().contains("PRIVATE_"));
+        }
+        let summaries = serde_json::to_value(workbench.operation_summaries()).unwrap();
+        assert!(!summaries.to_string().contains("PRIVATE_"));
+        assert!(
+            summaries
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|record| record.get("result").is_none())
+        );
+        workbench.close().await;
+    }
+
+    #[tokio::test]
+    async fn operation_projection_keeps_directory_identity_and_missing_metadata_explicit() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(directory.path(), vec![]).await.unwrap();
+        workbench
+            .save_catalog(
+                "operation",
+                "real",
+                json!({"id":"wrong","state":"running","result":"PRIVATE"}),
+            )
+            .await
+            .unwrap();
+        let summaries = workbench.operation_summaries();
+        assert_eq!(summaries[0].id, "real");
+        assert_eq!(
+            summaries[0].state, "running",
+            "uncertain metadata must not release active-work protection"
+        );
+        assert_eq!(
+            summaries[0].error.as_ref().unwrap().code,
+            "OPERATION_RECORD_INVALID"
+        );
+        assert!(workbench.operation("real").is_err());
+        workbench
+            .save_catalog("operation", "real", json!({"id":"real","state":"future"}))
+            .await
+            .unwrap();
+        let value = serde_json::to_value(workbench.operation("real").unwrap()).unwrap();
+        assert_eq!(value["state"], "future");
+        assert!(value.get("createdAt").is_none());
+        assert!(value.get("result").is_none());
+        let schema = crate::contracts::schemas()["PluginOperationRecord"].clone();
+        assert!(jsonschema::validator_for(&schema).unwrap().is_valid(&value));
+        workbench.close().await;
+    }
+
     #[tokio::test]
     async fn plugin_publication_and_acceptance_keep_storage_failures_atomic() {
         for action in ["publish", "operation"] {
@@ -224,8 +356,8 @@ mod tests {
                 .is_err()
         );
         let record = workbench.operation("pending").unwrap();
-        assert_eq!(record["state"], "interrupted");
-        assert_eq!(record["error"]["code"], "STORAGE_UNAVAILABLE");
+        assert_eq!(record.summary.state, "interrupted");
+        assert_eq!(record.summary.error.unwrap().code, "STORAGE_UNAVAILABLE");
         assert!(workbench.snapshot()["storageError"].is_string());
     }
 }

@@ -19,3 +19,10 @@ test('uncertain delivery never retries side effects and retains reconciliation i
 test('failed/interrupted operation exposes the receipt without a new submission',async()=>{
  for(const state of ['failed','interrupted'])await assert.rejects(invokePluginOperation({submit:async()=>({operationId:'op'}),read:async()=>({state,error:{code:'FAILED',message:'actual failure'}}),refresh:async()=>{}},'p',{}, {key:'known'}),error=>error.operationId==='op'&&error.code==='FAILED'&&error.message==='actual failure');
 });
+
+import {operationPresentation} from '../apps/desktop/src/plugin-operations.js';
+test('legacy operation metadata has clear labels without fabricated dates or states',()=>{
+ assert.deepEqual(operationPresentation({state:'constructor'}),{title:'未知操作',plugin:'未知插件',time:'时间未知',state:'未知状态'});
+ assert.equal(operationPresentation({state:'running',error:{code:'OPERATION_RECORD_INVALID'}}).state,'记录异常');
+ assert.equal(operationPresentation({createdAt:null,state:'succeeded'}).time,'时间未知');
+});

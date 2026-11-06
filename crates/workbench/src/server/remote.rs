@@ -832,7 +832,12 @@ mod snapshot_contract_tests {
         original.metadata.plugins = vec![json!({"private":"plugin"})];
         original.metadata.plugin_events = vec![json!({"private":"event"})];
         original.metadata.notifications = vec![json!({"private":"notification"})];
-        original.metadata.operations = vec![json!({"private":"operation"})];
+        original.metadata.operations = vec![crate::contracts::PluginOperationSummary {
+            id: "operation".into(),
+            state: "succeeded".into(),
+            title: Some("private operation".into()),
+            ..Default::default()
+        }];
         let owner =
             serde_json::to_value(filter_snapshot(original.clone(), &Identity::owner())).unwrap();
         assert_eq!(owner, serde_json::to_value(&original).unwrap());

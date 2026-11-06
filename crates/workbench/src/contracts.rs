@@ -154,6 +154,54 @@ pub struct PluginTicketRequest {
 pub struct CreateSessionResponse {
     pub id: String,
 }
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginOperationReceipt {
+    pub operation_id: String,
+    pub state: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct PluginOperationError {
+    pub code: String,
+    pub message: String,
+}
+#[derive(Clone, Debug, Default, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginOperationSummary {
+    pub id: String,
+    pub state: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugin_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugin_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub generation: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handler: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finished_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<PluginOperationError>,
+}
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+pub struct PluginOperationRecord {
+    #[serde(flatten)]
+    pub summary: PluginOperationSummary,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<Value>,
+}
+#[derive(Clone, Serialize, JsonSchema)]
+pub struct PluginOperationListResponse {
+    pub operations: Vec<PluginOperationSummary>,
+}
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SubmitMessageReceipt {
@@ -265,7 +313,7 @@ pub struct SnapshotMetadata {
     pub revision: u64,
     pub example_plugin_path: Option<std::path::PathBuf>,
     pub plugin_events: Vec<Value>,
-    pub operations: Vec<Value>,
+    pub operations: Vec<PluginOperationSummary>,
     pub plugins: Vec<Value>,
     pub notifications: Vec<Value>,
     pub profiles: Vec<ProfileView>,
@@ -450,6 +498,10 @@ pub enum ProfileResponse {
 /// Generated from the same types used by the HTTP extractors/serializers.
 pub fn schemas() -> Value {
     json!({
+        "PluginOperationReceipt":schema_for!(PluginOperationReceipt),
+        "PluginOperationSummary":schema_for!(PluginOperationSummary),
+        "PluginOperationRecord":schema_for!(PluginOperationRecord),
+        "PluginOperationListResponse":schema_for!(PluginOperationListResponse),
         "RemoteDeviceSummary":schema_for!(RemoteDeviceSummary),
         "RemoteConfiguration":schema_for!(RemoteConfiguration),
         "RemoteStatusResponse":schema_for!(RemoteStatusResponse),

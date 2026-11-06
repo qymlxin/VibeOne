@@ -5,6 +5,7 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
+import {operationPresentation} from './plugin-operations.js';
 import * as jsx from "react/jsx-runtime";
 import * as ReactDOM from "react-dom";
 import * as ReactDOMClient from "react-dom/client";
@@ -451,7 +452,7 @@ export function PluginManager({ workbench, plugins }) {
           </section>
         </PluginBoundary>
       ))}
-      {!!workbench.operations?.length&&<details className="desktop-settings-group" aria-label="最近后台操作"><summary>最近后台操作 · {workbench.operations.length}</summary><p>操作在主机执行。关闭页面不会取消已受理的操作；中断记录不会自动重试。</p>{workbench.operations.map(operation=><div className="desktop-settings-row" key={operation.id}><div><strong>{operation.title??operation.handler}</strong><p>{operation.pluginName??operation.pluginId} · {new Date(operation.createdAt).toLocaleString()}</p></div><span>{({accepted:'已受理',running:'执行中',succeeded:'已完成',failed:'失败',interrupted:'已中断'})[operation.state]??'未知状态'}</span><button type="button" disabled={busy||workbench.phase!=='online'} aria-label={`查看操作结果 ${operation.id}`} onClick={()=>void run(async()=>{const record=await workbench.read(`/operations/${operation.id}`);setResult(record.state==='succeeded'?record.result:{state:record.state,...record.error});})}>查看结果</button></div>)}</details>}
+      {!!workbench.operations?.length&&<details className="desktop-settings-group" aria-label="最近后台操作"><summary>最近后台操作 · {workbench.operations.length}</summary><p>操作在主机执行。关闭页面不会取消已受理的操作；中断记录不会自动重试。</p>{workbench.operations.map(operation=>{const display=operationPresentation(operation);return <div className="desktop-settings-row" key={operation.id}><div><strong>{display.title}</strong><p>{display.plugin} · {display.time}</p></div><span>{display.state}</span><button type="button" disabled={busy||workbench.phase!=='online'} aria-label={`查看操作结果 ${operation.id}`} onClick={()=>void run(async()=>{const record=await workbench.read(`/operations/${operation.id}`);setResult(record.state==='succeeded'?record.result:{state:record.state,...record.error});})}>查看结果</button></div>;})}</details>}
       {!!workbench.pluginEvents?.length && (
         <details>
           <summary>插件执行进度</summary>

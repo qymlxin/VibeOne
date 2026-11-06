@@ -292,3 +292,9 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 56项Node/SDK、47项Workbench、37项Host集成、崩溃恢复和Clippy通过。真实SQLite先复现未知私有字段透传，再验证公开字段投影及异常授权拒绝；正式桌面69.0秒以可信CA完成真实HTTPS配对，显示角色/工作区并通过页面撤销，手机23.7秒回归通过。设备界面及SVG已查看。
 
 本轮只读Claude `auth status`仍为 `loggedIn=false / authMethod=none`；CUA获取原生应用仍明确返回Mac locked，已结束该次检查。未停止/重启用户Host，原生窗口与物理设备验收继续保留。详见 [设备授权状态](device-status.md)。
+
+## 插件后台操作响应契约（93）
+
+实际Rust回执/摘要/详情/快照操作元数据共用生成类型。真实存储先复现未知私有字段透传，再验证过滤、显式null与缺少结果的区别、false/0/嵌套结果、目录身份及旧记录缺省。异常摘要保留活跃状态参与重启保护，不冒充已停止。
+
+57项Node/SDK、49项Workbench、37项Host集成、崩溃恢复、Clippy与新增TypeScript正反例通过。正式桌面69.1秒、HTTPS手机回归通过；后台操作亮暗截图和SVG已查看。详见 [后台操作公开响应](plugin-operations.md#公开响应类型与旧记录93)。本轮未操作用户实际Host，原生/真实Claude/物理手机验收仍保留。

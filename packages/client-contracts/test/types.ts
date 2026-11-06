@@ -72,3 +72,18 @@ import {probeProvider} from '../src/index.js';
 probeProvider('demo');probeProvider('codex','saved-profile');
 // @ts-expect-error profile identity is a string
 probeProvider('demo',42);
+
+import type {PluginOperationReceipt,PluginOperationSummary,PluginOperationRecord} from '../src/generated.js';
+const operationReceipt:PluginOperationReceipt={operationId:'operation',state:'accepted'};
+const legacyOperation:PluginOperationSummary={id:'operation',state:'future'};
+const nullOperation:PluginOperationRecord={id:'operation',state:'succeeded',result:null};
+const falseOperation:PluginOperationRecord={id:'operation',state:'succeeded',result:false};
+// @ts-expect-error a receipt always carries its persistent operation identity
+const noOperationIdentity:PluginOperationReceipt={state:'accepted'};
+// @ts-expect-error timestamps use milliseconds as numbers
+const badOperationTime:PluginOperationSummary={id:'operation',state:'running',createdAt:'now'};
+// @ts-expect-error result bodies are only available from operation details
+const resultInSummary:PluginOperationSummary={id:'operation',state:'succeeded',result:false};
+// @ts-expect-error storage fingerprints never belong to public operation details
+const privateOperationField:PluginOperationRecord={id:'operation',state:'succeeded',fingerprint:'private'};
+void [operationReceipt,legacyOperation,nullOperation,falseOperation,noOperationIdentity,badOperationTime,resultInSummary,privateOperationField];

@@ -1,4 +1,348 @@
 {
+  "PluginOperationReceipt": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PluginOperationReceipt",
+    "type": "object",
+    "required": [
+      "operationId",
+      "state"
+    ],
+    "properties": {
+      "operationId": {
+        "type": "string"
+      },
+      "state": {
+        "type": "string"
+      }
+    }
+  },
+  "PluginOperationSummary": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PluginOperationSummary",
+    "type": "object",
+    "required": [
+      "id",
+      "state"
+    ],
+    "properties": {
+      "createdAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "error": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/PluginOperationError"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "finishedAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "generation": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "handler": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "id": {
+        "type": "string"
+      },
+      "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "pluginId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "pluginName": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "state": {
+        "type": "string"
+      },
+      "title": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "workspaceId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "definitions": {
+      "PluginOperationError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "PluginOperationRecord": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PluginOperationRecord",
+    "type": "object",
+    "required": [
+      "id",
+      "state"
+    ],
+    "properties": {
+      "createdAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "error": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/PluginOperationError"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "finishedAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "generation": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "handler": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "id": {
+        "type": "string"
+      },
+      "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "pluginId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "pluginName": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "result": true,
+      "state": {
+        "type": "string"
+      },
+      "title": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "workspaceId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "definitions": {
+      "PluginOperationError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "PluginOperationListResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PluginOperationListResponse",
+    "type": "object",
+    "required": [
+      "operations"
+    ],
+    "properties": {
+      "operations": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/PluginOperationSummary"
+        }
+      }
+    },
+    "definitions": {
+      "PluginOperationError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "PluginOperationSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "state"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/PluginOperationError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finishedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "generation": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "handler": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pluginId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pluginName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workspaceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  },
   "RemoteDeviceSummary": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "RemoteDeviceSummary",
@@ -555,7 +899,9 @@
       },
       "operations": {
         "type": "array",
-        "items": true
+        "items": {
+          "$ref": "#/definitions/PluginOperationSummary"
+        }
       },
       "persistent": {
         "type": "boolean"
@@ -794,6 +1140,106 @@
           }
         },
         "additionalProperties": true
+      },
+      "PluginOperationError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "PluginOperationSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "state"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/PluginOperationError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finishedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "generation": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "handler": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pluginId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pluginName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workspaceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       },
       "ProfileIssue": {
         "type": "object",
@@ -1176,7 +1622,9 @@
       },
       "operations": {
         "type": "array",
-        "items": true
+        "items": {
+          "$ref": "#/definitions/PluginOperationSummary"
+        }
       },
       "persistent": {
         "type": "boolean"
@@ -1244,6 +1692,106 @@
             ]
           },
           "role": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PluginOperationError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "PluginOperationSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "state"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/PluginOperationError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finishedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "generation": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "handler": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pluginId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pluginName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workspaceId": {
             "type": [
               "string",
               "null"

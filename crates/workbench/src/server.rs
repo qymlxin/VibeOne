@@ -523,21 +523,26 @@ async fn plugin_operation(
     State(state): State<Server>,
     Path(id): Path<String>,
     Json(body): Json<Value>,
-) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+) -> Result<(StatusCode, Json<PluginOperationReceipt>), (StatusCode, Json<Value>)> {
     domain_command(async move { state.workbench.submit_plugin_operation(&id, body).await })
         .await
         .map(|receipt| (StatusCode::ACCEPTED, Json(receipt)))
         .map_err(domain_fail)
 }
-async fn operation_status(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
+async fn operation_status(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+) -> ApiResult<PluginOperationRecord> {
     state
         .workbench
         .operation(&id)
         .map(Json)
         .map_err(domain_fail)
 }
-async fn operation_list(State(state): State<Server>) -> Json<Value> {
-    Json(json!({"operations":state.workbench.operation_summaries()}))
+async fn operation_list(State(state): State<Server>) -> Json<PluginOperationListResponse> {
+    Json(PluginOperationListResponse {
+        operations: state.workbench.operation_summaries(),
+    })
 }
 async fn plugin_app(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
     use crate::domain_error::{DomainError, ErrorKind};
