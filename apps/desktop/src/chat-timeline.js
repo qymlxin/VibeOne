@@ -1,3 +1,5 @@
+import {describeTool} from './tool-presentation.js';
+
 export const isRunActive = status => ['starting', 'running', 'requires_action', 'cancelling'].includes(status);
 
 // Group by durable Run identity. Older records without identity retain message order;
@@ -28,7 +30,6 @@ export function buildTurns(session) {
   const activeRun = (session.runs ?? []).findLast(run=>isRunActive(run.status));
   if (isRunActive(session.status) && !turns.length) add(activeRun?.id ?? 'pending');
   for (const turn of turns) {
-    turn.reply = turn.replies.at(-1);
     turn.activity.sort((a,b)=>(a.item.activityOrder ?? 0)-(b.item.activityOrder ?? 0));
     turn.live = isRunActive(session.status) && (activeRun ? turn.id===activeRun.id : turn===turns.at(-1));
     // Preserve first-observed order, not the latest patch time. A completed search
@@ -37,18 +38,14 @@ export function buildTurns(session) {
       ...turn.activity.map(activity=>({kind:'activity',activity,order:activity.item.activityOrder ?? messagePositions.get(activity.item) ?? 0})),
       ...turn.replies.map(message=>({kind:'message',message,order:message.activityOrder ?? messagePositions.get(message)})),
     ].sort((a,b)=>a.order-b.order);
-    turn.blocks=[];
-    for (const event of events) {
-      const last=turn.blocks.at(-1);
-      if (event.kind==='message') turn.blocks.push({kind:'message',id:`message:${event.message.id}`,message:event.message});
-      else if (last?.kind==='activity') last.activity.push(event.activity);
-      else turn.blocks.push({kind:'activity',id:event.activity.id,activity:[event.activity],live:false});
-    }
-    if (turn.live) {
-      const last=turn.blocks.at(-1);
-      if (last?.kind==='activity') last.live=true;
-      else turn.blocks.push({kind:'activity',id:`waiting:${last?.id ?? turn.id}`,activity:[],live:true});
-    }
+    const lastReply=turn.replies.at(-1);
+    const replyOrder=lastReply?.activityOrder ?? messagePositions.get(lastReply) ?? -1;
+    const activityAfterReply=events.some(event=>event.kind==='activity' && event.order>replyOrder);
+    turn.answer=lastReply && !activityAfterReply ? lastReply : null;
+    turn.process=events.filter(event=>event.message!==turn.answer).map(event=>event.kind==='message'
+      ? {id:`note:${event.message.id}`,type:'note',text:event.message.text,item:event.message}
+      : event.activity);
+
 
   }
   return turns;
@@ -57,4 +54,30 @@ export function buildTurns(session) {
 export function activityTail(text, limit=150) {
   const line=String(text ?? '').split(/\r?\n/).map(line=>line.trim()).filter(Boolean).at(-1) ?? '';
   return line.length>limit ? `…${line.slice(-limit)}` : line;
+}
+
+export function toolFamily(tool) {
+  const kind=describeTool(tool).kind;
+  if (kind==='search' || kind==='web' || ['search','fetch'].includes(tool.kind)) return 'web';
+  if (kind==='command' || tool.kind==='execute') return 'command';
+  if (kind==='file' || ['read','edit','delete','move'].includes(tool.kind)) return 'file';
+  return 'other';
+}
+
+export function groupProcess(events) {
+  const groups=[];
+  for (const event of events) {
+    const last=groups.at(-1);
+    if (event.type!=='tool') { groups.push({id:event.id,type:event.type,event}); continue; }
+    const family=toolFamily(event.item);
+    if (last?.type==='tools' && last.family===family) last.items.push(event);
+    else groups.push({id:`tools:${event.id}`,type:'tools',family,items:[event]});
+  }
+  return groups;
+}
+
+export function formatDuration(seconds) {
+  if (seconds<60) return `${seconds} 秒`;
+  const minutes=Math.floor(seconds/60), remaining=seconds%60;
+  return `${minutes} 分 ${remaining} 秒`;
 }
