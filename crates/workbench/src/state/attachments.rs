@@ -1,4 +1,5 @@
 use super::Workbench;
+use crate::domain_error::{DomainError, ErrorKind};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -122,26 +123,37 @@ impl Workbench {
         &self,
         id: &str,
         ids: &[String],
-    ) -> Result<Vec<Value>, String> {
+    ) -> Result<Vec<Value>, DomainError> {
         if ids.len() > 5 {
-            return Err("每轮最多添加5个上传附件".into());
+            return Err(DomainError::new(
+                ErrorKind::InvalidAttachment,
+                "每轮最多添加5个上传附件",
+            ));
         }
         let mut result = vec![];
         let mut total = 0;
         let mut seen = std::collections::HashSet::new();
         for attachment in ids {
             if !seen.insert(attachment) {
-                return Err("附件不能重复".into());
+                return Err(DomainError::new(
+                    ErrorKind::InvalidAttachment,
+                    "附件不能重复",
+                ));
             }
             let attachment = self
                 .store
                 .attachment(id, attachment)
                 .await
-                .map_err(|error| error.to_string())?
-                .ok_or("附件不存在或不属于当前会话")?;
+                .map_err(|_| DomainError::storage())?
+                .ok_or_else(|| {
+                    DomainError::new(ErrorKind::InvalidAttachment, "附件不存在或不属于当前会话")
+                })?;
             total += attachment.data.len();
             if total > 16 * 1024 * 1024 {
-                return Err("每轮上传附件总量不能超过16MiB".into());
+                return Err(DomainError::new(
+                    ErrorKind::InvalidAttachment,
+                    "每轮上传附件总量不能超过16MiB",
+                ));
             }
             result.push(attachment.metadata());
         }
@@ -152,19 +164,21 @@ impl Workbench {
         id: &str,
         ids: &[String],
         capabilities: &Value,
-    ) -> Result<Vec<Value>, String> {
+    ) -> Result<Vec<Value>, DomainError> {
         let mut blocks = vec![];
         for attachment in ids {
             let value = self
                 .store
                 .attachment(id, attachment)
                 .await
-                .map_err(|error| error.to_string())?
-                .ok_or("附件不存在或不属于当前会话")?;
+                .map_err(|_| DomainError::storage())?
+                .ok_or_else(|| {
+                    DomainError::new(ErrorKind::InvalidAttachment, "附件不存在或不属于当前会话")
+                })?;
             match value.kind.as_str(){
-    "image"=>{if !capabilities["session"]["prompt"]["image"].is_object(){return Err(format!("此Agent未声明图片能力，无法发送附件 {}",value.name));}blocks.push(json!({"type":"image","mimeType":value.mime_type,"data":STANDARD.encode(&value.data)}));}
+    "image"=>{if !capabilities["session"]["prompt"]["image"].is_object(){return Err(DomainError::new(ErrorKind::InvalidAttachment,format!("此Agent未声明图片能力，无法发送附件 {}",value.name)));}blocks.push(json!({"type":"image","mimeType":value.mime_type,"data":STANDARD.encode(&value.data)}));}
     "text"=>blocks.push(json!({"type":"text","text":format!("用户上传的文本文件 {}（固定内容）：\n{}",value.name,String::from_utf8_lossy(&value.data))})),
-    _=>{if !capabilities["session"]["prompt"]["embeddedContext"].is_object(){return Err(format!("此Agent未声明嵌入文件能力，无法发送附件 {}",value.name));}blocks.push(json!({"type":"resource","resource":{"uri":format!("vibeone:attachment/{}",value.id),"mimeType":value.mime_type,"blob":STANDARD.encode(&value.data)}}));}
+    _=>{if !capabilities["session"]["prompt"]["embeddedContext"].is_object(){return Err(DomainError::new(ErrorKind::InvalidAttachment,format!("此Agent未声明嵌入文件能力，无法发送附件 {}",value.name)));}blocks.push(json!({"type":"resource","resource":{"uri":format!("vibeone:attachment/{}",value.id),"mimeType":value.mime_type,"blob":STANDARD.encode(&value.data)}}));}
    }
         }
         Ok(blocks)

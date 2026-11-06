@@ -128,3 +128,5 @@
 77：原上下文恢复已接正式页面与Host，保留新上下文选择。全量53项Node、workspace Rust、22项Host及SQLite恢复通过，Clippy通过；专门桌面20.3秒、HTTPS手机23.6秒通过。真实Codex两轮无工具验证保持同一上游身份、随机记忆及只读配置。已查看亮暗/手机/失败截图及SVG。原生检查仍Mac locked，14和52保持未完成。
 
 最终831.97MiB桌面包及仓库外smoke通过；包内Host SHA256：`057749b00ffb2f6dbc47a7d2b2453d4e901ba8a2f3ba784c31d22c0c8ab70afa`。未重启正在使用的用户Host。
+
+79：发送、停止和队列迁移明确领域错误；实际HTTP验证稳定身份及拒绝不新增Run，真实SQLite验证存储错误不泄露路径且释放预留租约；空会话新上下文选择不再崩溃。完整check含53项Node、workspace Rust（Workbench24项）、23项Host及恢复通过，Clippy/格式、桌面62.7秒、HTTPS手机23.6秒、831.99MiB包及仓库外smoke通过。包内Host SHA256为`798a35bd4e0b8910e2b03786ab42949b90545675043ccbabd03d942513fd78ea`。未操作用户Host，14和52继续保持未完成。

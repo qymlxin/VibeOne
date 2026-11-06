@@ -653,7 +653,7 @@ async fn submit(
     Path(id): Path<String>,
     Json(body): Json<SubmitMessageRequest>,
 ) -> Result<(StatusCode, Json<SubmitMessageReceipt>), (StatusCode, Json<Value>)> {
-    command(async move {
+    domain_command(async move {
         state
             .workbench
             .submit(&id, body.text, body.key, body.files, body.attachments)
@@ -661,7 +661,7 @@ async fn submit(
     })
     .await
     .map(|result| (StatusCode::ACCEPTED, Json(result)))
-    .map_err(fail)
+    .map_err(domain_fail)
 }
 async fn upload_attachment(
     State(state): State<Server>,
@@ -725,10 +725,10 @@ async fn history_page(
         .map_err(fail)
 }
 async fn cancel(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
-    command(async move { state.workbench.cancel(&id).await })
+    domain_command(async move { state.workbench.cancel(&id).await })
         .await
         .map(|_| Json(json!({"cancelRequested":true})))
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn resume_context(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
     domain_command(async move { state.workbench.resume_context(&id).await })
@@ -741,7 +741,7 @@ async fn queue(
     Path(id): Path<String>,
     Json(body): Json<QueueRequest>,
 ) -> ApiResult {
-    command(async move {
+    domain_command(async move {
         state
             .workbench
             .queue_action(
@@ -755,7 +755,7 @@ async fn queue(
     })
     .await
     .map(|_| Json(json!({"updated":true})))
-    .map_err(fail)
+    .map_err(domain_fail)
 }
 async fn metadata(
     State(state): State<Server>,

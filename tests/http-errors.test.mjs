@@ -28,7 +28,7 @@ test('HTTP failures share a typed JSON envelope without changing successful payl
  await probe('/operations/missing',404,'OPERATION_NOT_FOUND');
  const session=await call('/sessions',{provider:'demo',workspace:directory});
  await call(`/sessions/${session.id}/messages`,{key:'conflict',text:'first'});
- await probe(`/sessions/${session.id}/messages`,409,'CONFLICT',{method:'POST',body:JSON.stringify({key:'conflict',text:'different'})});
+ await probe(`/sessions/${session.id}/messages`,409,'IDEMPOTENCY_CONFLICT',{method:'POST',body:JSON.stringify({key:'conflict',text:'different'})});
  const success=await fetch(`${connection.url}/v1/snapshot`,{headers:{Authorization:`Bearer ${connection.token}`}});
  const snapshot=await success.json();assert.equal(success.status,200);assert.equal(snapshot.apiVersion,3);assert.equal(snapshot.error,undefined);
  assert.equal(snapshot.sessions[0].id,session.id);assert.ok(success.headers.get('x-vibeone-request-id'));
@@ -55,4 +55,42 @@ test('catalog domain failures expose stable identities and preserve stale-update
  await failure('/profiles',{id:profile.id,remove:true},404,'PROFILE_NOT_FOUND');
  for(let index=0;index<64;index++)await call('/profiles',{name:`limit ${index}`,provider:'demo'});
  await failure('/profiles',{name:'overflow',provider:'demo'},409,'PROFILE_LIMIT_REACHED');
+});
+
+test('execution domain failures reject work with stable codes before creating receipts',{timeout:22000},async t=>{
+ const {connection,call,directory,wait}=await host(t);
+ const failure=async(path,body,status,code)=>{
+  const response=await fetch(connection.url+'/v1'+path,{method:'POST',headers:{Authorization:`Bearer ${connection.token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const value=await response.json();assert.equal(response.status,status,JSON.stringify(value));assert.equal(value.code,code);assert.equal(value.status,status);
+  assert.equal(response.headers.get('x-vibeone-request-id'),value.requestId);return value;
+ };
+ const first=await call('/sessions',{provider:'demo',workspace:directory});
+ const other=await call('/sessions',{provider:'demo',workspace:directory});
+ const path=`/sessions/${first.id}`;
+ await failure('/sessions/missing/messages',{text:'no'},404,'SESSION_NOT_FOUND');
+ await failure('/sessions/missing/cancel',{},404,'SESSION_NOT_FOUND');
+ await failure('/sessions/missing/queue',{pause:true},404,'SESSION_NOT_FOUND');
+ await failure(path+'/messages',{text:''},400,'INVALID_INPUT');
+ await failure(path+'/messages',{text:'no',key:''},400,'INVALID_INPUT');
+ await failure(path+'/messages',{text:'no',files:['../outside']},400,'INVALID_REFERENCE');
+ await failure(path+'/messages',{text:'no',attachments:['missing']},400,'INVALID_ATTACHMENT');
+ await failure(path+'/queue',{pause:true,resume:true},400,'INVALID_INPUT');
+ await failure(path+'/queue',{pause:true},409,'QUEUE_CONFLICT');
+ await failure(path+'/queue',{withdraw:'missing'},409,'QUEUE_CONFLICT');
+ assert.equal((await call('/snapshot')).sessions.find(item=>item.id===first.id).runs.length,0);
+ await call(path+'/queue',{resume:true,freshContext:true});
+ assert.equal((await call('/snapshot')).sessions.find(item=>item.id===first.id).runs.length,0,'fresh selection before ACP initialization does not panic or start work');
+ await call(path+'/metadata',{archived:true});
+ await failure(path+'/messages',{text:'no'},409,'SESSION_UNAVAILABLE');
+ await call(path+'/metadata',{archived:false});
+ const accepted=await call(path+'/messages',{text:'/wait',key:'owned'});
+ await wait(first.id,item=>item.status==='running');
+ const duplicate=await call(path+'/messages',{text:'/wait',key:'owned'});
+ assert.equal(duplicate.operationId,accepted.operationId);assert.equal(duplicate.duplicate,true);
+ await failure(path+'/messages',{text:'different',key:'owned'},409,'IDEMPOTENCY_CONFLICT');
+ await failure(`/sessions/${other.id}/messages`,{text:'blocked'},409,'WORKSPACE_BUSY');
+ assert.equal((await call('/snapshot')).sessions.find(item=>item.id===other.id).runs.length,0);
+ for(let index=0;index<20;index++)await call(path+'/messages',{text:`queued ${index}`});
+ await failure(path+'/messages',{text:'overflow'},409,'RUN_LIMIT_REACHED');
+ await call(path+'/cancel',{});await wait(first.id,item=>item.status==='idle'&&item.stopReason==='cancelled'&&item.queuePaused);
 });

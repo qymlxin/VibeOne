@@ -1,3 +1,4 @@
+use crate::domain_error::{DomainError, ErrorKind};
 use crate::{projection::SessionView, providers::Provider};
 use serde_json::{Value, json};
 use std::{
@@ -198,6 +199,27 @@ impl Workbench {
             return Err("Host 正在停止".into());
         }
         Ok(())
+    }
+    fn command_available(&self) -> Result<(), DomainError> {
+        if self
+            .storage_error
+            .lock()
+            .expect("storage error poisoned")
+            .is_some()
+        {
+            return Err(DomainError::storage());
+        }
+        if self.stopping.load(Ordering::SeqCst) {
+            return Err(DomainError::new(
+                ErrorKind::HostUnavailable,
+                "Host 正在停止",
+            ));
+        }
+        Ok(())
+    }
+    fn command_entry(&self, id: &str) -> Result<Arc<Entry>, DomainError> {
+        self.entry(id)
+            .map_err(|_| DomainError::new(ErrorKind::SessionNotFound, "会话不存在"))
     }
     fn changed(&self, cursor: u64) {
         self.revision.fetch_max(cursor, Ordering::SeqCst);
@@ -845,6 +867,60 @@ mod tests {
                 for field in ["runs", "decisions", "queue", "inputs"] {
                     assert_eq!(session[field], json!([]));
                 }
+            }
+            workbench.close().await;
+        }
+    }
+
+    #[tokio::test]
+    async fn execution_failures_keep_storage_identity_without_publishing_work_or_leaking_paths() {
+        for attachment in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let workbench = Workbench::open(
+                directory.path(),
+                vec![Provider {
+                    id: "demo".into(),
+                    name: "Demo".into(),
+                    available: true,
+                    description: String::new(),
+                    command: PathBuf::from("unused"),
+                    args: vec![],
+                }],
+            )
+            .await
+            .unwrap();
+            let id = workbench
+                .create("demo", directory.path().to_str().unwrap(), None)
+                .await
+                .unwrap();
+            workbench.store.close().await;
+            let error = workbench
+                .submit(
+                    &id,
+                    "must not run".into(),
+                    None,
+                    vec![],
+                    if attachment {
+                        vec!["missing".into()]
+                    } else {
+                        vec![]
+                    },
+                )
+                .await
+                .err()
+                .expect("command must fail");
+            assert_eq!(error.kind, ErrorKind::StorageUnavailable);
+            assert!(
+                !error
+                    .to_string()
+                    .contains(directory.path().to_str().unwrap())
+            );
+            let entry = workbench.entry(&id).unwrap();
+            assert!(entry.view.lock().unwrap().runs.is_empty());
+            assert!(workbench.leases.lock().unwrap().is_empty());
+            if !attachment {
+                let next = workbench.cancel(&id).await.expect_err("command must fail");
+                assert_eq!(next.kind, ErrorKind::StorageUnavailable);
             }
             workbench.close().await;
         }

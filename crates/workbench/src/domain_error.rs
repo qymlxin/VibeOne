@@ -5,6 +5,17 @@ pub(crate) enum ErrorKind {
     ProbeBusy,
     SessionNotFound,
     ContextConflict,
+    SessionUnavailable,
+    ConfigurationBusy,
+    IdempotencyConflict,
+    ProviderUnavailable,
+    ProviderConflict,
+    RunLimit,
+    InvalidReference,
+    InvalidAttachment,
+    WorkspaceBusy,
+    QueueConflict,
+    DeliveryUncertain,
     ProfileNotFound,
     ProfileConflict,
     ProfileLimit,
@@ -21,6 +32,17 @@ impl ErrorKind {
             Self::ProbeBusy => "PROBE_BUSY",
             Self::SessionNotFound => "SESSION_NOT_FOUND",
             Self::ContextConflict => "CONTEXT_CONFLICT",
+            Self::SessionUnavailable => "SESSION_UNAVAILABLE",
+            Self::ConfigurationBusy => "CONFIGURATION_BUSY",
+            Self::IdempotencyConflict => "IDEMPOTENCY_CONFLICT",
+            Self::ProviderUnavailable => "PROVIDER_UNAVAILABLE",
+            Self::ProviderConflict => "PROVIDER_CONFLICT",
+            Self::RunLimit => "RUN_LIMIT_REACHED",
+            Self::InvalidReference => "INVALID_REFERENCE",
+            Self::InvalidAttachment => "INVALID_ATTACHMENT",
+            Self::WorkspaceBusy => "WORKSPACE_BUSY",
+            Self::QueueConflict => "QUEUE_CONFLICT",
+            Self::DeliveryUncertain => "DELIVERY_UNCERTAIN",
             Self::ProfileNotFound => "PROFILE_NOT_FOUND",
             Self::ProfileConflict => "PROFILE_CONFLICT",
             Self::ProfileLimit => "PROFILE_LIMIT_REACHED",
@@ -33,14 +55,22 @@ impl ErrorKind {
     }
     pub(crate) fn status(self) -> u16 {
         match self {
-            Self::InvalidInput => 400,
+            Self::InvalidInput | Self::InvalidReference | Self::InvalidAttachment => 400,
             Self::ProfileNotFound | Self::WorkspaceNotFound | Self::SessionNotFound => 404,
             Self::WorkspaceForbidden => 403,
             Self::ProfileConflict
             | Self::ProfileLimit
             | Self::ProbeBusy
-            | Self::ContextConflict => 409,
-            Self::StorageUnavailable | Self::HostUnavailable => 503,
+            | Self::ContextConflict
+            | Self::SessionUnavailable
+            | Self::ConfigurationBusy
+            | Self::IdempotencyConflict
+            | Self::ProviderConflict
+            | Self::RunLimit
+            | Self::WorkspaceBusy
+            | Self::QueueConflict => 409,
+            Self::StorageUnavailable | Self::HostUnavailable | Self::ProviderUnavailable => 503,
+            Self::DeliveryUncertain => 502,
             Self::Internal => 500,
         }
     }

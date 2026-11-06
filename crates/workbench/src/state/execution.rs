@@ -110,31 +110,37 @@ impl Workbench {
         });
     }
 
-    pub async fn submit(
+    pub(crate) async fn submit(
         self: &Arc<Self>,
         id: &str,
         text: String,
         key: Option<String>,
         files: Vec<String>,
         attachment_ids: Vec<String>,
-    ) -> Result<crate::contracts::SubmitMessageReceipt, String> {
-        self.available()?;
+    ) -> Result<crate::contracts::SubmitMessageReceipt, DomainError> {
+        self.command_available()?;
         if (text.trim().is_empty() && attachment_ids.is_empty() && files.is_empty())
             || text.len() > 32_768
         {
-            return Err("输入不能为空且不能超过 32 KiB".into());
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "输入不能为空且不能超过 32 KiB",
+            ));
         }
         if key
             .as_ref()
             .is_some_and(|key| key.is_empty() || key.len() > 128)
         {
-            return Err("无效的幂等键".into());
+            return Err(DomainError::new(ErrorKind::InvalidInput, "无效的幂等键"));
         }
-        let entry = self.entry(id)?;
+        let entry = self.command_entry(id)?;
         let _gate = entry.gate.lock().await;
-        self.available()?;
+        self.command_available()?;
         if entry.configuring.load(Ordering::SeqCst) {
-            return Err("Agent 配置正在更新，请稍后发送".into());
+            return Err(DomainError::new(
+                ErrorKind::ConfigurationBusy,
+                "Agent 配置正在更新，请稍后发送",
+            ));
         }
         let mut view = entry.view.lock().expect("view poisoned").clone();
         if let Some(key) = &key
@@ -144,7 +150,10 @@ impl Workbench {
                 .find(|run| run.key.as_deref() == Some(key.as_str()))
         {
             if run.text != text || run.files != files || run.attachment_ids != attachment_ids {
-                return Err("同一幂等键不能用于不同输入".into());
+                return Err(DomainError::new(
+                    ErrorKind::IdempotencyConflict,
+                    "同一幂等键不能用于不同输入",
+                ));
             }
             return Ok(crate::contracts::SubmitMessageReceipt {
                 operation_id: run.id.clone(),
@@ -160,14 +169,22 @@ impl Workbench {
         if let Some((plugin_id, _)) = view.provider.split_once(':')
             && needs_lease
         {
-            let lease = self.plugins.acquire(plugin_id)?;
+            let lease = self.plugins.acquire(plugin_id).map_err(|_| {
+                DomainError::new(
+                    ErrorKind::ProviderUnavailable,
+                    "Provider 插件不可用，请检查插件状态",
+                )
+            })?;
             if view
                 .profile
                 .as_ref()
                 .and_then(|profile| profile.details.generation)
                 != Some(lease.key().generation)
             {
-                return Err("Provider 代次已更新，请新建会话".into());
+                return Err(DomainError::new(
+                    ErrorKind::ProviderConflict,
+                    "Provider 代次已更新，请新建会话",
+                ));
             }
             *entry
                 .provider_lease
@@ -175,32 +192,46 @@ impl Workbench {
                 .expect("provider lease poisoned") = Some(lease);
         }
         if view.archived || view.history_only || view.status == "disconnected" {
-            return Err("此会话不能执行，请取消归档或新建会话".into());
+            return Err(DomainError::new(
+                ErrorKind::SessionUnavailable,
+                "此会话不能执行，请取消归档或新建会话",
+            ));
         }
         if view.queue.len() >= 20 || view.runs.len() >= 1000 {
-            return Err("队列或会话执行数量已达到上限，请撤回消息或新建会话".into());
+            return Err(DomainError::new(
+                ErrorKind::RunLimit,
+                "队列或会话执行数量已达到上限，请撤回消息或新建会话",
+            ));
         }
         if !view.active && view.queue.is_empty() {
             view.queue_paused = false;
         }
         if files.len() > 5 {
-            return Err("每轮最多引用 5 个文件或文件夹".into());
+            return Err(DomainError::new(
+                ErrorKind::InvalidReference,
+                "每轮最多引用 5 个文件或文件夹",
+            ));
         }
         for path in &files {
-            crate::files::reference(&view.workspace, path).await?;
+            crate::files::reference(&view.workspace, path)
+                .await
+                .map_err(|error| DomainError::new(ErrorKind::InvalidReference, error))?;
         }
         let attachments = self.attachment_metadata(id, &attachment_ids).await?;
         if view.agent_state["capabilities"].is_object() {
             self.attachment_blocks(id, &attachment_ids, &view.agent_state["capabilities"])
                 .await?;
         }
-        let lease = lease_key(&view.workspace).await?;
+        let lease = lease_key(&view.workspace)
+            .await
+            .map_err(|_| DomainError::new(ErrorKind::WorkspaceNotFound, "工作区已移动或删除"))?;
         {
             let mut leases = self.leases.lock().expect("leases poisoned");
             if leases.get(&lease).is_some_and(|owner| owner != id) {
-                return Err(
-                    "同一工作区正在其他会话中执行，请先停止该会话或使用独立 Worktree".into(),
-                );
+                return Err(DomainError::new(
+                    ErrorKind::WorkspaceBusy,
+                    "同一工作区正在其他会话中执行，请先停止该会话或使用独立 Worktree",
+                ));
             }
             if !view.active && !view.queue_paused {
                 leases.insert(lease.clone(), id.into());
@@ -231,14 +262,14 @@ impl Workbench {
                 text.chars().take(28).collect()
             };
         }
-        if let Err(error) = self
+        if let Err(_error) = self
             .commit(&entry, view, "run.queued", &json!({"runId":run_id}))
             .await
         {
             if !queued {
                 self.leases.lock().expect("leases poisoned").remove(&lease);
             }
-            return Err(error);
+            return Err(DomainError::storage());
         }
         self.driver(entry.clone());
         Ok(crate::contracts::SubmitMessageReceipt {
@@ -272,7 +303,9 @@ impl Workbench {
             let queued = view.queue.remove(0);
             let mut text = queued.text.clone();
             let attachment_ids = queued.attachment_ids.clone();
-            self.attachment_metadata(&view.id, &attachment_ids).await?;
+            self.attachment_metadata(&view.id, &attachment_ids)
+                .await
+                .map_err(|error| error.to_string())?;
             for path in &queued.files {
                 let context = crate::files::reference(&view.workspace, path)
                     .await
@@ -513,7 +546,8 @@ impl Workbench {
         };
         blocks.extend(
             self.attachment_blocks(&id, attachment_ids, &capabilities)
-                .await?,
+                .await
+                .map_err(|error| error.to_string())?,
         );
         tokio::select! {
             result=connection.prompt_blocks(blocks)=>{result?;},
@@ -711,17 +745,19 @@ impl Workbench {
         Ok(())
     }
 
-    pub async fn cancel(&self, id: &str) -> Result<(), String> {
-        self.available()?;
-        let entry = self.entry(id)?;
+    pub(crate) async fn cancel(&self, id: &str) -> Result<(), DomainError> {
+        self.command_available()?;
+        let entry = self.command_entry(id)?;
         let _gate = entry.gate.lock().await;
+        self.command_available()?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
         if !view.active {
             if !view.queue.is_empty() {
                 view.queue_paused = true;
                 view.stop_reason = Some("cancelled".into());
                 self.commit(&entry, view, "queue.stop_requested", &json!({}))
-                    .await?;
+                    .await
+                    .map_err(|_| DomainError::storage())?;
                 self.leases
                     .lock()
                     .expect("leases poisoned")
@@ -733,7 +769,8 @@ impl Workbench {
         view.queue_paused = true;
         view.status = "cancelling".into();
         self.commit(&entry, view, "run.cancel_requested", &json!({}))
-            .await?;
+            .await
+            .map_err(|_| DomainError::storage())?;
         if let Some(control) = entry
             .interactions
             .lock()
@@ -751,30 +788,42 @@ impl Workbench {
             .expect("connection poisoned")
             .as_ref()
         {
-            connection.cancel()?;
+            connection.cancel().map_err(|_| {
+                DomainError::new(
+                    ErrorKind::DeliveryUncertain,
+                    "停止请求已保存，但 Agent 信号投递未确认，请查看执行状态",
+                )
+            })?;
         }
         entry.wake.notify_one();
         Ok(())
     }
 
-    pub async fn queue_action(
+    pub(crate) async fn queue_action(
         self: &Arc<Self>,
         id: &str,
         withdraw: Option<String>,
         pause: bool,
         resume: bool,
         fresh_context: bool,
-    ) -> Result<(), String> {
-        self.available()?;
-        let entry = self.entry(id)?;
+    ) -> Result<(), DomainError> {
+        self.command_available()?;
+        let entry = self.command_entry(id)?;
         let _gate = entry.gate.lock().await;
+        self.command_available()?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
         if pause && (resume || fresh_context || withdraw.is_some()) {
-            return Err("暂停不能与恢复或撤回同时提交".into());
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "暂停不能与恢复或撤回同时提交",
+            ));
         }
         if pause {
             if view.queue.is_empty() {
-                return Err("没有待暂停的排队消息，消息可能已经开始执行".into());
+                return Err(DomainError::new(
+                    ErrorKind::QueueConflict,
+                    "没有待暂停的排队消息，消息可能已经开始执行",
+                ));
             }
             view.queue_paused = true;
         }
@@ -783,7 +832,9 @@ impl Workbench {
                 .queue
                 .iter()
                 .position(|run| run.id == withdraw)
-                .ok_or("消息已开始执行或已撤回")?;
+                .ok_or_else(|| {
+                    DomainError::new(ErrorKind::QueueConflict, "消息已开始执行或已撤回")
+                })?;
             view.queue.remove(position);
             if let Some(run) = view.runs.iter_mut().find(|run| run.id == withdraw) {
                 run.status = "withdrawn".into();
@@ -792,17 +843,22 @@ impl Workbench {
         }
         if resume {
             if view.archived || (view.active && fresh_context) {
-                return Err("当前会话不能恢复队列".into());
+                return Err(DomainError::new(
+                    ErrorKind::QueueConflict,
+                    "当前会话不能恢复队列",
+                ));
             }
             if view.history_only && !fresh_context {
-                return Err("重启后需要明确同意在新 Agent 上下文中执行队列".into());
+                return Err(DomainError::new(
+                    ErrorKind::ContextConflict,
+                    "重启后需要明确同意在新 Agent 上下文中执行队列",
+                ));
             }
             if fresh_context {
-                for key in ["resumeSessionId", "contextRestoreState", "contextResumedAt"] {
-                    view.agent_state
-                        .as_object_mut()
-                        .expect("agent state object")
-                        .remove(key);
+                if let Some(state) = view.agent_state.as_object_mut() {
+                    for key in ["resumeSessionId", "contextRestoreState", "contextResumedAt"] {
+                        state.remove(key);
+                    }
                 }
                 view.history_only = false;
                 view.status = "idle".into();
@@ -818,7 +874,8 @@ impl Workbench {
             "queue.updated",
             &json!({"pause":pause,"resume":resume}),
         )
-        .await?;
+        .await
+        .map_err(|_| DomainError::storage())?;
         if release_lease {
             self.leases
                 .lock()
