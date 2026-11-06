@@ -84,5 +84,12 @@ test(
     await wait(id, (s) =>
       s.messages.some((m) => m.text.includes("已收到项目名称：my-project")),
     );
+    await wait(id, (s) => s.stopReason === "end_turn");
+    await call(`/sessions/${id}/configure`, { id: "mode", value: "normal" });
+    assert.equal(
+      (await call("/snapshot")).sessions.find((s) => s.id === id).agentState
+        .configOptions[0].currentValue,
+      "normal",
+    );
   },
 );

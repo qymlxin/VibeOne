@@ -10,6 +10,7 @@ use std::{
 };
 use tokio::sync::{broadcast, watch};
 use vibeone_agent_client::AgentSession;
+mod artifacts;
 mod catalog;
 mod execution;
 use vibeone_storage::{SavedSession, Store, Workspace};
@@ -23,6 +24,14 @@ pub struct Entry {
     wake: tokio::sync::Notify,
     driver: AtomicBool,
     generation: AtomicU64,
+    configuring: AtomicBool,
+    provider_lease: Mutex<Option<vibeone_plugin_host::PluginLease>>,
+}
+struct FlagReset<'a>(&'a AtomicBool);
+impl Drop for FlagReset<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
 }
 impl Entry {
     fn new(view: SessionView, revision: i64) -> Arc<Self> {
@@ -35,12 +44,15 @@ impl Entry {
             wake: tokio::sync::Notify::new(),
             driver: AtomicBool::new(false),
             generation: AtomicU64::new(0),
+            configuring: AtomicBool::new(false),
+            provider_lease: Mutex::default(),
         })
     }
 }
 
 pub struct Workbench {
     pub providers: Vec<Provider>,
+    pub(crate) plugins: crate::plugins::Plugins,
     pub sessions: Mutex<HashMap<String, Arc<Entry>>>,
     pub revision: AtomicU64,
     pub events: broadcast::Sender<u64>,
@@ -126,6 +138,7 @@ impl Workbench {
         }
         Ok(Arc::new(Self {
             providers,
+            plugins: crate::plugins::Plugins::new(directory.to_path_buf()),
             sessions: Mutex::new(sessions),
             revision: AtomicU64::new(revision),
             events: broadcast::channel(128).0,
@@ -169,6 +182,7 @@ impl Workbench {
             .cloned()
             .collect();
         for entry in entries {
+            entry.wake.notify_one();
             if let Some(cancel) = entry.cancel.lock().expect("cancel poisoned").as_ref() {
                 let _ = cancel.send(true);
             }
@@ -178,6 +192,7 @@ impl Workbench {
             let mut view = entry.view.lock().expect("view poisoned");
             if view.active {
                 view.active = false;
+                view.queue_paused = true;
                 view.status = "error".into();
                 view.error = Some(message.clone());
                 view.approvals.clear();
@@ -235,7 +250,7 @@ impl Workbench {
             .map(|entry| entry.view.lock().expect("view poisoned").clone())
             .collect();
         views.sort_by(|a, b| a.id.cmp(&b.id));
-        json!({"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"profiles":self.catalog("profile"),"providers":self.providers,"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
+        json!({"apiVersion":3,"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"examplePluginPath":std::env::var_os("VIBEONE_EXAMPLE_PLUGIN").map(PathBuf::from).unwrap_or_else(||Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/plugins/workspace-tools")),"pluginEvents":self.plugins.events(),"plugins":self.catalog("plugin"),"notifications":self.catalog("notification"),"profiles":self.catalog("profile"),"providers":self.provider_descriptors(),"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
     }
     pub fn entry(&self, id: &str) -> Result<Arc<Entry>, String> {
         self.sessions
@@ -253,7 +268,7 @@ impl Workbench {
     ) -> Result<String, String> {
         self.available()?;
         let _catalog = self.catalog_gate.lock().await;
-        let profile = match profile_id {
+        let mut profile = match profile_id {
             Some(id) => Some(
                 self.catalog("profile")
                     .into_iter()
@@ -267,16 +282,65 @@ impl Workbench {
             .and_then(|item| item["provider"].as_str())
             .unwrap_or(provider);
         let provider = self
-            .providers
-            .iter()
-            .find(|value| value.id == provider && value.available)
+            .provider_descriptors()
+            .into_iter()
+            .find(|value| {
+                value.id == provider
+                    && (value.available
+                        || profile.as_ref().is_some_and(|profile| {
+                            profile["command"]
+                                .as_str()
+                                .is_some_and(|command| Path::new(command).is_file())
+                        }))
+            })
             .ok_or("工具未安装或 Node 不可用，请先检查环境")?;
+        let provider_lease = if let Some((plugin_id, _)) = provider.id.split_once(':') {
+            let lease = self.plugins.acquire(plugin_id)?;
+            if !self.catalog("plugin").iter().any(|record| {
+                record["id"] == plugin_id && record["generation"] == lease.key().generation
+            }) {
+                return Err("Provider 正在更新，请稍后重试".into());
+            }
+            let mut pinned = profile
+                .take()
+                .unwrap_or_else(|| json!({"name":provider.name,"provider":provider.id}));
+            pinned["command"] = json!(provider.command);
+            pinned["args"] = json!(provider.args);
+            pinned["pluginId"] = json!(plugin_id);
+            pinned["generation"] = json!(lease.key().generation);
+            profile = Some(pinned);
+            Some(lease)
+        } else {
+            None
+        };
         let workspace = PathBuf::from(workspace)
             .canonicalize()
             .map_err(|_| "工作目录不存在")?;
         if !workspace.is_dir() {
             return Err("请选择目录作为工作区".into());
         }
+        if let Some((plugin_id, _)) = provider.id.split_once(':') {
+            let record = self
+                .catalog("plugin")
+                .into_iter()
+                .find(|item| item["id"] == plugin_id)
+                .ok_or("Provider 插件不存在")?;
+            let known = self
+                .workspaces
+                .lock()
+                .expect("workspaces poisoned")
+                .iter()
+                .find(|item| Path::new(&item.path) == workspace)
+                .map(|item| item.id.clone());
+            if !record["workspaces"].as_array().is_some_and(|items| {
+                known
+                    .as_ref()
+                    .is_some_and(|id| items.iter().any(|item| item == id))
+            }) {
+                return Err("Provider 插件未获授权访问此工作区".into());
+            }
+        }
+
         let count = self
             .sessions
             .lock()
@@ -309,6 +373,7 @@ impl Workbench {
             queue_paused: false,
             decisions: vec![],
             profile,
+            agent_state: Value::Null,
         };
         let record = SavedSession {
             id: id.clone(),
@@ -327,10 +392,15 @@ impl Workbench {
             .await
             .map_err(|error| self.fail_storage(error))?;
         let _publication = self.publication.lock().expect("publication poisoned");
+        let entry = Entry::new(view, 1);
+        *entry
+            .provider_lease
+            .lock()
+            .expect("provider lease poisoned") = provider_lease;
         self.sessions
             .lock()
             .expect("sessions poisoned")
-            .insert(id.clone(), Entry::new(view, 1));
+            .insert(id.clone(), entry);
         *self.workspaces.lock().expect("workspaces poisoned") = workspaces;
         self.changed(cursor);
         Ok(id)
@@ -435,6 +505,49 @@ impl Workbench {
         .await?;
         connection.answer(request, answer)
     }
+    pub async fn configure(&self, id: &str, config_id: &str, value: Value) -> Result<(), String> {
+        self.available()?;
+        let entry = self.entry(id)?;
+        let connection = {
+            let _gate = entry.gate.lock().await;
+            let view = entry.view.lock().expect("view poisoned");
+            if view.active
+                || !view.queue.is_empty()
+                || view.history_only
+                || entry.configuring.load(Ordering::SeqCst)
+            {
+                return Err("请在当前执行与队列结束后修改配置".into());
+            }
+            if !view.agent_state["configOptions"]
+                .as_array()
+                .is_some_and(|options| options.iter().any(|option| option["configId"] == config_id))
+            {
+                return Err("配置项不存在或 Agent 未声明支持".into());
+            }
+            let connection = entry
+                .connection
+                .lock()
+                .expect("connection poisoned")
+                .clone()
+                .ok_or("Agent 未连接")?;
+            entry.configuring.store(true, Ordering::SeqCst);
+            connection
+        };
+        let _reset = FlagReset(&entry.configuring);
+        let result = connection.configure(config_id, value).await;
+        let _gate = entry.gate.lock().await;
+        entry.configuring.store(false, Ordering::SeqCst);
+        let response = result?;
+        let mut view = entry.view.lock().expect("view poisoned").clone();
+        view.agent_state["configOptions"] = response["configOptions"].clone();
+        self.commit(
+            &entry,
+            view,
+            "agent.configured",
+            &json!({"configId":config_id}),
+        )
+        .await
+    }
     pub async fn metadata(
         &self,
         id: &str,
@@ -453,7 +566,11 @@ impl Workbench {
             view.title = title.into();
         }
         if let Some(archived) = archived {
-            if view.active || !view.queue.is_empty() {
+            if view.active
+                || !view.queue.is_empty()
+                || !view.approvals.is_empty()
+                || !view.inputs.is_empty()
+            {
                 return Err("请先完成或停止运行并清空队列".into());
             }
             view.archived = archived;

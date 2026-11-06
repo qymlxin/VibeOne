@@ -13,7 +13,20 @@ tokio = { workspace = true, features = ["net", "signal", "fs"] }
 uuid.workspace = true
 axum = { version = "0.8", features = ["ws"] }
 futures-util = "0.3"
-tower-http = { version = "0.6", features = ["cors"] }
+tower-http = { version = "0.6", features = ["cors", "fs"] }
+vibeone-plugin-host = { version = "0.1.0", path = "../plugin-host" }
+axum-server = { version = "0.8.0", default-features = false, features = ["tls-rustls-no-provider"] }
+rcgen = "0.14.10"
+sha2 = "0.11.1"
+jsonschema = { version = "0.60.2", default-features = false }
+time = "0.3"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+cap-std = "4.0.3"
 
 [dev-dependencies]
 tempfile = "3"
+
+[dependencies.rustls]
+version = "0.23"
+default-features = false
+features = ["ring", "std", "tls12"]

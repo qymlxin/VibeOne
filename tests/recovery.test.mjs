@@ -96,6 +96,7 @@ test(
         .approvals.length,
       1,
     );
+    const queued=await request(`/sessions/${id}/messages`,{text:"queued survives restart",key:"durable-queue"});
     const oldToken = connection.token;
     child.kill("SIGKILL");
     await exited;
@@ -112,6 +113,7 @@ test(
     assert.equal(restored.status, "interrupted");
     assert.equal(restored.historyOnly, true);
     assert.equal(restored.approvals.length, 0);
+    assert.equal(restored.queue.length,1);assert.equal(restored.queuePaused,true);
     assert.ok(
       restored.messages.some((message) => message.text.includes("/approve")),
     );
@@ -121,6 +123,10 @@ test(
       { option: "allow" },
       false,
     );
+    await request(`/sessions/${id}/queue`,{resume:true},false);
+    await request(`/sessions/${id}/queue`,{resume:true,freshContext:true});
+    const resumed=await waitFor(id,session=>session.runs.some(run=>run.id===queued.operationId&&run.status==="completed"));
+    assert.ok(resumed.messages.some(message=>message.text==="/approve"),"new Agent context must not overwrite earlier messages with reused upstream IDs");
     await request(`/sessions/${id}/metadata`, { archived: true });
     await request(`/sessions/${empty.id}/messages`, {
       text: "fresh execution",
@@ -149,7 +155,7 @@ test(
     assert.equal(final.find((item) => item.id === empty.id).historyOnly, true);
     assert.equal(
       final.find((item) => item.id === id).messages.length,
-      restored.messages.length,
+      resumed.messages.length,
     );
     await request("/host/stop", {});
     await exited;

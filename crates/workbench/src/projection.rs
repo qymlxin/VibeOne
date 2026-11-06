@@ -30,6 +30,8 @@ pub struct SessionView {
     pub decisions: Vec<Value>,
     #[serde(default)]
     pub profile: Option<Value>,
+    #[serde(default)]
+    pub agent_state: Value,
     #[serde(skip)]
     pub active: bool,
     #[serde(skip)]
@@ -76,7 +78,45 @@ impl SessionView {
 
     fn update(&mut self, update: &Value) {
         let kind = update["sessionUpdate"].as_str().unwrap_or("");
-        if kind == "state_update" {
+        if kind == "config_option_update" {
+            self.agent_state["configOptions"] = update["configOptions"].clone();
+            if let Some(id) = update.get("upstreamSessionId") {
+                self.agent_state["upstreamSessionId"] = id.clone();
+            }
+        } else if kind == "terminal_update" || kind == "terminal_output_chunk" {
+            if !self.agent_state["terminals"].is_array() {
+                self.agent_state["terminals"] = json!([]);
+            }
+            let mut item = update.clone();
+            if let Some(data) = item["data"].as_str() {
+                item["data"] = json!(data.chars().take(87380).collect::<String>());
+            }
+            let terminals = self.agent_state["terminals"]
+                .as_array_mut()
+                .expect("terminals array");
+            terminals.push(item);
+            if terminals.len() > 128 {
+                terminals.remove(0);
+            }
+        } else if kind == "available_commands_update" {
+            self.agent_state["commands"] = update["availableCommands"].clone();
+        } else if kind == "plan_update" {
+            self.agent_state["plan"] = update["plan"].clone();
+        } else if kind == "usage_update" {
+            self.agent_state["usage"] = update.clone();
+        } else if kind == "notice" {
+            self.agent_state["notice"] = update.clone();
+        } else if kind == "tool_call_content_chunk" {
+            if let Some(tool) = self
+                .tools
+                .iter_mut()
+                .find(|tool| tool["toolCallId"] == update["toolCallId"])
+            {
+                let text = text_content(&update["content"]["content"]);
+                let output = format!("{}{}", tool["output"].as_str().unwrap_or_default(), text);
+                tool["output"] = json!(output.chars().take(65536).collect::<String>());
+            }
+        } else if kind == "state_update" {
             match update["state"].as_str() {
                 Some("idle") if self.observed_active => {
                     self.status = "idle".into();
@@ -215,6 +255,7 @@ mod tests {
             queue_paused: false,
             decisions: vec![],
             profile: None,
+            agent_state: Value::Null,
             active: true,
             observed_active: false,
         }

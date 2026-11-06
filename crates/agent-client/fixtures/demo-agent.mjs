@@ -4,6 +4,7 @@ const input = createInterface({ input: process.stdin });
 const sessions = new Map();
 const pending = new Map();
 let sequence = 0;
+const configOptions=value=>[{configId:'mode',name:'演示模式',type:'select',currentValue:value??'safe',options:[{value:'safe',name:'安全模式'},{value:'normal',name:'普通模式'}]}];
 const send = value => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...value })}\n`);
 const update = (sessionId, value) => send({ method: 'session/update', params: { sessionId, update: value } });
 const state = (id, state, stopReason) => update(id, { sessionUpdate: 'state_update', state, ...(stopReason ? { stopReason } : {}) });
@@ -77,7 +78,11 @@ for await (const line of input) {
     const sessionId = `demo:${++sequence}`;
     sessions.set(sessionId, { cwd: params.cwd, epoch: 0 });
     state(sessionId, 'idle'); // Intentionally before the response: clients must preserve early updates.
-    send({ id, result: { sessionId } });
+    send({ id, result: { sessionId,configOptions:configOptions() } });
+  } else if (method === 'session/set_config_option') {
+    if(params.configId!=='mode'||params.type!=='id'||!['safe','normal'].includes(params.value)){send({id,error:{code:-32602,message:'Invalid option'}});continue;}
+    update(params.sessionId,{sessionUpdate:'config_option_update',configOptions:configOptions(params.value)});
+    send({id,result:{configOptions:configOptions(params.value)}});
   } else if (method === 'session/list') {
     send({ id, result: { sessions: [...sessions].map(([sessionId, value]) => ({ sessionId, cwd: value.cwd })) } });
   } else if (method === 'session/resume') {

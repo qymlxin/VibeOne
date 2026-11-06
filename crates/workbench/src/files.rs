@@ -34,6 +34,7 @@ pub fn resolve(root: &Path, relative: &str, deleted: bool) -> Result<PathBuf, St
 async fn git(root: &Path, args: &[&str], limit: u64) -> Result<(Vec<u8>, bool, bool), String> {
     let mut command = tokio::process::Command::new("git");
     command
+        .args(["-c", "core.fsmonitor=false"])
         .arg("--no-pager")
         .arg("--literal-pathspecs")
         .arg("-C")
@@ -46,7 +47,8 @@ async fn git(root: &Path, args: &[&str], limit: u64) -> Result<(Vec<u8>, bool, b
         .kill_on_drop(true);
     let mut child = command.spawn().map_err(|_| "未找到 Git")?;
     let mut stdout = child.stdout.take().ok_or("Git 输出不可用")?.take(limit + 1);
-    let result = tokio::time::timeout(Duration::from_secs(8), async {
+
+    tokio::time::timeout(Duration::from_secs(8), async {
         let mut bytes = vec![];
         stdout
             .read_to_end(&mut bytes)
@@ -65,8 +67,7 @@ async fn git(root: &Path, args: &[&str], limit: u64) -> Result<(Vec<u8>, bool, b
         Ok::<_, String>((bytes, truncated, success))
     })
     .await
-    .map_err(|_| "Git 查询超时")?;
-    result
+    .map_err(|_| "Git 查询超时")?
 }
 pub async fn changes(workspace: &str) -> Result<Value, String> {
     let root = PathBuf::from(workspace)
@@ -131,51 +132,36 @@ pub async fn diff(workspace: &str, path: &str, staged: bool) -> Result<Value, St
     )
 }
 pub async fn read(workspace: &str, path: &str) -> Result<Value, String> {
-    let full = resolve(Path::new(workspace), path, false)?;
-    let metadata = tokio::fs::metadata(&full)
-        .await
-        .map_err(|error| error.to_string())?;
-    if !metadata.is_file() {
-        return Err("请选择文件".into());
-    }
-    let file = tokio::fs::File::open(&full)
-        .await
-        .map_err(|error| error.to_string())?;
-    let mut bytes = vec![];
-    file.take(256 * 1024 + 1)
-        .read_to_end(&mut bytes)
-        .await
-        .map_err(|error| error.to_string())?;
-    let truncated = bytes.len() > 256 * 1024;
-    bytes.truncate(256 * 1024);
-    let binary = bytes.contains(&0) || std::str::from_utf8(&bytes).is_err();
-    Ok(
-        json!({"path":path,"size":metadata.len(),"binary":binary,"truncated":truncated,"text":if binary { String::new() } else {String::from_utf8_lossy(&bytes).into_owned()}}),
-    )
+    resolve(Path::new(workspace), path, false)?;
+    let root = workspace.to_owned();
+    let path = path.to_owned();
+    tokio::task::spawn_blocking(move||{
+        use std::io::Read;
+        let directory=cap_std::fs::Dir::open_ambient_dir(&root,cap_std::ambient_authority()).map_err(|error|error.to_string())?;
+        let file=directory.open(&path).map_err(|error|format!("无法在授权工作区读取文件：{error}"))?;
+        let metadata=file.metadata().map_err(|error|error.to_string())?;
+        if !metadata.is_file(){return Err("请选择文件".into());}
+        let mut bytes=vec![];file.take(256*1024+1).read_to_end(&mut bytes).map_err(|error|error.to_string())?;
+        let truncated=bytes.len()>256*1024;bytes.truncate(256*1024);
+        let binary=bytes.contains(&0)||std::str::from_utf8(&bytes).is_err();
+        Ok(json!({"path":path,"size":metadata.len(),"binary":binary,"truncated":truncated,"text":if binary{String::new()}else{String::from_utf8_lossy(&bytes).into_owned()}}))
+    }).await.map_err(|error|error.to_string())?
 }
 pub async fn tree(workspace: &str, path: &str) -> Result<Value, String> {
-    let full = resolve(Path::new(workspace), path, false)?;
-    let mut directory = tokio::fs::read_dir(full)
-        .await
-        .map_err(|error| error.to_string())?;
-    let mut entries = vec![];
-    while let Some(entry) = directory
-        .next_entry()
-        .await
-        .map_err(|error| error.to_string())?
-    {
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if name == ".git" {
-            continue;
+    resolve(Path::new(workspace), path, false)?;
+    let root = workspace.to_owned();
+    let path = path.to_owned();
+    tokio::task::spawn_blocking(move||{
+        let directory=cap_std::fs::Dir::open_ambient_dir(&root,cap_std::ambient_authority()).map_err(|error|error.to_string())?;
+        let mut entries=vec![];
+        for entry in directory.read_dir(&path).map_err(|error|error.to_string())? {
+            let entry=entry.map_err(|error|error.to_string())?;let name=entry.file_name().to_string_lossy().into_owned();if name==".git"{continue;}
+            let kind=entry.file_type().map_err(|error|error.to_string())?;
+            entries.push(json!({"name":name,"path":Path::new(&path).join(&name).to_string_lossy(),"kind":if kind.is_symlink(){"symlink"}else if kind.is_dir(){"directory"}else{"file"}}));if entries.len()==300{break;}
         }
-        let kind = entry.file_type().await.map_err(|error| error.to_string())?;
-        entries.push(json!({"name":name,"path":Path::new(path).join(&name).to_string_lossy(),"kind":if kind.is_symlink(){"symlink"}else if kind.is_dir(){"directory"}else{"file"}}));
-        if entries.len() == 300 {
-            break;
-        }
-    }
-    entries.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
-    Ok(json!({"path":path,"truncated":entries.len()==300,"entries":entries}))
+        entries.sort_by(|a,b|a["name"].as_str().cmp(&b["name"].as_str()));
+        Ok(json!({"path":path,"truncated":entries.len()==300,"entries":entries}))
+    }).await.map_err(|error|error.to_string())?
 }
 
 #[cfg(test)]

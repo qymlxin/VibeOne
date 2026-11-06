@@ -46,7 +46,7 @@ pub struct AgentSession {
     session: ActiveSession<Agent>,
     permissions: Permissions,
     inputs: Inputs,
-    stop: Option<oneshot::Sender<()>>,
+    stop: Mutex<Option<oneshot::Sender<()>>>,
     task: tokio::task::JoinHandle<()>,
 }
 
@@ -61,6 +61,7 @@ impl AgentSession {
         let inputs: Inputs = Arc::default();
         let input_pending = inputs.clone();
         let input_sink = sink.clone();
+        let init_sink = sink.clone();
         let (ready_tx, ready_rx) = oneshot::channel();
         let ready = Arc::new(Mutex::new(Some(ready_tx)));
         let task_ready = ready.clone();
@@ -170,6 +171,7 @@ impl AgentSession {
                             );
                         }
                         let opened = cx.build_session(cwd).start_session().block_task().await?;
+                        init_sink(json!({"type":"update","notification":{"sessionId":opened.session.session_id(),"update":{"sessionUpdate":"config_option_update","configOptions":opened.response.config_options,"upstreamSessionId":opened.session.session_id()}}})).await.map_err(|error|Error::internal_error().data(error))?;
                         if let Some(tx) = task_ready.lock().expect("ready poisoned").take() {
                             let _ = tx.send(Ok(opened.session.clone()));
                         }
@@ -195,7 +197,7 @@ impl AgentSession {
                 session,
                 permissions,
                 inputs,
-                stop: Some(stop_tx),
+                stop: Mutex::new(Some(stop_tx)),
                 task: launch.0.take().expect("launch task"),
             }),
             result => Err(match result {
@@ -217,6 +219,38 @@ impl AgentSession {
         .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string()))
     }
 
+    pub async fn configure(&self, id: &str, value: Value) -> Result<Value, String> {
+        let value: schema::SessionConfigOptionValue = if let Some(value) = value.as_str() {
+            schema::SessionConfigOptionValue::id(value)
+        } else if let Some(value) = value.as_bool() {
+            schema::SessionConfigOptionValue::boolean(value)
+        } else {
+            serde_json::from_value(value).map_err(|error| error.to_string())?
+        };
+        let result = tokio::time::timeout(
+            Duration::from_secs(15),
+            self.session.set_config_option(id, value).block_task(),
+        )
+        .await
+        .map_err(|_| "Agent 配置更新超时")?
+        .map_err(|error| error.to_string())?;
+        serde_json::to_value(result).map_err(|error| error.to_string())
+    }
+    pub async fn shutdown(&self) {
+        let _ = self.cancel();
+        {
+            if let Some(stop) = self.stop.lock().expect("stop poisoned").take() {
+                let _ = stop.send(());
+            }
+        }
+        for _ in 0..60 {
+            if self.task.is_finished() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        self.task.abort();
+    }
     pub fn validate_input(&self, id: &str, answer: &Value) -> Result<(), String> {
         let pending = self.inputs.lock().expect("inputs poisoned");
         let input = pending.get(id).ok_or("补充输入已失效或已处理")?;
@@ -282,7 +316,7 @@ impl Drop for AgentSession {
             .lock()
             .expect("permissions poisoned")
             .clear();
-        if let Some(stop) = self.stop.take() {
+        if let Some(stop) = self.stop.get_mut().expect("stop poisoned").take() {
             let _ = stop.send(());
         }
         // Permit the SDK's close + EOF + process-group shutdown path to run.

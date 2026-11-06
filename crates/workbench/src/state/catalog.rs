@@ -1,6 +1,73 @@
 use super::*;
 
 impl Workbench {
+    pub(crate) fn provider_descriptors(&self) -> Vec<Provider> {
+        let mut providers = self.providers.clone();
+        for record in self
+            .catalog("plugin")
+            .into_iter()
+            .filter(|record| record["enabled"] == true)
+        {
+            if !record["capabilities"]
+                .as_array()
+                .is_some_and(|caps| caps.iter().any(|cap| cap == "agent.spawn"))
+            {
+                continue;
+            }
+            for contribution in record["manifest"]["contributions"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|item| {
+                    item["kind"] == "agent.provider" && item["binding"]["type"] == "declarative"
+                })
+            {
+                let descriptor = &contribution["binding"]["descriptor"];
+                let command = descriptor["command"].as_str().unwrap_or_default();
+                let root = Path::new(record["path"].as_str().unwrap_or_default());
+                let command = if command == "$node" {
+                    crate::providers::find_node().unwrap_or_default()
+                } else if Path::new(command).is_absolute() {
+                    PathBuf::from(command)
+                } else {
+                    crate::files::resolve(root, command, false).unwrap_or_default()
+                };
+                let args = descriptor["args"]
+                    .as_array()
+                    .map(|args| {
+                        args.iter()
+                            .filter_map(|arg| arg.as_str())
+                            .map(|arg| {
+                                if let Some(path) = arg.strip_prefix("$package/") {
+                                    root.join(path).to_string_lossy().into_owned()
+                                } else {
+                                    arg.into()
+                                }
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                providers.push(Provider {
+                    id: format!(
+                        "{}:{}",
+                        record["id"].as_str().unwrap_or_default(),
+                        contribution["id"].as_str().unwrap_or_default()
+                    ),
+                    name: descriptor["name"].as_str().unwrap_or("插件 Agent").into(),
+                    available: command.is_file(),
+                    description: format!(
+                        "插件 {} · 代次 {}",
+                        record["id"].as_str().unwrap_or_default(),
+                        record["generation"]
+                    ),
+                    command,
+                    args,
+                });
+            }
+        }
+        providers
+    }
     pub(crate) fn catalog(&self, kind: &str) -> Vec<Value> {
         let catalog = self.catalog.lock().expect("catalog poisoned");
         let mut values: Vec<_> = catalog
@@ -70,7 +137,11 @@ impl Workbench {
         }
         value["name"] = json!(name);
         let provider = value["provider"].as_str().ok_or("请选择 Agent Provider")?;
-        if !self.providers.iter().any(|item| item.id == provider) {
+        if !self
+            .provider_descriptors()
+            .iter()
+            .any(|item| item.id == provider)
+        {
             return Err("未知 Agent Provider".into());
         }
         if let Some(command) = value["command"].as_str().filter(|text| !text.is_empty()) {
