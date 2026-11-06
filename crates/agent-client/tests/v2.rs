@@ -1,11 +1,10 @@
 use serde_json::Value;
 use std::{
     path::{Path, PathBuf},
-    sync::Arc,
     time::Duration,
 };
 use tokio::sync::mpsc;
-use vibeone_agent_client::AgentSession;
+use vibeone_agent_client::{AgentSession, event_sink};
 
 async fn open(extra: &[&str]) -> (AgentSession, mpsc::UnboundedReceiver<Value>) {
     let (tx, rx) = mpsc::unbounded_channel();
@@ -16,8 +15,9 @@ async fn open(extra: &[&str]) -> (AgentSession, mpsc::UnboundedReceiver<Value>) 
         PathBuf::from("node"),
         args,
         std::env::current_dir().unwrap(),
-        Arc::new(move |event| {
+        event_sink(move |event| {
             let _ = tx.send(event);
+            async { Ok(()) }
         }),
     )
     .await
@@ -92,7 +92,7 @@ async fn v1_response_is_rejected_instead_of_silent_downgrade() {
         "node".into(),
         vec![fixture.to_string_lossy().into_owned(), "--v1".into()],
         std::env::current_dir().unwrap(),
-        Arc::new(|_| {}),
+        event_sink(|_| async { Ok(()) }),
     )
     .await;
     assert!(result.is_err());
@@ -107,7 +107,7 @@ async fn malformed_handshake_and_crashed_agent_fail_without_hanging() {
             "node".into(),
             vec![fixture.to_string_lossy().into_owned(), "--malformed".into()],
             std::env::current_dir().unwrap(),
-            Arc::new(|_| {}),
+            event_sink(|_| async { Ok(()) }),
         ),
     )
     .await

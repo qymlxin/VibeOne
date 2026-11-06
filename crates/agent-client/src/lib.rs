@@ -5,13 +5,23 @@ use agent_client_protocol::{AcpAgent, AcpAgentConfig, Agent, Client, Error};
 use serde_json::{Value, json};
 use std::{
     collections::{HashMap, HashSet},
+    future::Future,
     path::PathBuf,
+    pin::Pin,
     sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::sync::oneshot;
 
-pub type Sink = Arc<dyn Fn(Value) + Send + Sync>;
+pub type Sink =
+    Arc<dyn Fn(Value) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>> + Send + Sync>;
+pub fn event_sink<F, Fut>(sink: F) -> Sink
+where
+    F: Fn(Value) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<(), String>> + Send + 'static,
+{
+    Arc::new(move |event| Box::pin(sink(event)))
+}
 struct Permission {
     options: HashSet<String>,
     reply: oneshot::Sender<Option<String>>,
@@ -56,8 +66,9 @@ impl AgentSession {
                 .on_receive_notification(
                     async move |update: schema::UpdateSessionNotification,
                                 _cx: ConnectionTo<Agent>| {
-                        update_sink(json!({"type": "update", "notification": update}));
-                        Ok(())
+                        update_sink(json!({"type": "update", "notification": update}))
+                            .await
+                            .map_err(|error| Error::internal_error().data(error))
                     },
                     agent_client_protocol::on_receive_notification!(),
                 )
@@ -88,7 +99,9 @@ impl AgentSession {
                         }
                         permission_sink(
                             json!({"type": "permission", "id": id, "request": request}),
-                        );
+                        )
+                        .await
+                        .map_err(|error| Error::internal_error().data(error))?;
                         let cancellation = responder.cancellation().clone();
                         let selection = tokio::select! {
                             result = rx => result.ok().flatten(),
@@ -98,7 +111,9 @@ impl AgentSession {
                         pending.lock().expect("permissions poisoned").remove(&id);
                         permission_sink(
                             json!({"type": "permission_resolved", "id": id, "selected": selection}),
-                        );
+                        )
+                        .await
+                        .map_err(|error| Error::internal_error().data(error))?;
                         let outcome = match selection {
                             Some(option) => schema::RequestPermissionOutcome::Selected(
                                 schema::SelectedPermissionOutcome::new(
@@ -144,7 +159,7 @@ impl AgentSession {
             if let Some(tx) = ready.lock().expect("ready poisoned").take() {
                 let _ = tx.send(Err(error.clone().unwrap_or_else(|| "Agent 已断开".into())));
             }
-            sink(json!({"type": "disconnected", "error": error}));
+            let _ = sink(json!({"type": "disconnected", "error": error})).await;
         });
         let mut launch = LaunchGuard(Some(task));
         match tokio::time::timeout(Duration::from_secs(30), ready_rx).await {

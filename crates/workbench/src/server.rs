@@ -56,6 +56,7 @@ pub async fn serve(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error + 
         data_dir.join("demo-agent.mjs"),
         include_str!("../../agent-client/fixtures/demo-agent.mjs"),
     )?;
+    let workbench = Workbench::open(&data_dir, providers(&data_dir)).await?;
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
     let token = format!("{}{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
@@ -74,7 +75,6 @@ pub async fn serve(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error + 
     file.sync_all()?;
     std::fs::rename(temp, data_dir.join("host.json"))?;
     let (stop, mut stopped) = watch::channel(false);
-    let workbench = Workbench::new(providers(&data_dir));
     let state = Server {
         workbench: workbench.clone(),
         token,
@@ -89,12 +89,13 @@ pub async fn serve(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error + 
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE]);
     let app=Router::new()
-        .route("/v1/health",get(||async{Json(json!({"name":"vibeone-host","protocolVersion":2,"version":env!("CARGO_PKG_VERSION")}))}))
+        .route("/v1/health",get(||async{Json(json!({"name":"vibeone-host","protocolVersion":2,"persistent":true,"version":env!("CARGO_PKG_VERSION")}))}))
         .route("/v1/snapshot",get(snapshot))
         .route("/v1/events",get(events))
         .route("/v1/sessions",post(create))
         .route("/v1/sessions/{id}/messages",post(submit))
         .route("/v1/sessions/{id}/cancel",post(cancel))
+        .route("/v1/sessions/{id}/metadata",post(metadata))
         .route("/v1/sessions/{id}/approvals/{request}",post(decide))
         .route("/v1/host/stop",post(shutdown))
         .layer(DefaultBodyLimit::max(40_000))
@@ -107,8 +108,9 @@ pub async fn serve(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error + 
             let _ = stop.send(true);
         })
         .await?;
-    workbench.stop();
+    workbench.stop().await;
     tokio::time::sleep(Duration::from_secs(6)).await;
+    workbench.close().await;
     let _ = std::fs::remove_file(data_dir.join("host.json"));
     drop(lock);
     Ok(())
@@ -149,6 +151,7 @@ async fn create(State(state): State<Server>, Json(body): Json<Create>) -> ApiRes
     state
         .workbench
         .create(&body.provider, &body.workspace)
+        .await
         .map(|id| Json(json!({"id":id})))
         .map_err(fail)
 }
@@ -164,6 +167,7 @@ async fn submit(
     state
         .workbench
         .submit(&id, body.text)
+        .await
         .map(|id| (StatusCode::ACCEPTED, Json(json!({"operationId":id}))))
         .map_err(fail)
 }
@@ -171,7 +175,25 @@ async fn cancel(State(state): State<Server>, Path(id): Path<String>) -> ApiResul
     state
         .workbench
         .cancel(&id)
+        .await
         .map(|_| Json(json!({"cancelRequested":true})))
+        .map_err(fail)
+}
+#[derive(Deserialize)]
+struct Metadata {
+    title: Option<String>,
+    archived: Option<bool>,
+}
+async fn metadata(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    Json(body): Json<Metadata>,
+) -> ApiResult {
+    state
+        .workbench
+        .metadata(&id, body.title, body.archived)
+        .await
+        .map(|_| Json(json!({"updated":true})))
         .map_err(fail)
 }
 #[derive(Deserialize)]
@@ -186,11 +208,12 @@ async fn decide(
     state
         .workbench
         .decide(&id, &request, &body.option)
+        .await
         .map(|_| Json(json!({"submitted":true})))
         .map_err(fail)
 }
 async fn shutdown(State(state): State<Server>) -> Json<Value> {
-    state.workbench.stop();
+    state.workbench.stop().await;
     let _ = state.stop.send(true);
     Json(json!({"stopping":true}))
 }

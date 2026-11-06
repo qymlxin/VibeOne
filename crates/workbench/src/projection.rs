@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionView {
     pub id: String,
@@ -14,6 +14,10 @@ pub struct SessionView {
     pub approvals: Vec<Value>,
     pub error: Option<String>,
     pub stop_reason: Option<String>,
+    #[serde(default)]
+    pub history_only: bool,
+    #[serde(default)]
+    pub archived: bool,
     #[serde(skip)]
     pub active: bool,
     #[serde(skip)]
@@ -183,6 +187,8 @@ mod tests {
             approvals: vec![],
             error: None,
             stop_reason: None,
+            history_only: false,
+            archived: false,
             active: true,
             observed_active: false,
         }
