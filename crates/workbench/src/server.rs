@@ -48,27 +48,6 @@ fn domain_fail(error: crate::domain_error::DomainError) -> (StatusCode, Json<Val
         Json(json!({"code":error.kind.code(),"error":error.message})),
     )
 }
-fn fail(message: impl Into<String>) -> (StatusCode, Json<Value>) {
-    let message = message.into();
-    let conflict = [
-        "同一幂等键",
-        "配置已更新",
-        "已选择其他选项",
-        "已提交其他回答",
-        "消息已开始执行或已撤回",
-    ]
-    .iter()
-    .any(|text| message.contains(text));
-    (
-        if conflict {
-            StatusCode::CONFLICT
-        } else {
-            StatusCode::BAD_REQUEST
-        },
-        Json(json!({"error":message})),
-    )
-}
-
 const ORIGINS: [&str; 5] = [
     "tauri://localhost",
     "http://tauri.localhost",
@@ -363,7 +342,7 @@ async fn event_page(
         .workbench
         .event_page(query.after)
         .await
-        .map_err(fail)?;
+        .map_err(domain_fail)?;
     if identity.device.is_some() {
         let visible = remote::filter_snapshot(state.workbench.snapshot_view(), &identity);
         let ids = visible.sessions;
@@ -608,9 +587,14 @@ async fn sync_view(
         .workbench
         .sync_view(query.after, query.epoch.as_deref())
         .await
-        .map_err(fail)?;
+        .map_err(domain_fail)?;
     let mut snapshot = serde_json::to_value(remote::filter_snapshot(view.snapshot, &identity))
-        .map_err(|error| fail(error.to_string()))?;
+        .map_err(|_| {
+            domain_fail(crate::domain_error::DomainError::new(
+                crate::domain_error::ErrorKind::Internal,
+                "无法编码同步快照",
+            ))
+        })?;
     let cursor = snapshot["revision"].clone();
     if let Some(reason) = view.reset {
         return Ok(Json(

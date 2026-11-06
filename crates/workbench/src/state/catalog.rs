@@ -359,15 +359,14 @@ impl Workbench {
         .await?;
         Ok(crate::contracts::ProfileResponse::Saved(profile))
     }
-    pub(crate) async fn event_page(&self, after: u64) -> Result<Value, String> {
+    pub(crate) async fn event_page(&self, after: u64) -> Result<Value, DomainError> {
         if after > i64::MAX as u64 {
-            return Err("事件游标无效".into());
+            return Err(DomainError::new(ErrorKind::InvalidInput, "事件游标无效"));
         }
-        let events = self
-            .store
-            .events(after, 256)
-            .await
-            .map_err(|error| error.to_string())?;
+        let events = self.store.events(after, 256).await.map_err(|error| {
+            self.fail_storage(error);
+            DomainError::storage()
+        })?;
         Ok(
             json!({"events":events,"cursor":events.last().and_then(|event|event["cursor"].as_u64()).unwrap_or(after),"hasMore":events.len()==256}),
         )

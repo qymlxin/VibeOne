@@ -251,9 +251,10 @@ impl Workbench {
         self.revision.fetch_max(cursor, Ordering::SeqCst);
         let _ = self.events.send(self.revision.load(Ordering::SeqCst));
     }
-    fn fail_storage(&self, error: impl std::fmt::Display) -> String {
+    fn fail_storage(&self, _error: impl std::fmt::Display) -> String {
         let _publication = self.publication.lock().expect("publication poisoned");
-        let message = format!("本地存储失败，已停止接收新执行：{error}");
+        // This message reaches snapshots and Session errors as well as HTTP responses.
+        let message = "本地存储失败，已停止接收新执行；请检查诊断后重启工作主机".to_owned();
         *self.storage_error.lock().expect("storage error poisoned") = Some(message.clone());
         // Durable completion can no longer be established. Do not leave an
         // apparently active receipt permanently blocking recovery/restart.

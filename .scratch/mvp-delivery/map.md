@@ -131,6 +131,8 @@
 
 - [84-plugin-lifecycle-errors](issues/84-plugin-lifecycle-errors.md)：插件公共生命周期/操作错误、错误隐私、候选容量/过期重查与有界复制完成；真实Worker/SQLite、全量、桌面/手机和包外验证通过。14剩余查询错误及动态响应继续。
 
+- [86-query-domain-errors](issues/86-query-domain-errors.md)：事件/增量查询错误、存储故障公开提示及缓存storage重置完成；全量、桌面/手机及包外验证通过。远程管理仍有固定400适配，后续迁移；14/52继续。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

@@ -54,3 +54,5 @@ Blocked by: 50, 51
 76补齐CLI配置选择，结合75关闭02的实现范围。完整check、21项Host、Clippy、桌面/手机和831.59MiB包外检查通过；原生与物理设备项未由这些测试替代，52继续claimed。
 
 82已完成资源/历史领域错误与文件/Git/产物一致性，83继续补齐插件资源读取。本轮再通过CUA获取dev.vibeone.desktop，仍明确返回Mac locked，已结束该次原生检查；未停止或重启用户Host。原生、真实Claude及物理设备项继续保留，52保持claimed。
+
+84/85/86完成插件生命周期/操作错误、CLI关闭断言及查询故障/缓存重置；最后全量、桌面/手机与重建包外检查通过。最终再次CUA获取dev.vibeone.desktop，仍明确Mac locked；未停止或重启用户Host或操作其草稿。14远程管理/动态响应及原生、真实Claude和物理设备项继续，52保持claimed。

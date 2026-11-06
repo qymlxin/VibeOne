@@ -13,7 +13,7 @@ impl Workbench {
         &self,
         after: Option<u64>,
         epoch: Option<&str>,
-    ) -> Result<SyncView, String> {
+    ) -> Result<SyncView, DomainError> {
         // Writers hold this from the SQLite commit through in-memory publication.
         // Otherwise a higher cursor could be published before an earlier session view.
         let _sync = self.sync_gate.lock().await;
@@ -33,7 +33,10 @@ impl Workbench {
                 self.store
                     .changed_sessions(after.unwrap(), cursor)
                     .await
-                    .map_err(|e| e.to_string())?,
+                    .map_err(|error| {
+                        self.fail_storage(error);
+                        DomainError::storage()
+                    })?,
             );
         }
         Ok(SyncView {
@@ -48,6 +51,65 @@ impl Workbench {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn read_failure_is_typed_and_the_next_sync_preserves_a_cached_reset() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(directory.path(), vec![]).await.unwrap();
+        let initial = workbench.sync_view(None, None).await.unwrap();
+        workbench.store.close().await;
+        let error = workbench
+            .sync_view(
+                Some(initial.snapshot.metadata.revision),
+                Some(&initial.epoch),
+            )
+            .await
+            .err()
+            .expect("closed storage must fail the incremental read");
+        assert_eq!(error.kind, ErrorKind::StorageUnavailable);
+        assert!(!error.message.contains(directory.path().to_str().unwrap()));
+        let recovered = workbench
+            .sync_view(
+                Some(initial.snapshot.metadata.revision),
+                Some(&initial.epoch),
+            )
+            .await
+            .unwrap();
+        assert_eq!(recovered.reset, Some("storage"));
+        assert!(recovered.snapshot.metadata.storage_error.is_some());
+        assert!(recovered.changed.is_empty());
+        workbench.close().await;
+    }
+    #[tokio::test]
+    async fn event_pages_validate_cursors_and_never_publish_raw_fault_details() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(directory.path(), vec![]).await.unwrap();
+        assert_eq!(
+            workbench
+                .event_page(i64::MAX as u64 + 1)
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::InvalidInput
+        );
+        assert!(workbench.snapshot_view().metadata.storage_error.is_none());
+        workbench.store.close().await;
+        let error = workbench.event_page(0).await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::StorageUnavailable);
+        workbench.fail_storage("PRIVATE_DATABASE_DETAIL");
+        assert!(
+            !workbench
+                .snapshot_view()
+                .metadata
+                .storage_error
+                .unwrap()
+                .contains("PRIVATE_DATABASE_DETAIL")
+        );
+        assert_eq!(
+            workbench.event_page(0).await.unwrap_err().kind,
+            ErrorKind::StorageUnavailable
+        );
+        workbench.close().await;
+    }
     #[tokio::test]
     async fn old_cursors_reset_without_losing_the_committed_snapshot() {
         let directory = tempfile::tempdir().unwrap();

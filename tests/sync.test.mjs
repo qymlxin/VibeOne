@@ -6,6 +6,9 @@ import {applySync} from '../apps/desktop/src/workbench-sync.js';
 test('cursor sync coalesces changed sessions and resets invalid cursors', {timeout:20000}, async t=>{
   const {directory,call,connection,wait}=await host(t);
   assert.equal((await fetch(`${connection.url}/v1/sync`)).status,401);
+  const invalid=await fetch(`${connection.url}/v1/event-log?after=9223372036854775808`,{headers:{Authorization:`Bearer ${connection.token}`}});
+  assert.equal(invalid.status,400);const failure=await invalid.json();assert.equal(failure.code,'INVALID_INPUT');assert.equal(failure.requestId,invalid.headers.get('x-vibeone-request-id'));
+  assert.deepEqual((await call('/event-log')).events,[]);
   const initial=await call('/sync');
   assert.equal(initial.version,1);
   assert.equal(initial.reset,'initial');

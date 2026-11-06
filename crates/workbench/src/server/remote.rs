@@ -1,4 +1,13 @@
 use super::*;
+// Temporary adapter for legacy remote-management String errors. It never guesses
+// status from translated copy; these endpoints migrate to DomainError separately.
+fn fail(message: impl Into<String>) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({"error":message.into()})),
+    )
+}
+
 use axum::extract::ConnectInfo;
 use sha2::{Digest, Sha256};
 use std::{
