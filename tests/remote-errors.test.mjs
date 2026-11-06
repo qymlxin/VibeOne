@@ -36,6 +36,7 @@ test('repeat decisions preserve the original credential and revocation stops lat
  const decision={role:'viewer',workspaces:[workspace.id]};
  await local(`/devices/${claim.body.id}/approve`,{...decision,deny:'true'},400,'INVALID_INPUT');
  await local(`/devices/${claim.body.id}/approve`,decision);
+ const activeDevice=(await local('/devices')).devices.find(device=>device.id===claim.body.id);assert.equal(activeDevice.status,'active');assert.equal(activeDevice.role,'viewer');
  const first=await request('/pairing/poll',{id:claim.body.id,secret});assert.equal(first.body.status,'approved');
  // A lost approval reply must not rotate the credential or force a second decision.
  await local(`/devices/${claim.body.id}/approve`,{...decision,workspaces:[workspace.id,workspace.id]});
@@ -50,7 +51,7 @@ test('repeat decisions preserve the original credential and revocation stops lat
  await local(`/devices/${next.body.id}/approve`,decision,409,'PAIRING_CONFLICT');
  assert.equal((await request('/pairing/poll',{id:next.body.id,secret})).body.status,'denied');
  await local('/devices/missing/approve',decision,409,'PAIRING_EXPIRED');await local('/devices/missing/revoke',{},404,'DEVICE_NOT_FOUND');
- const devices=await local('/devices');assert.equal(JSON.stringify(devices).includes(secret),false);assert.equal(JSON.stringify(devices).includes('tokenHash'),false);
+ const devices=await local('/devices');assert.equal(devices.devices.find(device=>device.id===claim.body.id).status,'revoked');assert.deepEqual(devices.devices.find(device=>device.id===claim.body.id).workspaces,[workspace.id]);assert.equal(JSON.stringify(devices).includes(secret),false);assert.equal(JSON.stringify(devices).includes('tokenHash'),false);
 });
 
 test('remote controls classify failures and occupied ports cannot replace certificate identity',{timeout:22000},async t=>{

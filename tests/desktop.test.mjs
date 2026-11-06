@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import https from "node:https";
 import { spawn, execFileSync } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -835,6 +836,17 @@ test(
     await page.getByRole('button',{name:'开启 HTTPS 手机入口',exact:true}).click();
     await page.getByRole('button',{name:'关闭手机入口',exact:true}).waitFor();
     assert.equal(await remotePort.inputValue(),'0','automatic port remains configuration intent');
+    const remoteDeviceState=await (await fetch(`${connection.url}/v1/devices`,{headers:historyHeaders})).json();
+    const pairCode=await post('/pairing/code',{});
+    const trustedCa=await readFile(join(directory,'VibeOne-Root-CA.crt'));
+    const deviceClaim=await new Promise((resolve,reject)=>{
+      const request=https.request(remoteDeviceState.url+'/v1/pairing/claim',{ca:trustedCa,agent:false,method:'POST',headers:{Origin:remoteDeviceState.url,'Content-Type':'application/json'},signal:AbortSignal.timeout(4000)},response=>{
+        let body='';response.on('data',chunk=>body+=chunk);response.on('error',reject);response.on('end',()=>{try{assert.equal(response.statusCode,200);resolve(JSON.parse(body));}catch(error){reject(error);}});
+      });request.on('error',reject);request.end(JSON.stringify({code:pairCode.code,name:'desktop-device-fixture',secret:'fixture-pair-secret-'.repeat(3)}));
+    });
+    const deviceWorkspace=await post('/workspaces',{path:directory});
+    await post(`/devices/${deviceClaim.id}/approve`,{role:'viewer',workspaces:[deviceWorkspace.id]});
+
     await settingsNav.getByRole('button',{name:'常规',exact:true}).click();
     await settingsNav.getByRole('button',{name:'远程连接',exact:true}).click();
     await page.getByRole('button',{name:'关闭手机入口',exact:true}).waitFor();
@@ -842,6 +854,17 @@ test(
     assert.equal(await remotePort.inputValue(),'0');
     await page.getByRole('img',{name:'手机入口二维码',exact:true}).waitFor();
     await page.screenshot({path:join(tmpdir(),'vibeone-remote-preferences-dark.png')});
+    const deviceCard=page.getByRole('article',{name:'设备 desktop-device-fixture',exact:true});
+    await deviceCard.waitFor();
+    assert.ok((await deviceCard.innerText()).includes('已授权'));
+    assert.ok((await deviceCard.innerText()).includes('仅查看'));
+    await deviceCard.getByText(`授权工作区：${deviceWorkspace.name}`,{exact:true}).waitFor();
+    await deviceCard.scrollIntoViewIfNeeded();
+    await page.screenshot({path:join(tmpdir(),'vibeone-device-scope-dark.png')});
+    await deviceCard.getByRole('button',{name:'撤销设备',exact:true}).click();
+    await deviceCard.filter({hasText:'已撤销'}).waitFor();
+    assert.equal(await deviceCard.getByRole('button',{name:'撤销设备',exact:true}).isDisabled(),true);
+
     await page.getByRole('button',{name:'关闭手机入口',exact:true}).click();
     await page.waitForFunction(()=>!document.querySelector('[aria-label="远程入口 IP"]')?.disabled);
     await settingsNav.getByRole('button',{name:'常规',exact:true}).click();

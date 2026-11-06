@@ -14,7 +14,7 @@
 
 状态每三秒轮询。输入框被编辑后，轮询更新连接/设备状态，不覆盖未提交 IP 或端口。只有成功启停后的确认刷新才重新应用保存结果；复制、撤销设备等其他操作不丢弃配置编辑。请求按序号过滤过期响应，组件离开后不接纳结果。读取失败有独立提示，后续成功读取自动清除；操作失败信息单独保留。
 
-`RemoteConfiguration`、`RemoteClaimSummary`、`RemoteStatusResponse` 由实际 Rust HTTP 响应定义生成 Schema 和 TypeScript。设备目录内容目前仍为动态记录，后续继续收紧契约，不将本次配置类型化等同于全部动态接口已完成。
+`RemoteConfiguration`、`RemoteClaimSummary`、`RemoteStatusResponse` 由实际 Rust HTTP 响应定义生成 Schema 和 TypeScript。92已将设备目录公开项接到 `RemoteDeviceSummary` 与角色/状态枚举；其余动态接口仍另行收紧。设备状态、字段与授权规则见 [设备授权状态](device-status.md)。
 
 ![远程配置与运行状态](diagrams/remote-configuration.svg)
 

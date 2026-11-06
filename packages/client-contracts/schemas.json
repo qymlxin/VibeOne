@@ -1,4 +1,83 @@
 {
+  "RemoteDeviceSummary": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "RemoteDeviceSummary",
+    "type": "object",
+    "required": [
+      "name",
+      "revoked",
+      "status",
+      "workspaces"
+    ],
+    "properties": {
+      "createdAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "expiresAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "name": {
+        "type": "string"
+      },
+      "revoked": {
+        "type": "boolean"
+      },
+      "role": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/RemoteDeviceRole"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "$ref": "#/definitions/RemoteDeviceStatus"
+      },
+      "workspaces": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "definitions": {
+      "RemoteDeviceRole": {
+        "type": "string",
+        "enum": [
+          "viewer",
+          "approver",
+          "operator"
+        ]
+      },
+      "RemoteDeviceStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "expired",
+          "revoked",
+          "invalid"
+        ]
+      }
+    }
+  },
   "RemoteConfiguration": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "RemoteConfiguration",
@@ -52,7 +131,9 @@
       },
       "devices": {
         "type": "array",
-        "items": true
+        "items": {
+          "$ref": "#/definitions/RemoteDeviceSummary"
+        }
       },
       "qr": {
         "type": [
@@ -118,6 +199,81 @@
             ],
             "format": "uint16",
             "minimum": 0
+          }
+        }
+      },
+      "RemoteDeviceRole": {
+        "type": "string",
+        "enum": [
+          "viewer",
+          "approver",
+          "operator"
+        ]
+      },
+      "RemoteDeviceStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "expired",
+          "revoked",
+          "invalid"
+        ]
+      },
+      "RemoteDeviceSummary": {
+        "type": "object",
+        "required": [
+          "name",
+          "revoked",
+          "status",
+          "workspaces"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/RemoteDeviceRole"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/definitions/RemoteDeviceStatus"
+          },
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }

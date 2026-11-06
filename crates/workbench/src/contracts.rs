@@ -16,13 +16,40 @@ pub struct RemoteClaimSummary {
     pub name: String,
     pub expires_at: u64,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum RemoteDeviceRole {
+    Viewer,
+    Approver,
+    Operator,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum RemoteDeviceStatus {
+    Active,
+    Expired,
+    Revoked,
+    Invalid,
+}
+#[derive(Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteDeviceSummary {
+    pub id: Option<String>,
+    pub name: String,
+    pub role: Option<RemoteDeviceRole>,
+    pub workspaces: Vec<String>,
+    pub created_at: Option<u64>,
+    pub expires_at: Option<u64>,
+    pub revoked: bool,
+    pub status: RemoteDeviceStatus,
+}
 #[derive(Clone, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteStatusResponse {
     pub url: Option<String>,
     pub qr: Option<String>,
     pub configuration: RemoteConfiguration,
-    pub devices: Vec<Value>,
+    pub devices: Vec<RemoteDeviceSummary>,
     pub claims: Vec<RemoteClaimSummary>,
     pub suggested_ip: Option<String>,
     pub certificate_path: String,
@@ -423,6 +450,7 @@ pub enum ProfileResponse {
 /// Generated from the same types used by the HTTP extractors/serializers.
 pub fn schemas() -> Value {
     json!({
+        "RemoteDeviceSummary":schema_for!(RemoteDeviceSummary),
         "RemoteConfiguration":schema_for!(RemoteConfiguration),
         "RemoteStatusResponse":schema_for!(RemoteStatusResponse),
         "CreateSessionRequest":schema_for!(CreateSessionRequest),

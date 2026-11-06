@@ -109,3 +109,17 @@ test('remote settings hydrate saved intent, actual IP and legacy Host addresses 
  assert.deepEqual(remotePreferences({suggestedIp:'192.168.1.2',configuration:{port:99999}}),{ip:'192.168.1.2',port:'0'});
  assert.deepEqual(remotePreferences(null),{ip:'',port:'0'});
 });
+
+
+import {devicePresentation} from '../apps/desktop/src/remote-preferences.js';
+test('device display uses Host status, real scopes and legacy expiry without claiming invalid grants active',()=>{
+ const grant={id:'phone',name:'Phone',role:'viewer',workspaces:['one','missing'],expiresAt:200,revoked:false};
+ assert.equal(devicePresentation(grant,[],300).label,'已过期');
+ assert.equal(devicePresentation({...grant,status:'active'},[],300).label,'已授权','Host status survives a skewed client clock');
+ assert.equal(devicePresentation({...grant,status:'invalid'},[],100).label,'记录异常');
+ assert.equal(devicePresentation({...grant,revoked:true},[],100).label,'已撤销');
+ assert.equal(devicePresentation({...grant,role:'constructor'},[],100).role,'未知角色');
+ assert.equal(devicePresentation({...grant,role:'future'},[],100).label,'记录异常');
+ assert.equal(devicePresentation({...grant,expiresAt:null},[],100).expires,null);
+ assert.deepEqual(devicePresentation(grant,[{id:'one',name:'Project One'}],100).scopes,['Project One','未找到的工作区（missing）']);
+});

@@ -1,5 +1,8 @@
 use super::*;
-use crate::contracts::{RemoteClaimSummary, RemoteConfiguration, RemoteStatusResponse};
+use crate::contracts::{
+    RemoteClaimSummary, RemoteConfiguration, RemoteDeviceRole, RemoteDeviceStatus,
+    RemoteDeviceSummary, RemoteStatusResponse,
+};
 use crate::domain_error::{DomainError, ErrorKind};
 mod tls;
 use axum::extract::ConnectInfo;
@@ -277,6 +280,62 @@ impl Identity {
         }
     }
 }
+fn device_status(device: &Value, timestamp: u64) -> RemoteDeviceStatus {
+    if device["revoked"] == true {
+        return RemoteDeviceStatus::Revoked;
+    }
+    let valid = device["id"].as_str().is_some_and(|id| !id.is_empty())
+        && serde_json::from_value::<RemoteDeviceRole>(device["role"].clone()).is_ok()
+        && device["revoked"].as_bool().is_some()
+        && device["tokenHash"].as_str().is_some_and(|hash| {
+            hash.len() == 64 && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
+        && device["workspaces"].as_array().is_some_and(|items| {
+            !items.is_empty()
+                && items
+                    .iter()
+                    .all(|item| item.as_str().is_some_and(|id| !id.is_empty()))
+        })
+        && device["expiresAt"].as_u64().is_some();
+    if !valid {
+        RemoteDeviceStatus::Invalid
+    } else if device["expiresAt"].as_u64().unwrap_or(0) <= timestamp {
+        RemoteDeviceStatus::Expired
+    } else {
+        RemoteDeviceStatus::Active
+    }
+}
+fn device_summary(device: Value, timestamp: u64) -> RemoteDeviceSummary {
+    RemoteDeviceSummary {
+        id: device["id"]
+            .as_str()
+            .filter(|id| !id.is_empty())
+            .map(str::to_owned),
+        name: device["name"]
+            .as_str()
+            .filter(|name| !name.is_empty())
+            .unwrap_or("未命名设备")
+            .to_owned(),
+        role: serde_json::from_value(device["role"].clone()).ok(),
+        workspaces: device["workspaces"]
+            .as_array()
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        created_at: device["createdAt"].as_u64(),
+        expires_at: device["expiresAt"].as_u64(),
+        revoked: device["revoked"] == true,
+        status: device_status(&device, timestamp),
+    }
+}
+fn device_authorized(device: &Value, hashed: &str) -> bool {
+    device["tokenHash"] == hashed && device_status(device, now()) == RemoteDeviceStatus::Active
+}
 pub(super) fn identity(state: &Server, token: &str) -> Option<Identity> {
     if !state.is_remote && token == state.token {
         return Some(Identity::owner());
@@ -286,13 +345,7 @@ pub(super) fn identity(state: &Server, token: &str) -> Option<Identity> {
         .workbench
         .catalog("device")
         .into_iter()
-        .find(|device| {
-            device["tokenHash"] == hashed
-                && device["revoked"] != true
-                && device["expiresAt"]
-                    .as_u64()
-                    .is_some_and(|expires| expires > now())
-        })
+        .find(|device| device_authorized(device, &hashed))
         .map(|device| Identity {
             device: Some(device),
         })
@@ -440,10 +493,7 @@ pub(super) async fn status(State(state): State<Server>) -> Json<RemoteStatusResp
         .workbench
         .catalog("device")
         .into_iter()
-        .map(|mut device| {
-            device.as_object_mut().unwrap().remove("tokenHash");
-            device
-        })
+        .map(|device| device_summary(device, now()))
         .collect::<Vec<_>>();
     let claims = state
         .remote
@@ -642,8 +692,7 @@ async fn approve_claim(state: &Server, id: &str, body: Value) -> Result<Value, D
     if let Some(token) = token {
         let same = state.workbench.catalog("device").iter().any(|device| {
             device["id"] == id
-                && device["revoked"] != true
-                && device["tokenHash"] == hash(&token)
+                && device_authorized(device, &hash(&token))
                 && device["role"] == role
                 && device["workspaces"]
                     .as_array()
@@ -694,14 +743,11 @@ pub(super) async fn poll(State(state): State<Server>, Json(body): Json<Value>) -
         return Json(json!({"status":"denied"})).into_response();
     }
     if let Some(token) = claim.token.as_ref() {
-        let valid = state.workbench.catalog("device").iter().any(|device| {
-            device["id"] == claim.id
-                && device["tokenHash"] == hash(token)
-                && device["revoked"] != true
-                && device["expiresAt"]
-                    .as_u64()
-                    .is_some_and(|expires| expires > now())
-        });
+        let valid = state
+            .workbench
+            .catalog("device")
+            .iter()
+            .any(|device| device["id"] == claim.id && device_authorized(device, &hash(token)));
         if !valid {
             return Json(json!({"status":"denied"})).into_response();
         }
@@ -880,6 +926,77 @@ mod remote_failure_tests {
             json!({"id":"remote","enabled":false,"ip":"127.0.0.2","port":0})
         );
         restored.close().await;
+    }
+
+    #[tokio::test]
+    async fn device_public_status_whitelists_fields_and_rejects_invalid_grants() {
+        let (_directory, state, workspace) = fixture().await;
+        let token = "fixture-private-credential";
+        let mut record = json!({"id":"device","name":"Fixture device","role":"viewer","workspaces":[workspace],"tokenHash":hash(token),"createdAt":now(),"expiresAt":now()+300,"revoked":false,"futurePrivate":"PRIVATE_DO_NOT_EXPOSE"});
+        state
+            .workbench
+            .save_catalog("device", "device", record.clone())
+            .await
+            .unwrap();
+        let response = serde_json::to_value(status(State(state.clone())).await.0).unwrap();
+        assert!(!response.to_string().contains("PRIVATE_DO_NOT_EXPOSE"));
+        assert!(!response.to_string().contains("tokenHash"));
+        assert!(identity(&state, token).is_some());
+        for revoked in [json!("false"), Value::Null, json!(17)] {
+            record["revoked"] = revoked;
+            state
+                .workbench
+                .save_catalog("device", "device", record.clone())
+                .await
+                .unwrap();
+            assert!(
+                identity(&state, token).is_none(),
+                "malformed revocation must never authorize"
+            );
+        }
+        record["revoked"] = json!(false);
+        for patch in [
+            json!({"role":"future"}),
+            json!({"workspaces":[""]}),
+            json!({"workspaces":[17]}),
+            json!({"expiresAt":null}),
+            json!({"id":null}),
+            json!({"tokenHash":"invalid"}),
+        ] {
+            let mut invalid = record.clone();
+            invalid
+                .as_object_mut()
+                .unwrap()
+                .extend(patch.as_object().unwrap().clone());
+            state
+                .workbench
+                .save_catalog("device", "device", invalid.clone())
+                .await
+                .unwrap();
+            assert!(identity(&state, token).is_none());
+            assert_eq!(
+                device_summary(invalid, now()).status,
+                RemoteDeviceStatus::Invalid
+            );
+        }
+        record["expiresAt"] = json!(now() - 1);
+        assert_eq!(
+            device_summary(record.clone(), now()).status,
+            RemoteDeviceStatus::Expired
+        );
+        record["revoked"] = json!(true);
+        assert_eq!(
+            device_summary(record.clone(), now()).status,
+            RemoteDeviceStatus::Revoked
+        );
+        let response = serde_json::to_value(status(State(state.clone())).await.0).unwrap();
+        let schema = crate::contracts::schemas()["RemoteStatusResponse"].clone();
+        assert!(
+            jsonschema::validator_for(&schema)
+                .unwrap()
+                .is_valid(&response)
+        );
+        state.workbench.close().await;
     }
 
     fn pending(state: &Server) {

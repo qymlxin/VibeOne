@@ -286,3 +286,9 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 ## 文件目录导航与重试（91）
 
 55项Node/SDK、桌面68.8秒及HTTPS手机23.6秒回归通过。桌面模拟一次目录HTTP 503并通过重试成功读取；验证编辑地址不切列表、提交有效含空格路径、失败保留列表与输入、层级返回工作区。亮/暗文件浏览截图及SVG已查看；手机页面无横向溢出。说明见 [文件目录导航](file-navigation.md)。本次未修改Host权限和原生运行进程。
+
+## 设备公开状态与授权一致性（92）
+
+56项Node/SDK、47项Workbench、37项Host集成、崩溃恢复和Clippy通过。真实SQLite先复现未知私有字段透传，再验证公开字段投影及异常授权拒绝；正式桌面69.0秒以可信CA完成真实HTTPS配对，显示角色/工作区并通过页面撤销，手机23.7秒回归通过。设备界面及SVG已查看。
+
+本轮只读Claude `auth status`仍为 `loggedIn=false / authMethod=none`；CUA获取原生应用仍明确返回Mac locked，已结束该次检查。未停止/重启用户Host，原生窗口与物理设备验收继续保留。详见 [设备授权状态](device-status.md)。

@@ -143,6 +143,8 @@
 
 - [91-file-directory-navigation](issues/91-file-directory-navigation.md)：目录地址确认后切换、失败保留当前列表、层级返回与子目录独立重试已完成；55项Node、桌面/手机与打包烟测通过，文档和SVG已更新。
 
+- [92-device-public-status](issues/92-device-public-status.md)：设备公开字段投影、四种授权状态、角色/工作区显示及共用有效性规则完成；私有字段泄漏红/绿、全量、桌面/手机及打包烟测通过。原生仍锁定，Claude仍未认证。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { remotePreferences } from "./remote-preferences.js";
+import { remotePreferences, devicePresentation } from "./remote-preferences.js";
 import { exportRemoteCertificate } from "./api.js";
 
 export function RemoteSettings({ workbench }) {
@@ -209,23 +209,17 @@ export function RemoteSettings({ workbench }) {
           ))}
         </>
       )}
-      {(state?.devices ?? []).map((device) => (
-        <article className="desktop-plugin-card" key={device.id}>
-          <strong>{device.name}</strong> · {device.role} ·{" "}
-          {device.revoked ? "已撤销" : "已授权"}
-          <p>
-            有效期至 {new Date(device.expiresAt * 1000).toLocaleDateString()}
-          </p>
-          <button
-            disabled={busy || device.revoked}
-            onClick={() =>
-              void run(() => workbench.call(`/devices/${device.id}/revoke`, {}))
-            }
-          >
-            撤销设备
-          </button>
-        </article>
-      ))}
+      {(state?.devices ?? []).map((device,index) => {
+        const presentation=devicePresentation(device,workbench.workspaces);
+        return <article className="desktop-plugin-card" key={presentation.id??`invalid-${index}`} aria-label={`设备 ${presentation.name}`}>
+          <strong>{presentation.name}</strong> · {presentation.role} · {presentation.label}
+          <p>{presentation.expires?`有效期至 ${presentation.expires}`:'未提供有效到期时间'}</p>
+          <p style={{overflowWrap:'anywhere'}}>授权工作区：{presentation.scopes.length?presentation.scopes.join('、'):'未授权工作区'}</p>
+          {presentation.status==='invalid'&&<p role="status">授权记录不完整或格式异常，不能用于连接。请撤销后重新配对。</p>}
+          {!presentation.id&&<p>缺少有效设备标识，无法通过此记录撤销。</p>}
+          <button disabled={busy||presentation.status==='revoked'||!presentation.id} onClick={()=>void run(()=>workbench.call(`/devices/${encodeURIComponent(presentation.id)}/revoke`,{}))}>撤销设备</button>
+        </article>;
+      })}
       {statusError && <p role="alert">{statusError}</p>}
       {error && <p role="alert">{error}</p>}
     </section>
