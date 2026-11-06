@@ -85,6 +85,7 @@
 
 ## Fog
 
+- [62-human-initialization-timeout](issues/62-human-initialization-timeout.md)：待验证会话创建前人工请求的长等待是否与30秒初始化预算冲突；先用可控时间复现，再决定修复。
 - 真实Claude认证及该工具的审批/取消仍由本机账号和实际工具能力决定；Codex路径和人工请求可控时间超时已有实测。
 - 物理 iOS/Android 证书信任、弱网、锁屏及 macOS 托盘/系统通知仍待人工验收。
 - 客户端当前用 WS 通知加快照恢复；事件增量 reducer及完整 DTO 生成未完成；长历史已独立分页交付。
