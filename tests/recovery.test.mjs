@@ -99,6 +99,7 @@ test(
     const queued=await request(`/sessions/${id}/messages`,{text:"queued survives restart",key:"durable-queue"});
     const activityBeforeRestart=(await request("/snapshot")).sessions.find(session=>session.id===id).lastActivityAt;
     assert.ok(activityBeforeRestart>0);
+    const persistentAttachment=await request(`/sessions/${id}/attachments`,{name:'persisted.txt',mimeType:'text/plain',data:Buffer.from('重启后附件仍在').toString('base64')});
     const oldToken = connection.token;
     child.kill("SIGKILL");
     await exited;
@@ -113,6 +114,7 @@ test(
     const restored = snapshot.sessions.find((item) => item.id === id);
     assert.equal(restored.title, "保留的会话");
     assert.equal(restored.lastActivityAt,activityBeforeRestart);
+    assert.equal((await request(`/sessions/${id}/attachments/${persistentAttachment.id}`)).data,Buffer.from('重启后附件仍在').toString('base64'));
     assert.equal(restored.status, "interrupted");
     assert.equal(restored.historyOnly, true);
     assert.equal(restored.approvals.length, 0);

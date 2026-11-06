@@ -1,3 +1,4 @@
+import {AttachmentCards} from './Attachments.jsx';
 import React, {memo, useEffect, useMemo, useRef, useState} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -20,10 +21,10 @@ export const ChatMessage = memo(function ChatMessage({message,name}) {
   return <article className={`desktop-message ${message.role}`}>
     <span className="desktop-avatar">{user ? '你' : <MessageSquare size={14}/>}</span>
     <div><div className="desktop-message-meta"><strong>{user ? '你' : name}</strong>{message.pending && <span>已受理 · 等待 Agent 接受</span>}</div>
-      {user ? <div className="desktop-message-text">{message.text || '…'}</div> : <MarkdownBody text={message.text}/>}
+      {user ? <><AttachmentCards items={message.attachments}/>{(message.text||!message.attachments?.length)&&<div className="desktop-message-text">{message.text || '…'}</div>}</> : <MarkdownBody text={message.text}/>}
     </div>
   </article>;
-},(a,b)=>a.name===b.name && a.message.id===b.message.id && a.message.text===b.message.text && a.message.pending===b.message.pending && a.message.role===b.message.role);
+},(a,b)=>a.name===b.name && a.message.id===b.message.id && a.message.text===b.message.text && a.message.attachments===b.message.attachments && a.message.pending===b.message.pending && a.message.role===b.message.role);
 
 const toolStatus = {pending:'等待执行',in_progress:'执行中',completed:'已完成',failed:'失败',cancelled:'已停止'};
 const typeLabel = {thought:'思考摘要',tool:'工具',note:'说明'};

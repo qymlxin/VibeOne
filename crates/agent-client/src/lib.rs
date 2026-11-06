@@ -228,9 +228,19 @@ impl AgentSession {
 
     /// Acceptance is not completion: callers observe state_update notifications separately.
     pub async fn prompt(&self, text: &str) -> Result<Value, String> {
+        self.prompt_blocks(vec![json!({"type":"text","text":text})])
+            .await
+    }
+
+    pub async fn prompt_blocks(&self, blocks: Vec<Value>) -> Result<Value, String> {
+        let blocks: Vec<schema::ContentBlock> =
+            serde_json::from_value(json!(blocks)).map_err(|error| error.to_string())?;
+        if blocks.is_empty() {
+            return Err("输入内容不能为空".into());
+        }
         tokio::time::timeout(
             Duration::from_secs(30),
-            self.session.send_prompt(text).block_task(),
+            self.session.send_prompt_blocks(blocks).block_task(),
         )
         .await
         .map_err(|_| "Agent 接受输入超时".to_owned())?

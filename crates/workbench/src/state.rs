@@ -11,6 +11,7 @@ use std::{
 use tokio::sync::{broadcast, watch};
 use vibeone_agent_client::{AgentInteractions, AgentSession};
 mod artifacts;
+mod attachments;
 mod catalog;
 mod execution;
 mod outbox;
@@ -264,7 +265,7 @@ impl Workbench {
             .map(|entry| entry.view.lock().expect("view poisoned").clone())
             .collect();
         views.sort_by(|a, b| a.id.cmp(&b.id));
-        json!({"apiVersion":3,"features":["queuePause"],"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"examplePluginPath":std::env::var_os("VIBEONE_EXAMPLE_PLUGIN").map(PathBuf::from).unwrap_or_else(||Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/plugins/workspace-tools")),"pluginEvents":self.plugins.events(),"plugins":self.catalog("plugin"),"notifications":self.catalog("notification"),"profiles":self.catalog("profile"),"providers":self.provider_descriptors(),"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
+        json!({"apiVersion":3,"features":["queuePause","attachments"],"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"examplePluginPath":std::env::var_os("VIBEONE_EXAMPLE_PLUGIN").map(PathBuf::from).unwrap_or_else(||Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/plugins/workspace-tools")),"pluginEvents":self.plugins.events(),"plugins":self.catalog("plugin"),"notifications":self.catalog("notification"),"profiles":self.catalog("profile"),"providers":self.provider_descriptors(),"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
     }
     pub fn entry(&self, id: &str) -> Result<Arc<Entry>, String> {
         self.sessions

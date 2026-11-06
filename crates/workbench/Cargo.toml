@@ -5,6 +5,7 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+base64 = "=0.22.1"
 vibeone-agent-client = { path = "../agent-client" }
 vibeone-storage = { path = "../storage" }
 serde.workspace = true

@@ -1,4 +1,6 @@
 //! Embedded SQLite persistence. A committed session projection and its event share one transaction.
+mod attachments;
+pub use attachments::Attachment;
 use serde::Serialize;
 use serde_json::{Value, json};
 use sqlx::{
@@ -9,6 +11,8 @@ use std::{path::Path, time::Duration};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("附件超过限制：单文件4MiB，每会话最多500个附件且总量256MiB")]
+    AttachmentQuota,
     #[error("数据库访问失败：{0}")]
     Database(#[from] sqlx::Error),
     #[error("数据库版本或迁移不兼容：{0}")]

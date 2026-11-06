@@ -107,9 +107,10 @@ impl Workbench {
         text: String,
         key: Option<String>,
         files: Vec<String>,
+        attachment_ids: Vec<String>,
     ) -> Result<Value, String> {
         self.available()?;
-        if text.trim().is_empty() || text.len() > 32_768 {
+        if (text.trim().is_empty() && attachment_ids.is_empty()) || text.len() > 32_768 {
             return Err("输入不能为空且不能超过 32 KiB".into());
         }
         if key
@@ -128,7 +129,14 @@ impl Workbench {
         if let Some(key) = &key
             && let Some(run) = view.runs.iter().find(|run| run["key"] == *key)
         {
-            if run["text"] != text || run["files"] != json!(files) {
+            if run["text"] != text
+                || run["files"] != json!(files)
+                || run["attachmentIds"].as_array().cloned().unwrap_or_default()
+                    != attachment_ids
+                        .iter()
+                        .map(|id| json!(id))
+                        .collect::<Vec<_>>()
+            {
                 return Err("同一幂等键不能用于不同输入".into());
             }
             return Ok(
@@ -178,6 +186,11 @@ impl Workbench {
                 return Err("引用文件须为不超过 32 KiB 的文本文件".into());
             }
         }
+        let attachments = self.attachment_metadata(id, &attachment_ids).await?;
+        if view.agent_state["capabilities"].is_object() {
+            self.attachment_blocks(id, &attachment_ids, &view.agent_state["capabilities"])
+                .await?;
+        }
         let lease = lease_key(&view.workspace).await?;
         {
             let mut leases = self.leases.lock().expect("leases poisoned");
@@ -192,11 +205,15 @@ impl Workbench {
         }
         let run_id = uuid::Uuid::new_v4().to_string();
         let queued = view.active || view.queue_paused || !view.queue.is_empty();
-        let run = json!({"id":run_id,"text":text,"key":key,"files":files,"status":"queued","createdAt":now()});
+        let run = json!({"id":run_id,"text":text,"key":key,"files":files,"attachmentIds":attachment_ids,"attachments":attachments,"status":"queued","createdAt":now()});
         view.queue.push(run.clone());
         view.runs.push(run);
         if view.title == "新会话" {
-            view.title = text.chars().take(28).collect();
+            view.title = if text.trim().is_empty() {
+                "附件任务".into()
+            } else {
+                text.chars().take(28).collect()
+            };
         }
         if let Err(error) = self
             .commit(&entry, view, "run.queued", &json!({"runId":run_id}))
@@ -212,7 +229,7 @@ impl Workbench {
     }
 
     async fn run_next(self: &Arc<Self>, entry: &Arc<Entry>) -> Result<(), String> {
-        let (text, lease, mut cancelled) = {
+        let (text, attachment_ids, lease, mut cancelled) = {
             let _gate = entry.gate.lock().await;
             self.available()?;
             let mut view = entry.view.lock().expect("view poisoned").clone();
@@ -234,6 +251,14 @@ impl Workbench {
             }
             let queued = view.queue.remove(0);
             let mut text = queued["text"].as_str().unwrap_or_default().to_owned();
+            let attachment_ids: Vec<String> = serde_json::from_value(
+                queued
+                    .get("attachmentIds")
+                    .cloned()
+                    .unwrap_or_else(|| json!([])),
+            )
+            .map_err(|_| "附件引用无效")?;
+            self.attachment_metadata(&view.id, &attachment_ids).await?;
             for path in queued["files"].as_array().cloned().unwrap_or_default() {
                 let path = path.as_str().ok_or("引用文件无效")?;
                 let content = crate::files::read(&view.workspace, path).await?;
@@ -257,7 +282,7 @@ impl Workbench {
                 .ok_or("队列数据无效")?;
             run["status"] = json!("starting");
             run["startedAt"] = json!(now());
-            view.messages.push(json!({"id":uuid::Uuid::new_v4().to_string(),"runId":queued["id"],"role":"user","text":text,"pending":true}));
+            view.messages.push(json!({"id":uuid::Uuid::new_v4().to_string(),"runId":queued["id"],"role":"user","text":text,"attachments":queued["attachments"],"pending":true}));
             let (cancel, cancelled) = watch::channel(false);
             if let Err(error) = self
                 .commit(entry, view, "run.started", &json!({"runId":queued["id"]}))
@@ -267,9 +292,11 @@ impl Workbench {
                 return Err(error);
             }
             *entry.cancel.lock().expect("cancel poisoned") = Some(cancel);
-            (text, lease, cancelled)
+            (text, attachment_ids, lease, cancelled)
         };
-        let result = self.execute(entry, &text, &mut cancelled).await;
+        let result = self
+            .execute(entry, &text, &attachment_ids, &mut cancelled)
+            .await;
         if let Err(error) = result {
             entry.generation.fetch_add(1, Ordering::SeqCst);
             let connection = entry.connection.lock().expect("connection poisoned").take();
@@ -304,6 +331,7 @@ impl Workbench {
         self: &Arc<Self>,
         entry: &Arc<Entry>,
         text: &str,
+        attachment_ids: &[String],
         cancelled: &mut watch::Receiver<bool>,
     ) -> Result<(), String> {
         let existing = entry
@@ -385,8 +413,21 @@ impl Workbench {
             let _ = connection.cancel();
             return Err("执行已取消".into());
         }
+        let (id, capabilities) = {
+            let view = entry.view.lock().expect("view poisoned");
+            (view.id.clone(), view.agent_state["capabilities"].clone())
+        };
+        let mut blocks = if text.trim().is_empty() {
+            vec![]
+        } else {
+            vec![json!({"type":"text","text":text})]
+        };
+        blocks.extend(
+            self.attachment_blocks(&id, attachment_ids, &capabilities)
+                .await?,
+        );
         tokio::select! {
-            result=connection.prompt(text)=>{result?;},
+            result=connection.prompt_blocks(blocks)=>{result?;},
             _=cancelled.changed()=>{let _=connection.cancel();return Err("执行已取消".into());}
         }
         loop {
@@ -487,6 +528,23 @@ impl Workbench {
                     item["activityOrder"] = json!(order);
                 }
                 item["updatedOrder"] = json!(order);
+            }
+        }
+        if event["type"] == "update"
+            && event["notification"]["update"]["sessionUpdate"] == "user_message"
+        {
+            let metadata = view
+                .runs
+                .iter()
+                .find(|run| Some(run["id"].clone()) == current_run)
+                .map(|run| run["attachments"].clone())
+                .unwrap_or_else(|| json!([]));
+            if let Some(message) = view
+                .messages
+                .iter_mut()
+                .find(|message| message["id"] == event["notification"]["update"]["messageId"])
+            {
+                message["attachments"] = metadata;
             }
         }
         if event["type"] == "disconnected" {

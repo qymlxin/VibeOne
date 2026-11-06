@@ -61,6 +61,8 @@
 
 - 后续完整原型交付：50 附件、51 长历史、52 原型逐项审计；本轮macOS包已生成，实际原生核对被锁屏阻断，解锁后只在空闲时升级Host。目标保持active。
 
+- [50-prototype-attachments](issues/50-prototype-attachments.md)：补齐真实附件存储/上传/预览/下载、图片粘贴拖放及ACP内容块，验证字节哈希、作用域、幂等与恢复；桌面/HTTPS手机回归通过。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。

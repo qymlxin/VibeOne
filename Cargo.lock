@@ -3367,6 +3367,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "axum-server",
+ "base64 0.22.1",
  "cap-std",
  "futures-util",
  "jsonschema",

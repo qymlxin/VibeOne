@@ -108,5 +108,6 @@ export function useWorkbench() {
     },
     [connection, phase],
   );
-  return { ...snapshot, dataDirectory:connection?.dataDirectory, migrationPending:!!connection?.migrationPending, migrationWarning:connection?.migrationWarning, phase, error, call, reconnect, restart };
+  const read=useCallback(async(path,signal)=>{if(!connection||phase!=='online')throw Error('主机未连接');return request(connection,path,undefined,signal);},[connection,phase]);
+  return { ...snapshot, dataDirectory:connection?.dataDirectory, migrationPending:!!connection?.migrationPending, migrationWarning:connection?.migrationWarning, phase, error, call, read, reconnect, restart };
 }

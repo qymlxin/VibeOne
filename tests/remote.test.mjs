@@ -117,6 +117,7 @@ test(
       403,
     );
     assert.equal((await request("/v1/devices", undefined, cookie)).status, 403);
+    assert.equal((await request(`/v1/sessions/${visible.id}/attachments`,{name:'forbidden.txt',mimeType:'text/plain',data:'dGV4dA=='},cookie)).status,403);
     const events = await request("/v1/event-log?after=0", undefined, cookie);
     assert.ok(
       events.body.events.every((event) => event.sessionId === visible.id),
@@ -237,6 +238,10 @@ test(
       .getByLabel("工作区", { exact: true })
       .selectOption(workspace.path);
     await page.getByRole("button", { name: "创建会话", exact: true }).click();
+    const phoneImage=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=','base64');
+    await page.locator('.desktop-attachment-picker input[type=file]').setInputFiles({name:'phone.png',mimeType:'image/png',buffer:phoneImage});
+    await page.locator('.desktop-attachment-picker').getByRole('img',{name:'phone.png',exact:true}).waitFor();
+    await page.screenshot({path:join(tmpdir(),'vibeone-mobile-attachment.png')});
     await page.getByRole("textbox", { name: "发送任务" }).fill("手机新建会话");
     await page.getByRole("button", { name: "发送消息", exact: true }).click();
     await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000}).catch(async error=>{

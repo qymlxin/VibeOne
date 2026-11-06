@@ -1,6 +1,7 @@
 // ACP v2 fixture. No model, file operations or shell execution; never presented as a real coding tool.
 import { createInterface } from 'node:readline';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 const input = createInterface({ input: process.stdin });
 const sessions = new Map();
 const pending = new Map();
@@ -11,10 +12,14 @@ const update = (sessionId, value) => send({ method: 'session/update', params: { 
 const state = (id, state, stopReason) => update(id, { sessionUpdate: 'state_update', state, ...(stopReason ? { stopReason } : {}) });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function run(sessionId, prompt, userId, epoch) {
+async function run(sessionId, prompt, userId, epoch, blocks=[]) {
   const session = sessions.get(sessionId);
   const active = () => session?.epoch === epoch;
   let response = `已通过 ACP v2 收到：${prompt}\n\n这是本地演示 Agent，不调用模型或读写项目文件。你可以发送 /approve 体验审批，发送 /wait 后点击停止体验取消。`;
+  for(const block of blocks){
+    const encoded=block.type==='image'?block.data:block.type==='resource'?block.resource?.blob:null;
+    if(encoded){const bytes=Buffer.from(encoded,'base64');response+=`\n附件回执 ${block.type} ${bytes.length} ${createHash('sha256').update(bytes).digest('hex')}`;}
+  }
   if (prompt.includes('/preview')) response='预览演示：[工作区文件](preview.txt)\n\n[网页预览](https://example.com/docs)。';
   if (prompt.includes('/long')) response = '这是一段用于验证流式消息滚动位置的演示内容。\n'.repeat(90);
   try {
@@ -110,7 +115,7 @@ for await (const line of input) {
   const { id, method, params = {} } = message;
   if (method === 'initialize') {
     if (process.argv.includes('--malformed')) { process.stdout.write('invalid json\n'); process.exit(1); }
-    const initialized={protocolVersion:process.argv.includes('--v1')?1:2,info:{name:'vibeone-demo-agent',version:'0.1.0'},capabilities:{session:{}}};
+    const initialized={protocolVersion:process.argv.includes('--v1')?1:2,info:{name:'vibeone-demo-agent',version:'0.1.0'},capabilities:{session:{...(process.argv.includes('--no-media')?{}:{prompt:{image:{},embeddedContext:{}}})}}};
     send({id,result:initialized});
   } else if (method === 'session/new') {
     const open=()=>{
@@ -141,7 +146,7 @@ for await (const line of input) {
     update(params.sessionId, { sessionUpdate: 'user_message', messageId: userId, content: params.prompt });
     state(params.sessionId, 'running'); // Intentionally before acceptance.
     send({ id, result: { messageId: userId } });
-    void run(params.sessionId, params.prompt.map(block => block.text ?? '').join(''), userId, epoch);
+    void run(params.sessionId, params.prompt.map(block => block.text ?? '').join(''), userId, epoch, params.prompt);
   } else if (method === 'session/cancel' || method === 'session/close') {
     if(process.argv.includes('--stubborn'))continue;
     const session = sessions.get(params.sessionId);

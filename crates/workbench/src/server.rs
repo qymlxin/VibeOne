@@ -176,6 +176,9 @@ fn routes(state: Server) -> Router {
         .route("/v1/events",get(events))
         .route("/v1/sessions",post(create))
         .route("/v1/sessions/{id}/messages",post(submit))
+        .route("/v1/sessions/{id}/attachments",post(upload_attachment).layer(DefaultBodyLimit::max(6*1024*1024)))
+        .route("/v1/sessions/{id}/attachments/{attachment}",get(read_attachment))
+        .route("/v1/sessions/{id}/attachments/{attachment}/remove",post(remove_attachment))
         .route("/v1/sessions/{id}/cancel",post(cancel))
         .route("/v1/sessions/{id}/queue",post(queue))
         .route("/v1/sessions/{id}/configure",post(configure_agent))
@@ -547,6 +550,8 @@ struct Submit {
     key: Option<String>,
     #[serde(default)]
     files: Vec<String>,
+    #[serde(default)]
+    attachments: Vec<String>,
 }
 async fn submit(
     State(state): State<Server>,
@@ -556,12 +561,53 @@ async fn submit(
     command(async move {
         state
             .workbench
-            .submit(&id, body.text, body.key, body.files)
+            .submit(&id, body.text, body.key, body.files, body.attachments)
             .await
     })
     .await
     .map(|result| (StatusCode::ACCEPTED, Json(result)))
     .map_err(fail)
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UploadAttachment {
+    name: String,
+    mime_type: String,
+    data: String,
+}
+async fn upload_attachment(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    Json(body): Json<UploadAttachment>,
+) -> ApiResult {
+    state
+        .workbench
+        .upload_attachment(&id, &body.name, &body.mime_type, &body.data)
+        .await
+        .map(Json)
+        .map_err(fail)
+}
+async fn read_attachment(
+    State(state): State<Server>,
+    Path((id, attachment)): Path<(String, String)>,
+) -> ApiResult {
+    state
+        .workbench
+        .read_attachment(&id, &attachment)
+        .await
+        .map(Json)
+        .map_err(fail)
+}
+async fn remove_attachment(
+    State(state): State<Server>,
+    Path((id, attachment)): Path<(String, String)>,
+) -> ApiResult {
+    state
+        .workbench
+        .remove_draft_attachment(&id, &attachment)
+        .await
+        .map(Json)
+        .map_err(fail)
 }
 async fn cancel(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
     command(async move { state.workbench.cancel(&id).await })

@@ -21,6 +21,7 @@ import {
   Sun,
   X,
 } from "lucide-react";
+import { AttachmentPicker,useAttachmentDraft } from "./Attachments.jsx";
 import { recentSessions, sessionGroups } from "./session-groups.js";
 import { AgentConfigControls } from "./AgentConfigControls.jsx";
 import { ComposerInput } from "./ComposerInput.jsx";
@@ -475,7 +476,7 @@ function Conversation({ session, workbench, online, act }) {
   const lastRun=session.runs?.at(-1);
   useEffect(()=>{let stale=false;setChangeSummary(null);if(online&&lastRun?.finishedAt)workbench.call(`/sessions/${session.id}/changes`).then(value=>{if(!stale)setChangeSummary(value);}).catch(()=>{});return()=>{stale=true;};},[session.id,lastRun?.id,lastRun?.finishedAt,online,workbench.call]);
   const openFile=useCallback(path=>{setFileTarget({path,key:crypto.randomUUID()});setTab('files');},[]);
-  const previewContext=useMemo(()=>({workspace:session.workspace,openUrl,openFile}),[session.workspace,openUrl,openFile]);
+  const previewContext=useMemo(()=>({workspace:session.workspace,sessionId:session.id,read:workbench.read,openUrl,openFile}),[session.workspace,session.id,workbench.read,openUrl,openFile]);
   const requestKey = useRef(null);
   const [fileReferences, setFileReferences] = useState(() => {
     try { const saved=JSON.parse(localStorage.getItem(`vibeone-references:${session.id}`)||'[]'); return Array.isArray(saved)?saved.filter(path=>typeof path==='string').slice(0,5):[]; } catch {return [];}
@@ -487,6 +488,7 @@ function Conversation({ session, workbench, online, act }) {
   const [title, setTitle] = useState(session.title);
   const readOnly = session.historyOnly || session.archived || !canOperate;
   const [sending, setSending] = useState(false);
+  const attachmentDraft=useAttachmentDraft({session,workbench,disabled:readOnly||sending,onMutate:()=>{requestKey.current=null;}});
   const [deciding, setDeciding] = useState(null);
   const timeline = useRef(null);
   const followLatest = useRef(true);
@@ -516,7 +518,7 @@ function Conversation({ session, workbench, online, act }) {
     if (followLatest.current && timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight;
   }, [contentLength, session.tools, session.approvals.length, session.inputs?.length, session.status]);
   const send = async () => {
-    if (!draft.trim() || sending || !online || readOnly) return;
+    if ((!draft.trim()&&!attachmentDraft.items.length) || attachmentDraft.busy || sending || !online || readOnly) return;
     followLatest.current = true;
     setFollowing(true);
     setSending(true);
@@ -524,12 +526,14 @@ function Conversation({ session, workbench, online, act }) {
       workbench.call(`/sessions/${session.id}/messages`, {
         text: draft,
         files: fileReferences,
+        attachments: attachmentDraft.items.map(item=>item.id),
         key: (requestKey.current ??= crypto.randomUUID()),
       }),
     );
     if (result) {
       setDraft("");
       changeReferences([]);
+      attachmentDraft.replace([]);
       requestKey.current = null;
     }
     setSending(false);
@@ -774,7 +778,8 @@ function Conversation({ session, workbench, online, act }) {
         {!session.historyOnly && session.agentState?.contextRestartedAt && (
           <p className="desktop-field-help">正在新的 Agent 上下文中继续；上方旧消息仅作为本地历史保留。</p>
         )}
-        <div className="desktop-composer">
+        <div className="desktop-composer" onPaste={attachmentDraft.onPaste} onDrop={attachmentDraft.onDrop} onDragOver={attachmentDraft.onDragOver}>
+          <AttachmentPicker draft={attachmentDraft} disabled={readOnly||sending} supported={workbench.features?.includes('attachments')}/>
           <Queue
             session={session}
             workbench={workbench}
@@ -799,7 +804,8 @@ function Conversation({ session, workbench, online, act }) {
               aria-label="发送消息"
               disabled={
                 readOnly ||
-                !draft.trim() ||
+                (!draft.trim()&&!attachmentDraft.items.length) ||
+                attachmentDraft.busy ||
                 sending ||
                 !online ||
                 session.status === "disconnected"
@@ -814,6 +820,7 @@ function Conversation({ session, workbench, online, act }) {
             </button>
           </div>
         </div>
+        {['failed','interrupted'].includes(lastRun?.status)&&lastRun?.attachments?.length>0&&<button className="desktop-text-action" disabled={readOnly||sending||attachmentDraft.busy} onClick={()=>{setDraft(previous=>previous.trim()?previous+'\n\n'+lastRun.text:lastRun.text);changeReferences([...new Set([...fileReferences,...(lastRun.files??[])])].slice(0,5));attachmentDraft.replace([...new Map([...attachmentDraft.items,...lastRun.attachments].map(item=>[item.id,item])).values()].slice(0,5));}}>恢复失败任务到输入框（不会自动发送）</button>}
         <div className="desktop-composer-footer">
           <span>Enter 发送 · Shift+Enter 换行</span>
           {active ? (
