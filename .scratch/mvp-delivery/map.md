@@ -59,15 +59,17 @@
 
 - [49-project-session-sidebar](issues/49-project-session-sidebar.md)：补齐项目分组/折叠、真实最近排序、搜索快捷键与侧栏开合，新增活动时间持久化；单元、桌面、崩溃恢复与Clippy通过。
 
-- 后续完整原型交付：50 附件、51 长历史、52 原型逐项审计；本轮macOS包已生成，实际原生核对被锁屏阻断，解锁后只在空闲时升级Host。目标保持active。
+- 完整原型交付：50 附件、51 长历史已实现；52逐项审计和实际原生核对继续，Mac锁屏时不绕过限制，解锁后只在空闲时升级Host。目标保持active。
 
 - [50-prototype-attachments](issues/50-prototype-attachments.md)：补齐真实附件存储/上传/预览/下载、图片粘贴拖放及ACP内容块，验证字节哈希、作用域、幂等与恢复；桌面/HTTPS手机回归通过。
 
 - [53-composer-completion](issues/53-composer-completion.md)：补齐直接发送本地指令、未知指令透传与引用目录刷新，真实 Host 桌面和 HTTPS 手机回归通过。
 
+- [51-complete-conversation-history](issues/51-complete-conversation-history.md)：补齐事务历史档案/分页、可中断回填、旧消息及工具增量、前端重连补齐/阅读锚点与长导航；Host、恢复、桌面和HTTPS手机通过。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。
 - 物理 iOS/Android 证书信任、弱网、锁屏及 macOS 托盘/系统通知仍待人工验收。
-- 客户端当前用 WS 通知加快照恢复；事件增量 reducer、长历史分页及完整 DTO 生成未完成。
+- 客户端当前用 WS 通知加快照恢复；事件增量 reducer及完整 DTO 生成未完成；长历史已独立分页交付。
 - 公开 SDK 完整 semver/跨插件依赖、跨平台发行、签名公证后置。

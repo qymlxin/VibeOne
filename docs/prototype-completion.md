@@ -18,7 +18,7 @@
 | 手动暂停下一轮队列 | 已增加手动暂停与恢复，正常结束保持暂停（48） | 增加显式暂停，当前Run继续、下一条不提升 |
 | 附件入口 | 已实现真实上传、预览、粘贴/拖放、ACP传递及失败恢复（50） | 按 ACP 支持能力、安全限制实现实际传递与预览 |
 | 输入框模型及权限选择 | 已共享ACP select/boolean原生控件（47） | 将上游可用值转为输入区选择控件，不虚构能力 |
-| 阅读导航、悬停预览、点击/键盘跳转 | 已实现，当前投影仅128消息 | 补齐长历史浏览，确保导航覆盖可载入历史 |
+| 阅读导航、悬停预览、点击/键盘跳转 | 已实现持久历史档案/分页、旧数据回填、实时合并与阅读定位（51） | 桌面长历史/断线补齐、200刻度组件及HTTPS手机分页通过 |
 | 会话头像颜色/形状与动效 | 已实现本设备持久化 | 总回归与减少动画核对 |
 | 八分类设置、搜索、返回 | 已接真实设置 | 核对每个原型操作的落点 |
 | 常规管理跳转、数据详情、队列规则展示 | 已补齐管理/数据跳转与规则说明（47） | 实际链接与信息补齐 |
@@ -32,4 +32,4 @@
 
 ## 后续执行顺序
 
-[50 附件与图片](../.scratch/mvp-delivery/issues/50-prototype-attachments.md) → [51 长历史](../.scratch/mvp-delivery/issues/51-complete-conversation-history.md) → [52 按原型逐项完整验收](../.scratch/mvp-delivery/issues/52-prototype-final-audit.md)。这些条目尚未完成，目标继续保持进行中。
+[50 附件与图片](../.scratch/mvp-delivery/issues/50-prototype-attachments.md) → [51 长历史](../.scratch/mvp-delivery/issues/51-complete-conversation-history.md) → [52 按原型逐项完整验收](../.scratch/mvp-delivery/issues/52-prototype-final-audit.md)。50、51已实现并有自动验证，52逐项验收与原生交付继续进行；目标保持进行中。

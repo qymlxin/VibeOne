@@ -17,14 +17,21 @@ export function buildTurns(session) {
       current = byId.get(message.runId) ?? add(message.runId ?? `user:${message.id}`);
       current.user = message;
     } else {
-      const turn = byId.get(message.runId) ?? (message.runId ? add(message.runId) : current ?? add('legacy-messages'));
+      const knownRole=message.role==='thought'||message.role==='assistant';
+      let turn=byId.get(message.runId);
+      if(!turn){
+        if(message.runId)turn=add(message.runId);
+        else if(knownRole&&current)turn=current;
+        else turn=byId.get('legacy-messages')??add('legacy-messages');
+      }
       current = turn;
       if (message.role === 'thought') turn.activity.push({id:`thought:${message.id}`,type:'thought',text:message.text,item:message});
       else if (message.role === 'assistant') turn.replies.push(message);
+      else turn.activity.push({id:`unknown:${message.id}`,type:'note',text:message.text,item:message,unknownRole:true});
     }
   }
   for (const tool of session.tools) {
-    const turn = byId.get(tool.runId) ?? byId.get('legacy-tools') ?? add('legacy-tools');
+    const turn = tool.runId ? byId.get(tool.runId) ?? add(tool.runId) : byId.get('legacy-tools') ?? add('legacy-tools');
     turn.activity.push({id:`tool:${tool.toolCallId}`,type:'tool',text:tool.title ?? tool.name ?? '工具调用',item:tool});
   }
   const activeRun = (session.runs ?? []).findLast(run=>isRunActive(run.status));
@@ -48,7 +55,10 @@ export function buildTurns(session) {
 
 
   }
-  return turns;
+  return turns.sort((a,b)=>{
+    const first=turn=>[turn.user,...turn.replies,...turn.activity.map(event=>event.item)].reduce((order,item)=>Math.min(order,item?.historyOrder??Infinity),Infinity);
+    return first(a)-first(b);
+  });
 }
 
 export function activityTail(text, limit=150) {

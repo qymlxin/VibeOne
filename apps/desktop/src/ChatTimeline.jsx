@@ -16,15 +16,16 @@ const markdownComponents = {
 const MarkdownBody=memo(function MarkdownBody({text}) {
   return <div className="desktop-message-text"><ReactMarkdown urlTransform={markdownLink} remarkPlugins={[remarkGfm,remarkSoftBreaks]} components={markdownComponents}>{text || '…'}</ReactMarkdown></div>;
 });
+const Truncated=({item})=>item?.textTruncated?<p className="desktop-history-notice">此条正文超过显示上限，仅保留前 65,536 个字符。</p>:null;
 export const ChatMessage = memo(function ChatMessage({message,name}) {
   const user=message.role==='user';
-  return <article className={`desktop-message ${message.role}`}>
+  return <article className={`desktop-message ${message.role}`} data-history-order={message.historyOrder}>
     <span className="desktop-avatar">{user ? '你' : <MessageSquare size={14}/>}</span>
     <div><div className="desktop-message-meta"><strong>{user ? '你' : name}</strong>{message.pending && <span>已受理 · 等待 Agent 接受</span>}</div>
-      {user ? <><AttachmentCards items={message.attachments}/>{(message.text||!message.attachments?.length)&&<div className="desktop-message-text">{message.text || '…'}</div>}</> : <MarkdownBody text={message.text}/>}
+      {user ? <><AttachmentCards items={message.attachments}/>{(message.text||!message.attachments?.length)&&<div className="desktop-message-text">{message.text || '…'}</div>}</> : <MarkdownBody text={message.text}/>}<Truncated item={message}/>
     </div>
   </article>;
-},(a,b)=>a.name===b.name && a.message.id===b.message.id && a.message.text===b.message.text && a.message.attachments===b.message.attachments && a.message.pending===b.message.pending && a.message.role===b.message.role);
+},(a,b)=>a.name===b.name && a.message.id===b.message.id && a.message.text===b.message.text && a.message.attachments===b.message.attachments && a.message.pending===b.message.pending && a.message.role===b.message.role && a.message.historyOrder===b.message.historyOrder && a.message.textTruncated===b.message.textTruncated);
 
 const toolStatus = {pending:'等待执行',in_progress:'执行中',completed:'已完成',failed:'失败',cancelled:'已停止'};
 const typeLabel = {thought:'思考摘要',tool:'工具',note:'说明'};
@@ -45,11 +46,11 @@ function ActivityItem({activity,onInspect}) {
   const [open,setOpen]=useState(false);
   const {item,type,text}=activity;
   const Icon=type==='thought'?Brain:familyIcon[toolFamily(item)];
-  return <details className={`desktop-activity-item ${type}`} onToggle={event=>{
+  return <details className={`desktop-activity-item ${type}`} data-history-order={item.historyOrder} onToggle={event=>{
     setOpen(event.currentTarget.open);if(event.currentTarget.open)onInspect();
   }}>
     <summary><span className="desktop-process-item-icon"><Icon size={13}/></span><span title={type==='tool'?(describeAction(item).paths.join('\n') || toolTitle(item)):undefined}>{type==='tool'?toolTitle(item):activityTail(text)}</span><span>{type==='tool'?(toolStatus[item.status] ?? item.status ?? '处理中'):'思考摘要'}</span><ChevronDown size={12}/></summary>
-    {open && (type==='tool' ? <ToolDetails tool={item}/> : <div className="desktop-process-thought"><MarkdownBody text={text}/></div>)}
+    {open && (type==='tool' ? <ToolDetails tool={item}/> : <div className="desktop-process-thought"><MarkdownBody text={text}/><Truncated item={item}/></div>)}
   </details>;
 }
 function ToolGroup({group,onInspect}) {
@@ -58,7 +59,7 @@ function ToolGroup({group,onInspect}) {
   const working=group.items.some(activity=>['pending','in_progress'].includes(activity.item.status));
   const completed=group.items.filter(activity=>activity.item.status==='completed').length;
   const label=completed===group.items.length?({read:'已读取文件',command:'已运行命令',file:'已处理文件',web:'已搜索与浏览网页'}[group.family] ?? familyLabel[group.family]):familyLabel[group.family];
-  return <details className="desktop-tool-group" onToggle={event=>{if(event.currentTarget.open)onInspect();}}>
+  return <details className="desktop-tool-group" data-history-order={group.items[0]?.item.historyOrder} onToggle={event=>{if(event.currentTarget.open)onInspect();}}>
     <summary><Icon size={13}/><span>{label}</span><span>{group.items.length} 项</span><span>{failed?'含失败':working?'执行中':completed===group.items.length?'已完成':''}</span><ChevronDown size={12}/></summary>
     <div className="desktop-tool-group-body">{group.items.map(activity=><ActivityItem key={activity.id} activity={activity} onInspect={onInspect}/>)}</div>
   </details>;
@@ -110,7 +111,7 @@ export function ActivityFeed({turn,status,hasInput,onReadHistory}) {
       {!preview.length && <div className="desktop-live-status"><span>{turn.answer?.text?'正在接收回复':'Agent 正在处理，等待输出'}</span>{status==='running' && !turn.answer?.text && elapsed>=3 && <small>尚未收到可展示的思考摘要；收到后会自动显示。</small>}</div>}
     </div>}
     {expanded && <div className="desktop-activity-history">
-      {groups.map(group=>group.type==='tools'?<ToolGroup key={group.id} group={group} onInspect={onReadHistory}/>:group.type==='note'?<div key={group.id} className="desktop-process-note"><MarkdownBody text={group.event.text}/></div>:<ActivityItem key={group.id} activity={group.event} onInspect={onReadHistory}/>)}
+      {groups.map(group=>group.type==='tools'?<ToolGroup key={group.id} group={group} onInspect={onReadHistory}/>:group.type==='note'?<div key={group.id} className="desktop-process-note" data-history-order={group.event.item.historyOrder}>{group.event.unknownRole&&<small>历史消息（角色未记录）</small>}<MarkdownBody text={group.event.text}/><Truncated item={group.event.item}/></div>:<ActivityItem key={group.id} activity={group.event} onInspect={onReadHistory}/>)}
     </div>}
   </section>;
 }
@@ -125,7 +126,7 @@ export function AgentResponse({turn,name,status,hasInput,onReadHistory,onChanges
   return <section className="desktop-agent-turn" aria-label={`${name} 的回复`}>
     <div className="desktop-agent-identity"><span className="desktop-avatar"><MessageSquare size={14}/></span><strong>{name}</strong></div>
     <ActivityFeed turn={{...turn,activity:turn.process}} status={status} hasInput={hasInput} onReadHistory={onReadHistory}/>
-    {turn.answer && <article className="desktop-message assistant desktop-agent-reply"><div><MarkdownBody text={turn.answer.text}/>{!turn.live&&<AnswerActions text={turn.answer.text}/>}</div></article>}
+    {turn.answer && <article className="desktop-message assistant desktop-agent-reply" data-history-order={turn.answer.historyOrder}><div><MarkdownBody text={turn.answer.text}/><Truncated item={turn.answer}/>{!turn.live&&<AnswerActions text={turn.answer.text}/>}</div></article>}
     {changeCount>0&&!turn.live&&<button className="desktop-change-summary" onClick={onChanges}><FileText size={15}/><span>查看工作区当前变更<small>{changeCount} 个文件 · 包含用户和其他工具的修改</small></span><ChevronDown size={14}/></button>}
   </section>;
 }

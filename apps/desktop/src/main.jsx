@@ -38,6 +38,8 @@ import { Management } from "./Management.jsx";
 import { ChatMessage, AgentResponse } from "./ChatTimeline.jsx";
 import { ConversationNav } from "./ConversationNav.jsx";
 import { buildTurns } from "./chat-timeline.js";
+import { useConversationHistory } from "./use-conversation-history.js";
+import { captureHistoryAnchor,restoreHistoryAnchor } from "./conversation-history.js";
 import {SessionRow} from "./SessionIdentity.jsx";
 import {AppearanceSettings,useAppearance} from "./AppearanceSettings.jsx";
 import {readAppearance,applyAppearance} from "./appearance.js";
@@ -494,6 +496,11 @@ function Conversation({ session, workbench, online, act }) {
   const timeline = useRef(null);
   const followLatest = useRef(true);
   const [following, setFollowing] = useState(true);
+  const historyAnchor=useRef(null);
+  const beforeHistoryMerge=useCallback(()=>{
+    if(!followLatest.current&&!historyAnchor.current)historyAnchor.current=captureHistoryAnchor(timeline.current);
+  },[]);
+  const history=useConversationHistory({session,workbench,online,onBeforeMerge:beforeHistoryMerge});
   const name =
     workbench.providers.find((provider) => provider.id === session.provider)
       ?.name ?? session.provider;
@@ -510,14 +517,15 @@ function Conversation({ session, workbench, online, act }) {
     if(matchMedia('(max-width:800px)').matches)setTab('chat');
     requestAnimationFrame(()=>{const root=timeline.current;root.scrollTop+=target.getBoundingClientRect().top-root.getBoundingClientRect().top-16;target.focus({preventScroll:true});});
   };
-  const contentLength = session.messages.reduce(
-    (length, message) => length + message.text.length,
+  const contentLength = history.session.messages.reduce(
+    (length, message) => length + (message.text?.length??0),
     0,
   );
-  const turns = useMemo(() => buildTurns(session), [session.messages, session.tools, session.runs, session.status]);
+  const turns = useMemo(() => buildTurns(history.session), [history.session.messages, history.session.tools, session.runs, session.status]);
   useLayoutEffect(() => {
-    if (followLatest.current && timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight;
-  }, [contentLength, session.tools, session.approvals.length, session.inputs?.length, session.status]);
+    if(historyAnchor.current){restoreHistoryAnchor(timeline.current,historyAnchor.current);historyAnchor.current=null;}
+    else if (followLatest.current && timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight;
+  }, [contentLength, history.session.messages,history.session.tools, session.approvals.length, session.inputs?.length, session.status]);
   const send = async () => {
     if ((!draft.trim()&&!attachmentDraft.items.length) || attachmentDraft.busy || sending || !online || readOnly) return;
     const panel=commandPanel(draft,session.agentState?.commands);
@@ -651,7 +659,13 @@ function Conversation({ session, workbench, online, act }) {
           setFollowing(nearBottom);
         }}
       >
-        {!session.messages.length && (
+        {history.enabled&&<div className="desktop-history-controls" aria-label="历史记录">
+          {(history.hasMore||!history.ready)&&<button type="button" className="desktop-text-action" disabled={!online||history.busy} onClick={()=>{followLatest.current=false;setFollowing(false);void(history.ready?history.loadOlder():history.retry());}}>{history.busy?'正在读取历史…':history.ready?'加载更早记录':'读取历史记录'}</button>}
+          {history.error&&<p role="alert">历史加载失败：{history.error} <button type="button" className="desktop-text-action" disabled={!online||history.busy} onClick={()=>void history.retry()}>重试</button></p>}
+          {history.warnings.map(warning=><p key={warning}>{warning}</p>)}
+        </div>}
+        {!history.enabled&&(session.messages.length>=128||session.tools.length>=100)&&<p className="desktop-history-notice">当前主机仅提供最近记录。请在任务结束后到设置重启主机，以启用完整历史。</p>}
+        {!history.session.messages.length && (
           <div className="desktop-chat-empty">
             <MessageSquare size={26} />
             <h2>会话已准备好</h2>
@@ -663,7 +677,7 @@ function Conversation({ session, workbench, online, act }) {
           </div>
         )}
         {turns.map(turn => (
-          <div className="desktop-turn" tabIndex={-1} key={turn.id} data-turn-id={turn.user?turn.id:undefined}>
+          <div className="desktop-turn" tabIndex={-1} key={turn.id} data-turn-id={turn.id}>
             {turn.user && <ChatMessage message={turn.user} name={name}/>}
             <AgentResponse onChanges={()=>setTab('changes')} changeCount={turn.id===lastRun?.id&&changeSummary?.isGit?changeSummary.files.length:0} turn={turn} name={name} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
           </div>
@@ -852,7 +866,7 @@ function Conversation({ session, workbench, online, act }) {
         </div>
       </div>
       </div>
-      {tab!=="chat" && <><SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}}/><aside style={expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className={`desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',browser:'网址浏览',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon desktop-expand-preview" aria-label={expandedPanel?'恢复面板宽度':'扩大预览'} onClick={()=>setExpandedPanel(!expandedPanel)}>{expandedPanel?<Minimize2 size={15}/>:<Maximize2 size={15}/>}</button><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl} canBack={browserHistory.index>0} canForward={browserHistory.index<browserHistory.urls.length-1} onBack={()=>setBrowserHistory(previous=>({...previous,index:Math.max(0,previous.index-1)}))} onForward={()=>setBrowserHistory(previous=>({...previous,index:Math.min(previous.urls.length-1,previous.index+1)}))}/>:<SessionTools key={tab} session={session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget} onLocateRun={locateRun} availableRunIds={turns.filter(turn=>turn.user).map(turn=>turn.id)}/>}</aside></>}
+      {tab!=="chat" && <><SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}}/><aside style={expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className={`desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',browser:'网址浏览',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon desktop-expand-preview" aria-label={expandedPanel?'恢复面板宽度':'扩大预览'} onClick={()=>setExpandedPanel(!expandedPanel)}>{expandedPanel?<Minimize2 size={15}/>:<Maximize2 size={15}/>}</button><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl} canBack={browserHistory.index>0} canForward={browserHistory.index<browserHistory.urls.length-1} onBack={()=>setBrowserHistory(previous=>({...previous,index:Math.max(0,previous.index-1)}))} onForward={()=>setBrowserHistory(previous=>({...previous,index:Math.min(previous.urls.length-1,previous.index+1)}))}/>:<SessionTools key={tab} session={history.session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget} onLocateRun={locateRun} availableRunIds={turns.map(turn=>turn.id)}/>}</aside></>}
       </div>
     </PreviewContext.Provider>
   );

@@ -32,6 +32,18 @@ async function run(sessionId, prompt, userId, epoch, blocks=[]) {
       if (!active()) return;
       update(sessionId, { sessionUpdate: 'agent_thought', messageId, content: [{ type: 'text', text }] });
     }
+    if(prompt.includes('/history-test')){
+      const first=`history-first:${userId}`;
+      update(sessionId,{sessionUpdate:'agent_message',messageId:first,content:[{type:'text',text:'原始前文'}]});
+      for(let index=0;index<180;index++)update(sessionId,{sessionUpdate:'agent_message',messageId:`history:${userId}:${index}`,content:[{type:'text',text:`历史片段 ${index}`}]});
+      for(let index=0;index<140;index++){
+        update(sessionId,{sessionUpdate:'tool_call_update',toolCallId:`history-tool:${userId}:${index}`,kind:'read',title:`历史工具 ${index}`,status:'completed',locations:[{path:`/demo/file-${index}.txt`}]});
+        if(index===0)update(sessionId,{sessionUpdate:'tool_call_content_chunk',toolCallId:`history-tool:${userId}:0`,content:{type:'content',content:{type:'text',text:'初始输出'}}});
+      }
+      update(sessionId,{sessionUpdate:'agent_message_chunk',messageId:first,content:{type:'text',text:' + 后续增量'}});
+      update(sessionId,{sessionUpdate:'tool_call_content_chunk',toolCallId:`history-tool:${userId}:0`,content:{type:'content',content:{type:'text',text:' + 增量输出'}}});
+      response='长历史演示完成。';
+    }
     if (prompt.includes('/format')) response='这是一段说明。\n保留段内换行。\n\n1. **第一项**\n\n   第一项说明。\n\n2. **第二项**\n\n   第二项说明。\n\n```text\n  first\n    second\n```';
     if (prompt.includes('/read-tools')) {
       for (const [index,path] of ['/demo/src/main.rs','/demo/src/app.tsx'].entries()) {
@@ -143,10 +155,11 @@ for await (const line of input) {
     if (!session) { send({ id, error: { code: -32002, message: 'Session not found' } }); continue; }
     const userId = `user:${++sequence}`;
     const epoch = ++session.epoch;
-    update(params.sessionId, { sessionUpdate: 'user_message', messageId: userId, content: params.prompt });
+    const prompt=params.prompt.map(block => block.text ?? '').join('');
+    if(!prompt.includes('/no-user-echo'))update(params.sessionId, { sessionUpdate: 'user_message', messageId: userId, content: params.prompt });
     state(params.sessionId, 'running'); // Intentionally before acceptance.
     send({ id, result: { messageId: userId } });
-    void run(params.sessionId, params.prompt.map(block => block.text ?? '').join(''), userId, epoch, params.prompt);
+    void run(params.sessionId, prompt, userId, epoch, params.prompt);
   } else if (method === 'session/cancel' || method === 'session/close') {
     if(process.argv.includes('--stubborn'))continue;
     const session = sessions.get(params.sessionId);

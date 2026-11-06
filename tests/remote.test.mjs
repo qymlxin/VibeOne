@@ -116,6 +116,9 @@ test(
         .status,
       403,
     );
+    assert.equal((await request(`/v1/sessions/${visible.id}/history`, undefined, cookie)).status,200);
+    assert.equal((await request(`/v1/sessions/${invisible.id}/history`, undefined, cookie)).status,403);
+    assert.equal((await request(`/v1/sessions/${visible.id}/history`)).status,401);
     assert.equal((await request("/v1/devices", undefined, cookie)).status, 403);
     assert.equal((await request(`/v1/sessions/${visible.id}/attachments`,{name:'forbidden.txt',mimeType:'text/plain',data:'dGV4dA=='},cookie)).status,403);
     const events = await request("/v1/event-log?after=0", undefined, cookie);
@@ -249,6 +252,18 @@ test(
       const snapshot=await call('/snapshot');
       throw Error(`${error.message}\n${(await page.locator('body').innerText()).slice(-5000)}\n${JSON.stringify(snapshot.sessions.map(session=>({title:session.title,status:session.status,error:session.error,queue:session.queue?.length})))}`);
     });
+    const mobileHistory=await call('/sessions',{provider:'demo',workspace:directory});
+    await call(`/sessions/${mobileHistory.id}/metadata`,{title:'手机历史分页'});
+    await call(`/sessions/${mobileHistory.id}/messages`,{text:'/history-test'});
+    await wait(mobileHistory.id,session=>session.runs.some(run=>run.status==='completed'));
+    await page.reload();
+    const historyRow=page.locator('.desktop-session').filter({hasText:'手机历史分页'});
+    await historyRow.getByText('就绪',{exact:true}).waitFor();
+    await historyRow.click();
+    await page.getByRole('button',{name:'加载更早记录',exact:true}).click();
+    await page.locator('.desktop-message.user .desktop-message-text').getByText('/history-test',{exact:true}).waitFor();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({path:join(tmpdir(),'vibeone-history-mobile.png')});
     await call(`/devices/${operator.id}/revoke`, {});
     await page.getByRole("button", { name: "请求配对", exact: true }).waitFor();
     assert.deepEqual(errors, []);

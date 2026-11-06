@@ -32,6 +32,7 @@ export function ToolDetails({tool}) {
     {action.paths.length>0 && <section className="desktop-tool-files"><h4>{action.label ?? '关联文件'}</h4>{action.paths.map(path=><div key={path}><strong>{path.split(/[\\/]/).at(-1)}</strong><FilePreviewLink path={path}/></div>)}</section>}
     {fields.length>0 && <section><h4>{kind==='command'?'Shell':'输入'}</h4><dl className="desktop-tool-fields">{fields.map(field=><React.Fragment key={field.label}><dt>{field.label}</dt><dd>{field.format==='code' && typeof field.value==='string' ? <pre>{field.value}</pre> : <Value value={field.value}/>}</dd></React.Fragment>)}</dl></section>}
     {outputs.length>0 && <section><h4>输出</h4>{outputs.map((output,index)=><Output key={index} output={output}/>)}</section>}
+    {tool.outputTruncated&&<p className="desktop-tool-muted">流式输出超过显示上限，仅保留前 65,536 个字符。</p>}
     {kind==='command' && <p className="desktop-tool-result">{({completed:'执行完成',failed:'执行失败',cancelled:'已停止',in_progress:'执行中',pending:'等待执行'})[tool.status] ?? '状态未知'}</p>}
     {!fields.length && !outputs.length && !action.paths.length && <p className="desktop-tool-muted">Agent 尚未返回工具详情。</p>}
     <details className="desktop-tool-raw" onToggle={event=>setRawOpen(event.currentTarget.open)}><summary>查看原始数据</summary>{rawOpen && <pre>{JSON.stringify({input:tool.rawInput,content:tool.content,output:tool.output,rawOutput:tool.rawOutput},null,2)}</pre>}</details>

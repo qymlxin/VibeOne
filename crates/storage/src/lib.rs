@@ -1,5 +1,6 @@
 //! Embedded SQLite persistence. A committed session projection and its event share one transaction.
 mod attachments;
+mod history;
 pub use attachments::Attachment;
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -122,6 +123,7 @@ impl Store {
                 .execute(&mut *tx)
                 .await?;
         }
+        history::save_projection(&mut tx, session, kind).await?;
         tx.commit().await?;
         Ok(seq as u64)
     }
@@ -285,6 +287,7 @@ impl Store {
                     if message["pending"] == true {
                         message["pending"] = json!(false);
                         message["delivery"] = json!("interrupted");
+                        message["historyRevision"] = json!(session.revision + 1);
                     }
                 }
             }

@@ -12,6 +12,8 @@ pub struct SessionView {
     pub title: String,
     #[serde(default)]
     pub last_activity_at: u64,
+    #[serde(default)]
+    pub history_sequence: u64,
     pub workspace: String,
     pub provider: String,
     pub status: String,
@@ -126,7 +128,13 @@ impl SessionView {
             {
                 let text = text_content(&update["content"]["content"]);
                 let output = format!("{}{}", tool["output"].as_str().unwrap_or_default(), text);
-                tool["output"] = json!(output.chars().take(65536).collect::<String>());
+                let mut chars = output.chars();
+                tool["output"] = json!(chars.by_ref().take(65536).collect::<String>());
+                tool["outputTruncated"] =
+                    json!(chars.next().is_some() || tool["outputTruncated"] == true);
+            }
+            if self.tools.len() > 100 {
+                self.tools.remove(0);
             }
         } else if kind == "state_update" {
             match update["state"].as_str() {
@@ -202,7 +210,12 @@ impl SessionView {
                 } else {
                     text
                 };
-                message["text"] = Value::String(text.chars().take(65_536).collect());
+                let mut chars = text.chars();
+                message["text"] = Value::String(chars.by_ref().take(65_536).collect());
+                message["textTruncated"] = json!(
+                    chars.next().is_some()
+                        || (kind.ends_with("_chunk") && message["textTruncated"] == true)
+                );
             }
             if self.messages.len() > 128 {
                 self.messages.remove(0);
@@ -252,6 +265,7 @@ mod tests {
             id: "a".into(),
             title: "a".into(),
             last_activity_at: 0,
+            history_sequence: 0,
             workspace: "/".into(),
             provider: "demo".into(),
             status: "starting".into(),

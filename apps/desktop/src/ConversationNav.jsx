@@ -2,7 +2,7 @@ import React, {useEffect, useMemo, useState} from 'react';
 
 const excerpt=text=>String(text ?? '').replace(/\s+/g,' ').trim().slice(0,160);
 export function ConversationNav({turns,timeline,onNavigate}) {
-  const entries=useMemo(()=>turns.filter(turn=>turn.user).map(turn=>({id:turn.id,title:excerpt(turn.user.text),answer:excerpt(turn.answer?.text)})),[turns]);
+  const entries=useMemo(()=>turns.map(turn=>({id:turn.id,title:excerpt(turn.user?.text)||'较早记录（未载入输入）',answer:excerpt(turn.answer?.text)})),[turns]);
   const ids=entries.map(entry=>entry.id).join('\n');
   const [active,setActive]=useState(null),[preview,setPreview]=useState(null);
   useEffect(()=>{

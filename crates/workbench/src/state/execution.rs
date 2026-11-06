@@ -282,6 +282,9 @@ impl Workbench {
                 .ok_or("队列数据无效")?;
             run["status"] = json!("starting");
             run["startedAt"] = json!(now());
+            if view.messages.len() >= 128 {
+                view.messages.remove(0);
+            }
             view.messages.push(json!({"id":uuid::Uuid::new_v4().to_string(),"runId":queued["id"],"role":"user","text":text,"attachments":queued["attachments"],"pending":true}));
             let (cancel, cancelled) = watch::channel(false);
             if let Err(error) = self
@@ -479,7 +482,6 @@ impl Workbench {
         let mut view = entry.view.lock().expect("view poisoned").clone();
         view.agent_state["connectionId"] = json!(connection_id);
         let was_active = view.active;
-        view.apply(&event);
         let current_run = view
             .runs
             .iter()
@@ -491,6 +493,22 @@ impl Workbench {
                 )
             })
             .map(|run| run["id"].clone());
+        let inherited = history::restore(
+            &self.store,
+            &mut view,
+            &event,
+            current_run.as_ref().and_then(Value::as_str),
+            false,
+        )
+        .await?;
+        view.apply(&event);
+        history::annotate(
+            &mut view,
+            &event,
+            current_run.as_ref().and_then(Value::as_str),
+            inherited,
+            (entry.revision.load(Ordering::SeqCst) + 1) as u64,
+        );
         if event["type"] == "permission" || event["type"] == "input" {
             let requests = if event["type"] == "permission" {
                 &mut view.approvals

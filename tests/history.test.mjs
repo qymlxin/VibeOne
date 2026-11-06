@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {host} from './helpers/host.mjs';
+test('history keeps every message and tool beyond the running projection and restores late chunks',{timeout:30000},async t=>{
+ const {directory,call,wait}=await host(t);
+ const {id}=await call('/sessions',{provider:'demo',workspace:directory});
+ const sent=await call(`/sessions/${id}/messages`,{text:'/history-test'});
+ const completed=await wait(id,session=>session.runs.find(run=>run.id===sent.operationId)?.status==='completed');
+ assert.ok(completed.messages.length<=128);assert.ok(completed.tools.length<=100);
+ let before;const records=[];let pages=0;
+ do{
+  const page=await call(`/sessions/${id}/history?limit=37${before?`&before=${before}`:''}`);records.unshift(...page.records);pages++;
+  if(!page.hasMore)break;assert.ok(page.nextBefore>0);assert.ok(!before||page.nextBefore<before);before=page.nextBefore;
+ }while(pages<20);
+ assert.equal(records.filter(record=>record.kind==='message').length,183);
+ assert.equal(records.filter(record=>record.kind==='tool').length,140);
+ assert.equal(new Set(records.map(record=>record.item.historyOrder)).size,records.length);
+ assert.ok(records.every((record,index)=>!index||records[index-1].item.historyOrder<record.item.historyOrder));
+ assert.ok(records.every(record=>record.item.runId===sent.operationId));
+ assert.equal(records.filter(record=>record.item.role==='user').length,1,'upstream acceptance replaces pending input at the same order');
+ assert.equal(records.find(record=>record.item.id?.includes('history-first:')).item.text,'原始前文 + 后续增量');
+ assert.equal(records.find(record=>record.item.toolCallId?.endsWith(':0')).item.output,'初始输出 + 增量输出');
+ await call(`/sessions/${id}/messages`,{text:'continue after pagination'});
+ await wait(id,session=>session.runs.some(run=>run.text==='continue after pagination'&&run.status==='completed'));
+ const oldest=await call(`/sessions/${id}/history?before=40`);
+ assert.equal(oldest.records.find(record=>record.item.id?.includes('history-first:')).item.text,'原始前文 + 后续增量');
+ const noEcho=await call('/sessions',{provider:'demo',workspace:directory});
+ await call(`/sessions/${noEcho.id}/messages`,{text:'/history-test /no-user-echo'});
+ await wait(noEcho.id,session=>session.runs.some(run=>run.status==='completed'));
+ const noEchoOldest=await call(`/sessions/${noEcho.id}/history?before=3`);
+ const input=noEchoOldest.records.find(record=>record.item.role==='user').item;
+ assert.equal(input.pending,false);assert.equal(input.delivery,'accepted','evicted pending input is settled with its Run in the same durable archive');
+ await call(`/sessions/${id}/history?before=0`,undefined,false);await call(`/sessions/${id}/history?limit=500`,undefined,false);
+});

@@ -71,6 +71,12 @@ test(
       throw Error("Expected session state did not arrive");
     }
     await start();
+    const historySession=await request('/sessions',{provider:'demo',workspace:directory});
+    await request(`/sessions/${historySession.id}/messages`,{text:'/history-test'});
+    await waitFor(historySession.id,session=>session.runs.some(run=>run.status==='completed'));
+    const historyLatest=await request(`/sessions/${historySession.id}/history?limit=256`);
+    const historyOldest=await request(`/sessions/${historySession.id}/history?before=${historyLatest.nextBefore}&limit=256`);
+    assert.equal(historyLatest.records.length+historyOldest.records.length,323);
     const { id } = await request("/sessions", {
       provider: "demo",
       workspace: directory,
@@ -111,6 +117,8 @@ test(
     const snapshot = await request("/snapshot");
     assert.equal(snapshot.persistent, true);
     assert.equal(snapshot.workspaces.length, 1);
+    assert.deepEqual(await request(`/sessions/${historySession.id}/history?limit=256`),historyLatest);
+    assert.deepEqual(await request(`/sessions/${historySession.id}/history?before=${historyLatest.nextBefore}&limit=256`),historyOldest);
     const restored = snapshot.sessions.find((item) => item.id === id);
     assert.equal(restored.title, "保留的会话");
     assert.equal(restored.lastActivityAt,activityBeforeRestart);

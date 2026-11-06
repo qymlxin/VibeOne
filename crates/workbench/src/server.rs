@@ -176,6 +176,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/events",get(events))
         .route("/v1/sessions",post(create))
         .route("/v1/sessions/{id}/messages",post(submit))
+        .route("/v1/sessions/{id}/history",get(history_page))
         .route("/v1/sessions/{id}/attachments",post(upload_attachment).layer(DefaultBodyLimit::max(6*1024*1024)))
         .route("/v1/sessions/{id}/attachments/{attachment}",get(read_attachment))
         .route("/v1/sessions/{id}/attachments/{attachment}/remove",post(remove_attachment))
@@ -605,6 +606,33 @@ async fn remove_attachment(
     state
         .workbench
         .remove_draft_attachment(&id, &attachment)
+        .await
+        .map(Json)
+        .map_err(fail)
+}
+#[derive(Deserialize)]
+struct HistoryQuery {
+    before: Option<u64>,
+    limit: Option<u16>,
+}
+async fn history_page(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    Query(query): Query<HistoryQuery>,
+) -> ApiResult {
+    state.workbench.entry(&id).map_err(fail)?;
+    let limit = query.limit.unwrap_or(128);
+    if limit == 0
+        || limit > 256
+        || query
+            .before
+            .is_some_and(|value| value == 0 || value > i64::MAX as u64)
+    {
+        return Err(fail("无效的历史游标或分页大小"));
+    }
+    state
+        .workbench
+        .history_page(&id, query.before, limit)
         .await
         .map(Json)
         .map_err(fail)

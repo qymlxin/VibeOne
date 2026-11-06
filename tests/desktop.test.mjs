@@ -559,6 +559,53 @@ test(
     await terminal.getByRole('button',{name:'定位到对应对话',exact:true}).last().click();
     await page.locator('.desktop-turn:focus').waitFor();
     await page.getByRole('button',{name:'收起右侧面板',exact:true}).click();
+    // The live Host evicts its bounded projection; the UI must still recover the first input.
+    const historyHeaders={Authorization:`Bearer ${connection.token}`,'Content-Type':'application/json'};
+    const historySession=await (await fetch(`${connection.url}/v1/sessions`,{method:'POST',headers:historyHeaders,body:JSON.stringify({provider:'demo',workspace:directory})})).json();
+    await fetch(`${connection.url}/v1/sessions/${historySession.id}/metadata`,{method:'POST',headers:historyHeaders,body:JSON.stringify({title:'长历史回归'})});
+    await fetch(`${connection.url}/v1/sessions/${historySession.id}/messages`,{method:'POST',headers:historyHeaders,body:JSON.stringify({text:'/history-test'})});
+    await page.waitForFunction(async({connection,id})=>{const snapshot=await (await fetch(`${connection.url}/v1/snapshot`,{headers:{Authorization:`Bearer ${connection.token}`}})).json();return snapshot.sessions.find(session=>session.id===id)?.runs.some(run=>run.status==='completed');},{connection,id:historySession.id});
+    const historyRow=page.locator('.desktop-session').filter({hasText:'长历史回归'});
+    await historyRow.getByText('就绪',{exact:true}).waitFor();
+    await historyRow.click();
+    await page.getByText('长历史演示完成。',{exact:true}).waitFor({timeout:15000});
+    await page.getByRole('button',{name:'加载更早记录',exact:true}).waitFor();
+    await page.getByRole('button',{name:/查看过程/}).click();
+    await page.locator('.desktop-timeline').evaluate(node=>{node.scrollTop=0;});
+    const visibleNote=page.locator('.desktop-process-note').first();
+    const noteText=await visibleNote.innerText();
+    const answer=page.locator('.desktop-process-note').filter({hasText:noteText}).first();
+    const answerOffset=await answer.evaluate(node=>node.getBoundingClientRect().top);
+    await page.getByRole('button',{name:'加载更早记录',exact:true}).click();
+    await page.locator('.desktop-message.user .desktop-message-text').getByText('/history-test',{exact:true}).waitFor();
+    assert.ok(Math.abs((await answer.evaluate(node=>node.getBoundingClientRect().top))-answerOffset)<3,'prepending history must preserve the visible record offset');
+    await page.getByRole('button',{name:'加载更早记录',exact:true}).waitFor({state:'detached'});
+    await page.getByText('原始前文 + 后续增量',{exact:true}).waitFor();
+    await page.locator('.desktop-timeline').evaluate(node=>{node.scrollTop=0;});
+    await page.screenshot({path:join(tmpdir(),'vibeone-history-loaded.png')});
+    await context.setOffline(true);
+    await page.evaluate(()=>window.__testSockets.at(-1)?.close());
+    await fetch(`${connection.url}/v1/sessions/${historySession.id}/messages`,{method:'POST',headers:historyHeaders,body:JSON.stringify({text:'/history-test second offline run'})});
+    for(let attempt=0;attempt<200;attempt++){
+      const snapshot=await (await fetch(`${connection.url}/v1/snapshot`,{headers:historyHeaders})).json();
+      if(snapshot.sessions.find(session=>session.id===historySession.id)?.runs.some(run=>run.text==='/history-test second offline run'&&run.status==='completed'))break;
+      await sleep(30);
+    }
+    await context.setOffline(false);
+    await page.getByText('工作主机 · 本机已连接',{exact:true}).waitFor();
+    await page.locator('.desktop-message.user .desktop-message-text').getByText('/history-test second offline run',{exact:true}).waitFor();
+    await page.locator('.desktop-message.user .desktop-message-text').getByText('/history-test',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('navigation',{name:'对话导航'}).getByRole('button').count(),2,'reconnect fills the offline gap and retains already loaded turns');
+    await composer.fill('history continues');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    await page.locator('.desktop-message.assistant').getByText(/已通过 ACP v2 收到：history continues/).waitFor();
+    await composer.fill('/history-test /no-user-echo');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    const unconfirmed=page.locator('.desktop-message.user').filter({hasText:'/history-test /no-user-echo'});
+    await unconfirmed.waitFor();
+    await unconfirmed.getByText('已受理 · 等待 Agent 接受',{exact:true}).waitFor({state:'detached'});
+    await page.reload();
+    await page.getByText('工作主机 · 本机已连接',{exact:true}).waitFor();
     await page.getByRole("button", { name: "连接与设置", exact: true }).click();
     const settingsNav=page.getByRole('navigation',{name:'设置分类'});
     await settingsNav.getByRole('button',{name:'常规',exact:true}).waitFor();
@@ -637,6 +684,22 @@ test(
     await page.getByText('工作主机 · 本机已连接',{exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('vibeone-appearance-v1')).light.background),'#f4f1eb');
     assert.ok(await page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('vibeone-avatar:')).some(key=>JSON.parse(localStorage.getItem(key)).shape==='hexagon')));
+    // Exercise the actual reading-rail component with more marks than fit on screen.
+    await page.evaluate(async()=>{
+      const React=await import('react'),{createRoot}=await import('react-dom/client'),{ConversationNav}=await import('/src/ConversationNav.jsx');
+      const mount=document.createElement('div');mount.dataset.historyNavFixture='true';Object.assign(mount.style,{position:'fixed',inset:'40px',zIndex:1000,background:'var(--surface)'});document.body.append(mount);
+      const root=createRoot(mount);window.__navFixture={root,mount};
+      function Fixture(){const timeline=React.useRef(null);const turns=Array.from({length:200},(_,index)=>({id:`nav-${index}`,user:{text:`历史第 ${index+1} 轮`},answer:{text:`回答 ${index+1}`}}));return React.createElement('div',{className:'desktop-timeline-shell',style:{height:'100%',position:'relative'}},React.createElement('div',{ref:timeline,className:'desktop-timeline',style:{height:'100%',overflow:'auto',boxSizing:'border-box'}},turns.map(turn=>React.createElement('div',{key:turn.id,'data-turn-id':turn.id,style:{height:100}},turn.user.text))),React.createElement(ConversationNav,{turns,timeline,onNavigate:()=>{}}));}
+      root.render(React.createElement(Fixture));
+    });
+    const rail=page.locator('[data-history-nav-fixture]').getByRole('navigation',{name:'对话导航'});
+    await rail.getByRole('button').first().focus();
+    await rail.getByRole('button').first().press('End');
+    await rail.getByRole('button').last().click();
+    await page.waitForFunction(()=>document.querySelector('[data-history-nav-fixture] .desktop-conversation-marks button:last-child')?.getAttribute('aria-current')==='location');
+    assert.equal(await rail.getByRole('button').count(),200);
+    assert.ok(await page.locator('[data-history-nav-fixture] .desktop-conversation-marks').evaluate(node=>node.scrollTop>0));
+    await page.evaluate(()=>{window.__navFixture.root.unmount();window.__navFixture.mount.remove();delete window.__navFixture;});
     assert.deepEqual(errors, []);
     assert.equal(
       await page.evaluate(
