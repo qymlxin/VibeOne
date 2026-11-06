@@ -117,12 +117,7 @@ impl Workbench {
                     "此入口不支持独立探测，请通过会话连接验证",
                 )
             })?;
-        let profile = profile_id
-            .map(|id| {
-                self.profile_view(id)
-                    .map_err(|_| DomainError::new(ErrorKind::ProfileNotFound, "配置不存在或不可用"))
-            })
-            .transpose()?;
+        let profile = profile_id.map(|id| self.profile_view(id)).transpose()?;
         if profile
             .as_ref()
             .is_some_and(|profile| profile.provider != id)

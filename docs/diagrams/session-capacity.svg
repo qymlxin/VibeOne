@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="390" viewBox="0 0 1000 390" role="img" aria-labelledby="title desc">
+<title id="title">会话创建与取消归档容量流程</title><desc id="desc">客户端通过HTTP请求创建或取消归档，Host串行检查128个未归档会话的容量。容量不足不创建默认项目，成功保存后发布，Agent延迟到发送时才启动。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#555"/></marker></defs>
+<rect width="1000" height="390" rx="12" fill="#fafafa"/>
+<g font-family="system-ui,sans-serif" font-size="14" fill="#222"><text x="28" y="36" font-size="20" font-weight="600">会话容量：创建与取消归档使用同一检查</text>
+<g fill="#fff" stroke="#aaa"><rect x="28" y="95" width="205" height="85" rx="8"/><rect x="301" y="95" width="290" height="85" rx="8"/><rect x="671" y="95" width="301" height="85" rx="8"/><rect x="301" y="248" width="290" height="85" rx="8"/><rect x="671" y="248" width="301" height="85" rx="8"/></g>
+<text x="44" y="122" font-weight="600">桌面 / 获准手机</text><text x="44" y="149">HTTP：创建 / 取消归档</text><text x="44" y="172">先通过角色与工作区授权</text>
+<text x="317" y="122" font-weight="600">Host · 状态锁内串行检查</text><text x="317" y="149">新建校验接入配置；两者共用配额</text><text x="317" y="172">新建和取消归档均受128项限制</text>
+<text x="687" y="122" font-weight="600">容量充足 → 处理对应操作</text><text x="687" y="149">新建：校验目录 / 创建默认项目</text><text x="687" y="172">取消归档：保留原目录与会话身份</text>
+<text x="317" y="275" font-weight="600">容量不足 → HTTP 409</text><text x="317" y="302">SESSION_LIMIT_REACHED</text><text x="317" y="325">不创建多余目录，不改变归档状态</text>
+<text x="687" y="275" font-weight="600">SQLite 保存成功 → 发布新投影</text><text x="687" y="302">HTTP 回执 + WS 通知</text><text x="687" y="325">本次操作不启动 Agent 或发送任务</text>
+<g fill="none" stroke="#555" marker-end="url(#arrow)"><path d="M233 137H293"/><path d="M591 137H663"/><path d="M447 180V240"/><path d="M822 180V240"/></g>
+<text x="606" y="119" font-size="11">继续</text><text x="28" y="369" fill="#666">持久化失败不发布成功；配置、权限和容量错误分别反馈。默认项目仍保存在Host统一数据目录下。</text></g></svg>

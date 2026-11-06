@@ -646,7 +646,7 @@ async fn create(
             ));
         }
     }
-    command(async move {
+    domain_command(async move {
         state
             .workbench
             .create(&body.provider, &body.workspace, body.profile_id.as_deref())
@@ -654,7 +654,7 @@ async fn create(
     })
     .await
     .map(|id| Json(CreateSessionResponse { id }))
-    .map_err(fail)
+    .map_err(domain_fail)
 }
 async fn submit(
     State(state): State<Server>,
@@ -676,12 +676,15 @@ async fn upload_attachment(
     Path(id): Path<String>,
     Json(body): Json<AttachmentUploadRequest>,
 ) -> ApiResult {
-    state
-        .workbench
-        .upload_attachment(&id, &body.name, &body.mime_type, &body.data)
-        .await
-        .map(Json)
-        .map_err(fail)
+    domain_command(async move {
+        state
+            .workbench
+            .upload_attachment(&id, &body.name, &body.mime_type, &body.data)
+            .await
+    })
+    .await
+    .map(Json)
+    .map_err(domain_fail)
 }
 async fn read_attachment(
     State(state): State<Server>,
@@ -692,18 +695,21 @@ async fn read_attachment(
         .read_attachment(&id, &attachment)
         .await
         .map(Json)
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn remove_attachment(
     State(state): State<Server>,
     Path((id, attachment)): Path<(String, String)>,
 ) -> ApiResult {
-    state
-        .workbench
-        .remove_draft_attachment(&id, &attachment)
-        .await
-        .map(Json)
-        .map_err(fail)
+    domain_command(async move {
+        state
+            .workbench
+            .remove_draft_attachment(&id, &attachment)
+            .await
+    })
+    .await
+    .map(Json)
+    .map_err(domain_fail)
 }
 #[derive(Deserialize)]
 struct HistoryQuery {

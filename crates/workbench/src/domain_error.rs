@@ -27,6 +27,13 @@ pub(crate) enum ErrorKind {
     ConfigurationFailed,
     SessionBusy,
     ProfileNotFound,
+    ProfileInvalid,
+    ProviderNotFound,
+    SessionLimit,
+    WorkspaceUnavailable,
+    AttachmentTooLarge,
+    AttachmentNotFound,
+    AttachmentLimit,
     ProfileConflict,
     ProfileLimit,
     WorkspaceNotFound,
@@ -64,6 +71,13 @@ impl ErrorKind {
             Self::ConfigurationFailed => "CONFIGURATION_FAILED",
             Self::SessionBusy => "SESSION_BUSY",
             Self::ProfileNotFound => "PROFILE_NOT_FOUND",
+            Self::ProfileInvalid => "PROFILE_INVALID",
+            Self::ProviderNotFound => "PROVIDER_NOT_FOUND",
+            Self::SessionLimit => "SESSION_LIMIT_REACHED",
+            Self::WorkspaceUnavailable => "WORKSPACE_UNAVAILABLE",
+            Self::AttachmentTooLarge => "ATTACHMENT_TOO_LARGE",
+            Self::AttachmentNotFound => "ATTACHMENT_NOT_FOUND",
+            Self::AttachmentLimit => "ATTACHMENT_LIMIT_REACHED",
             Self::ProfileConflict => "PROFILE_CONFLICT",
             Self::ProfileLimit => "PROFILE_LIMIT_REACHED",
             Self::WorkspaceNotFound => "WORKSPACE_NOT_FOUND",
@@ -82,7 +96,12 @@ impl ErrorKind {
             | Self::InvalidAnswer
             | Self::ConfigurationUnsupported
             | Self::InvalidConfiguration => 400,
-            Self::ProfileNotFound | Self::WorkspaceNotFound | Self::SessionNotFound => 404,
+            Self::ProfileNotFound
+            | Self::WorkspaceNotFound
+            | Self::SessionNotFound
+            | Self::ProviderNotFound
+            | Self::AttachmentNotFound => 404,
+            Self::AttachmentTooLarge => 413,
             Self::WorkspaceForbidden => 403,
             Self::ProfileConflict
             | Self::ProfileLimit
@@ -95,11 +114,15 @@ impl ErrorKind {
             | Self::RunLimit
             | Self::WorkspaceBusy
             | Self::QueueConflict => 409,
+            Self::ProfileInvalid | Self::SessionLimit | Self::AttachmentLimit => 409,
             Self::AttentionExpired
             | Self::DecisionConflict
             | Self::AgentDisconnected
             | Self::SessionBusy => 409,
-            Self::StorageUnavailable | Self::HostUnavailable | Self::ProviderUnavailable => 503,
+            Self::StorageUnavailable
+            | Self::HostUnavailable
+            | Self::ProviderUnavailable
+            | Self::WorkspaceUnavailable => 503,
             Self::DeliveryUncertain | Self::UpstreamInvalid | Self::ConfigurationFailed => 502,
             Self::Internal => 500,
         }

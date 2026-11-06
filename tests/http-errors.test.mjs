@@ -169,3 +169,38 @@ test('accepted configuration survives HTTP disconnect and blocks conflicting wri
  assert.equal(updated.runs.length,1);assert.equal(updated.archived,false);
  assert.equal((await readFile(trace,'utf8')).trim().split('\n').length,1,'configuration is delivered once');
 });
+
+test('session creation and attachment failures have stable identities without losing valid content',{timeout:22000},async t=>{
+ const {connection,call,directory}=await host(t);
+ const {readdir,writeFile,readFile}=await import('node:fs/promises');
+ const failure=async(path,body,status,code,method='POST')=>{
+  const response=await fetch(connection.url+'/v1'+path,{method,headers:{Authorization:`Bearer ${connection.token}`,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
+  const value=await response.json();assert.equal(response.status,status,JSON.stringify(value));assert.equal(value.code,code);assert.equal(value.status,status);assert.equal(response.headers.get('x-vibeone-request-id'),value.requestId);return value;
+ };
+ await failure('/sessions',{provider:'unknown-provider'},404,'PROVIDER_NOT_FOUND');
+ await failure('/sessions',{provider:'demo',profileId:'missing'},404,'PROFILE_NOT_FOUND');
+ await failure('/sessions',{provider:'demo',workspace:directory+'/missing'},404,'WORKSPACE_NOT_FOUND');
+ await failure('/sessions',{provider:'demo',workspace:directory+'/host.json'},400,'INVALID_INPUT');
+ assert.equal((await call('/snapshot')).sessions.length,0);
+ await writeFile(directory+'/projects','preserve this file');
+ await failure('/sessions',{provider:'demo'},503,'WORKSPACE_UNAVAILABLE');
+ assert.equal(await readFile(directory+'/projects','utf8'),'preserve this file');
+ assert.equal((await call('/snapshot')).sessions.length,0);
+ const first=await call('/sessions',{provider:'demo',workspace:directory});
+ const other=await call('/sessions',{provider:'demo',workspace:directory});
+ const base=`/sessions/${first.id}/attachments`;
+ await failure('/sessions/missing/attachments',{name:'x',mimeType:'text/plain',data:'eA=='},404,'SESSION_NOT_FOUND');
+ await failure(base,{name:'invalid',mimeType:'text/plain',data:'!not-base64!'},400,'INVALID_ATTACHMENT');
+ await failure(base,{name:'fake.png',mimeType:'image/png',data:'dGV4dA=='},400,'INVALID_ATTACHMENT');
+ await failure(base,{name:'too-large',mimeType:'application/octet-stream',data:Buffer.alloc(4*1024*1024+1).toString('base64')},413,'ATTACHMENT_TOO_LARGE');
+ await failure(base+'/missing',undefined,404,'ATTACHMENT_NOT_FOUND','GET');
+ const content={name:'draft.txt',mimeType:'text/plain',data:Buffer.from('actual attachment').toString('base64')};
+ const attachment=await call(base,content);assert.equal((await call(base,content)).id,attachment.id);
+ await failure(`/sessions/${other.id}/attachments/${attachment.id}`,undefined,404,'ATTACHMENT_NOT_FOUND','GET');
+ assert.equal((await call(base+'/'+attachment.id)).data,content.data);
+ await call(base+'/'+attachment.id+'/remove',{});await call(base+'/'+attachment.id+'/remove',{});
+ await failure(base+'/'+attachment.id,undefined,404,'ATTACHMENT_NOT_FOUND','GET');
+ await call(`/sessions/${first.id}/metadata`,{archived:true});
+ await failure(base,content,409,'SESSION_UNAVAILABLE');
+ assert.equal((await readdir(directory)).includes('projects'),true);
+});

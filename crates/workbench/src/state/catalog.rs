@@ -226,8 +226,19 @@ impl Workbench {
         issues.sort_by(|a, b| a.id.cmp(&b.id));
         (profiles, issues)
     }
-    pub(crate) fn profile_view(&self, id: &str) -> Result<crate::contracts::ProfileView, String> {
-        Self::decode_profile(id, self.profile_value(id)?)
+    pub(crate) fn profile_view(
+        &self,
+        id: &str,
+    ) -> Result<crate::contracts::ProfileView, DomainError> {
+        let value = self
+            .profile_value(id)
+            .map_err(|_| DomainError::new(ErrorKind::ProfileNotFound, "配置不存在，请新建配置"))?;
+        Self::decode_profile(id, value).map_err(|_| {
+            DomainError::new(
+                ErrorKind::ProfileInvalid,
+                "配置记录无效，请在 Agent 设置中检查；原始记录仍保留",
+            )
+        })
     }
     pub(crate) async fn save_profile(
         &self,
@@ -434,7 +445,14 @@ mod profile_view_tests {
         assert_eq!(snapshot.metadata.profile_issues.len(), 2);
         assert!(snapshot.metadata.profiles[0].details.revision.is_none());
         assert_eq!(workbench.profile_value("legacy").unwrap(), legacy);
-        assert!(workbench.create("demo", "", Some("corrupt")).await.is_err());
+        assert_eq!(
+            workbench
+                .create("demo", "", Some("corrupt"))
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::ProfileInvalid
+        );
         let id = workbench.create("demo", "", Some("legacy")).await.unwrap();
         let issue = snapshot
             .metadata

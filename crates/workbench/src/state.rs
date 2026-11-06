@@ -221,6 +221,23 @@ impl Workbench {
         self.entry(id)
             .map_err(|_| DomainError::new(ErrorKind::SessionNotFound, "会话不存在"))
     }
+    // Call while holding catalog_gate so creation and unarchive share one limit.
+    fn check_session_capacity(&self) -> Result<(), DomainError> {
+        let count = self
+            .sessions
+            .lock()
+            .expect("sessions poisoned")
+            .values()
+            .filter(|entry| !entry.view.lock().expect("view poisoned").archived)
+            .count();
+        if count >= 128 {
+            return Err(DomainError::new(
+                ErrorKind::SessionLimit,
+                "活动会话已达到上限，请归档不用的会话",
+            ));
+        }
+        Ok(())
+    }
     fn changed(&self, cursor: u64) {
         self.revision.fetch_max(cursor, Ordering::SeqCst);
         let _ = self.events.send(self.revision.load(Ordering::SeqCst));
@@ -401,14 +418,15 @@ impl Workbench {
             .cloned()
             .ok_or("会话不存在".into())
     }
-    pub async fn create(
+    pub(crate) async fn create(
         &self,
         provider: &str,
         workspace: &str,
         profile_id: Option<&str>,
-    ) -> Result<String, String> {
-        self.available()?;
+    ) -> Result<String, DomainError> {
+        self.command_available()?;
         let _catalog = self.catalog_gate.lock().await;
+        self.command_available()?;
         let mut profile = profile_id
             .map(|id| {
                 self.profile_view(id)
@@ -422,24 +440,38 @@ impl Workbench {
         let provider = self
             .provider_descriptors()
             .into_iter()
-            .find(|value| {
-                value.id == provider
-                    && (value.available
-                        || profile.as_ref().is_some_and(|profile| {
-                            profile
-                                .details
-                                .command
-                                .as_deref()
-                                .is_some_and(|command| Path::new(command).is_file())
-                        }))
+            .find(|value| value.id == provider)
+            .ok_or_else(|| {
+                DomainError::new(ErrorKind::ProviderNotFound, "Agent 入口不存在，请刷新列表")
+            })?;
+        if !provider.available
+            && !profile.as_ref().is_some_and(|profile| {
+                profile
+                    .details
+                    .command
+                    .as_deref()
+                    .is_some_and(|command| Path::new(command).is_file())
             })
-            .ok_or("工具未安装或 Node 不可用，请先检查环境")?;
+        {
+            return Err(DomainError::new(
+                ErrorKind::ProviderUnavailable,
+                "工具未安装或 Node 不可用，请先检查环境",
+            ));
+        }
         let provider_lease = if let Some((plugin_id, _)) = provider.id.split_once(':') {
-            let lease = self.plugins.acquire(plugin_id)?;
+            let lease = self.plugins.acquire(plugin_id).map_err(|_| {
+                DomainError::new(
+                    ErrorKind::ProviderUnavailable,
+                    "Provider 插件不可用，请检查插件状态",
+                )
+            })?;
             if !self.catalog("plugin").iter().any(|record| {
                 record["id"] == plugin_id && record["generation"] == lease.key().generation
             }) {
-                return Err("Provider 正在更新，请稍后重试".into());
+                return Err(DomainError::new(
+                    ErrorKind::ProviderConflict,
+                    "Provider 正在更新，请稍后重试",
+                ));
             }
             let mut pinned = profile
                 .take()
@@ -453,7 +485,9 @@ impl Workbench {
                 provider
                     .command
                     .to_str()
-                    .ok_or("Provider路径名称无效")?
+                    .ok_or_else(|| {
+                        DomainError::new(ErrorKind::ProviderUnavailable, "Provider 路径名称无效")
+                    })?
                     .into(),
             );
             pinned.details.args = Some(provider.args.clone());
@@ -465,8 +499,12 @@ impl Workbench {
             None
         };
         if workspace.trim().is_empty() && provider.id.contains(':') {
-            return Err("插件 Agent 需要选择已经授权的工作区".into());
+            return Err(DomainError::new(
+                ErrorKind::WorkspaceForbidden,
+                "插件 Agent 需要选择已经授权的工作区",
+            ));
         }
+        self.check_session_capacity()?;
         let workspace = if workspace.trim().is_empty() {
             let path = self
                 .directory
@@ -479,23 +517,40 @@ impl Workbench {
                 use std::os::unix::fs::DirBuilderExt;
                 builder.mode(0o700);
             }
-            builder
-                .create(&path)
-                .map_err(|error| format!("默认项目创建失败：{error}"))?;
+            builder.create(&path).map_err(|_| {
+                DomainError::new(
+                    ErrorKind::WorkspaceUnavailable,
+                    "默认项目创建失败，请检查主机数据目录及权限",
+                )
+            })?;
             path
         } else {
             PathBuf::from(workspace)
         };
-        let workspace = workspace.canonicalize().map_err(|_| "工作目录不存在")?;
+        let workspace = workspace.canonicalize().map_err(|error| {
+            DomainError::new(
+                match error.kind() {
+                    std::io::ErrorKind::NotFound => ErrorKind::WorkspaceNotFound,
+                    std::io::ErrorKind::PermissionDenied => ErrorKind::WorkspaceForbidden,
+                    _ => ErrorKind::WorkspaceUnavailable,
+                },
+                "无法访问工作目录，请检查目录及权限",
+            )
+        })?;
         if !workspace.is_dir() {
-            return Err("请选择目录作为工作区".into());
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "请选择目录作为工作区",
+            ));
         }
         if let Some((plugin_id, _)) = provider.id.split_once(':') {
             let record = self
                 .catalog("plugin")
                 .into_iter()
                 .find(|item| item["id"] == plugin_id)
-                .ok_or("Provider 插件不存在")?;
+                .ok_or_else(|| {
+                    DomainError::new(ErrorKind::ProviderUnavailable, "Provider 插件不存在")
+                })?;
             let known = self
                 .workspaces
                 .lock()
@@ -508,20 +563,13 @@ impl Workbench {
                     .as_ref()
                     .is_some_and(|id| items.iter().any(|item| item == id))
             }) {
-                return Err("Provider 插件未获授权访问此工作区".into());
+                return Err(DomainError::new(
+                    ErrorKind::WorkspaceForbidden,
+                    "Provider 插件未获授权访问此工作区",
+                ));
             }
         }
 
-        let count = self
-            .sessions
-            .lock()
-            .expect("sessions poisoned")
-            .values()
-            .filter(|entry| !entry.view.lock().expect("view poisoned").archived)
-            .count();
-        if count >= 128 {
-            return Err("活动会话已达到上限，请归档不用的会话".into());
-        }
         let id = uuid::Uuid::new_v4().to_string();
         let view = SessionView {
             last_activity_at: execution::now(),
@@ -552,19 +600,22 @@ impl Workbench {
             id: id.clone(),
             workspace: view.workspace.clone(),
             revision: 1,
-            snapshot: serde_json::to_value(&view).map_err(|error| error.to_string())?,
+            snapshot: serde_json::to_value(&view)
+                .map_err(|_| DomainError::new(ErrorKind::Internal, "会话编码失败"))?,
         };
         let _sync = self.sync_gate.lock().await;
         let cursor = self
             .store
             .save(&record, "session.created", &json!({}))
             .await
-            .map_err(|error| self.fail_storage(error))?;
-        let workspaces = self
-            .store
-            .workspaces()
-            .await
-            .map_err(|error| self.fail_storage(error))?;
+            .map_err(|error| {
+                self.fail_storage(error);
+                DomainError::storage()
+            })?;
+        let workspaces = self.store.workspaces().await.map_err(|error| {
+            self.fail_storage(error);
+            DomainError::storage()
+        })?;
         let _publication = self.publication.lock().expect("publication poisoned");
         let entry = Entry::new(view, 1);
         *entry
@@ -818,6 +869,11 @@ impl Workbench {
     ) -> Result<(), DomainError> {
         self.command_available()?;
         let entry = self.command_entry(id)?;
+        let _catalog = if archived == Some(false) {
+            Some(self.catalog_gate.lock().await)
+        } else {
+            None
+        };
         let _gate = entry.gate.lock().await;
         self.command_available()?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
@@ -842,6 +898,9 @@ impl Workbench {
                     ErrorKind::SessionBusy,
                     "请先完成或停止运行并清空队列",
                 ));
+            }
+            if view.archived && !archived {
+                self.check_session_capacity()?;
             }
             view.archived = archived;
         }
@@ -1025,6 +1084,55 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn session_limit_rejects_before_creating_an_unneeded_managed_project() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(
+            directory.path(),
+            vec![Provider {
+                id: "demo".into(),
+                name: "Demo".into(),
+                available: true,
+                description: String::new(),
+                command: PathBuf::from("unused"),
+                args: vec![],
+            }],
+        )
+        .await
+        .unwrap();
+        let id = workbench
+            .create("demo", directory.path().to_str().unwrap(), None)
+            .await
+            .unwrap();
+        let original = workbench.entry(&id).unwrap().view.lock().unwrap().clone();
+        for index in 0..127 {
+            let mut view = original.clone();
+            view.id = format!("capacity-{index}");
+            workbench
+                .sessions
+                .lock()
+                .unwrap()
+                .insert(view.id.clone(), Entry::new(view, 1));
+        }
+        assert!(!directory.path().join("projects").exists());
+        let error = workbench.create("demo", "", None).await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::SessionLimit);
+        assert!(!directory.path().join("projects").exists());
+        assert_eq!(workbench.sessions.lock().unwrap().len(), 128);
+        workbench.metadata(&id, None, Some(true)).await.unwrap();
+        workbench
+            .create("demo", directory.path().to_str().unwrap(), None)
+            .await
+            .unwrap();
+        let error = workbench
+            .metadata(&id, None, Some(false))
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind, ErrorKind::SessionLimit);
+        assert!(workbench.entry(&id).unwrap().view.lock().unwrap().archived);
+        workbench.close().await;
+    }
+
+    #[tokio::test]
     async fn failed_storage_never_publishes_a_session_or_accepts_another_run() {
         let directory = tempfile::tempdir().unwrap();
         let provider = Provider {
@@ -1043,7 +1151,8 @@ mod tests {
             .create("test", directory.path().to_str().unwrap(), None)
             .await
             .unwrap_err();
-        assert!(error.contains("存储失败"));
+        assert_eq!(error.kind, ErrorKind::StorageUnavailable);
+        assert!(!error.message.contains(directory.path().to_str().unwrap()));
         assert_eq!(workbench.snapshot()["sessions"], json!([]));
         assert!(workbench.snapshot()["storageError"].is_string());
         assert!(
