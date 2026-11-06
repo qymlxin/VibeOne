@@ -1,6 +1,6 @@
 # 17 · Tauri 桌面壳与 Host 连接
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: C
 Blocked by: 07, 14, 15
@@ -11,7 +11,7 @@ Blocked by: 07, 14, 15
 
 ## 依赖
 
-[07](./07-host-lifecycle.md)、[14](./14-host-http.md)、[15](./15-event-client.md)。本任务为待评审计划，尚未开始实现。
+[07](./07-host-lifecycle.md)、[14](./14-host-http.md)、[15](./15-event-client.md)。按用户要求提前交付桌面入口；与 Host 最小 HTTP/WS 链路交错实施，原有完整生命周期验收保留。
 
 ## 验收
 

@@ -1,6 +1,6 @@
 # 01 · ACP 客户端与可控假 Agent
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: A
 Blocked by: none
@@ -11,7 +11,7 @@ Blocked by: none
 
 ## 依赖
 
-无（现有插件基础已具备）。本任务为待评审计划，尚未开始实现。
+无（现有插件基础已具备）。用户已批准开工；本轮以 ACP v2 Draft 为协议目标，SDK 版本与协议版本分别锁定。
 
 ## 验收
 

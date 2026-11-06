@@ -23,7 +23,7 @@ VibeOne 是本地优先、可远程控制、以 ACP 为主要接入协议的 Age
 | 边界 | 协议 | 负责内容 |
 | --- | --- | --- |
 | UI ↔ Host | VibeOne API v1，HTTP + WS；本地可桥接 IPC | 业务命令、查询、订阅、设备授权 |
-| Host ↔ Agent | ACP，MVP 锁定稳定 v1 | 会话、消息、工具、审批、取消、能力协商 |
+| Host ↔ Agent | ACP v2 Draft，显式协商 protocolVersion: 2 | 会话、消息、工具、审批、取消、能力协商 |
 | Host ↔ 插件 | VibeOne Plugin RPC v1，stdio JSON-RPC | 激活、扩展注册、业务调用、订阅、卸载 |
 
 不要把内部领域模型直接等同于 ACP 数据结构；保留映射层和可选原始诊断数据。ACP 新版本、新字段或厂商扩展不应迫使 UI 和数据库一起迁移。
@@ -73,9 +73,9 @@ Run 可有多个同时待批或待回答请求；执行阶段、待办计数和�
 
 ## 5. ACP 接入
 
-采用官方 Rust SDK，并将版本变化限制在 `acp-client` 模块。先支持 ACP v1；v2 在独立 feature 与一致性测试通过后加入。
+采用官方 Rust SDK，并将版本变化限制在 `acp-client` 模块。首版采用 ACP v2 Draft，开启官方 SDK 的 `unstable_protocol_v2`，固定 SDK 版本并保持协议契约测试。
 
-标准流程：启动进程 → initialize/能力协商 → 必要认证 → new/load → prompt → 更新/权限请求 → prompt 结果。v1 以 prompt 响应表达该轮结束；不能套用 v2 的异步接受语义。
+标准流程：启动进程 → initialize（protocolVersion: 2）/能力协商 → 必要认证 → new/resume → prompt 接受回执 → 独立消息与状态更新/权限请求 → idle 状态及停止原因。更新处理器先于请求安装，不能把 prompt 回执当作执行完成。
 
 必须处理：
 

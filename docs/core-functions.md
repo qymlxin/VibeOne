@@ -95,7 +95,7 @@ Run 表示一次提示输入触发的执行尝试，既不是整个会话，也�
 
 能力验证记录关联工具版本、适配器版本、协议版本、平台和测试结果。能力状态分为支持、不支持、未知。不能通过修改界面上的布尔配置，就把未知或不支持的能力变成可用。
 
-首版协议目标仍为 ACP v1。其 prompt 请求代表完整的一轮执行，并在最终返回响应；等待响应时，仍必须处理流式更新和双向请求。本契约不混入 v2 草案行为。[ACP v1 执行轮次说明](https://agentclientprotocol.com/protocol/v1/prompt-turn)。
+首版采用 ACP v2 Draft，显式协商 `protocolVersion: 2`，不静默降级为 v1。prompt 响应只表示已接受；客户端独立接收消息与工具更新，以匹配会话的 `state_update` 返回 `idle` 判断本轮前台工作结束。更新可能早于 prompt 回执，因此连接建立时即安装接收处理器。[ACP v2 生命周期说明](https://agentclientprotocol.com/protocol/v2/prompt-lifecycle)。
 
 ## 6. 会话创建、消息与排队
 
@@ -149,7 +149,7 @@ Run 调度可能等待工作区写入占用解除；这与等待上一轮结束�
 
 Run 完成只说明本轮 prompt 已结束。工具成功、测试结果和工作区是否干净是独立事实。Agent 自述应标为 Agent 输出；有实际工具输出时，测试成功状态应以该证据为依据。
 
-取消操作保持幂等。已处于终态的 Run 直接返回实际结果。取消生效时，使待决请求失效，并使用协议规定的 cancelled outcome 响应上游权限请求；不能假设上游一定提供“拒绝”选项。如果正常结束先发生，保留 completed 等实际终态，不改写为 cancelled。强制终止需要在结果中可见，并可能要求建立新的上游会话。[ACP v1 权限处理说明](https://agentclientprotocol.com/protocol/v1/tool-calls)。
+取消操作保持幂等。已处于终态的 Run 直接返回实际结果。取消生效时，使待决请求失效，并使用协议规定的 cancelled outcome 响应上游权限请求；不能假设上游一定提供“拒绝”选项。如果正常结束先发生，保留 completed 等实际终态，不改写为 cancelled。强制终止需要在结果中可见，并可能要求建立新的上游会话。[ACP v2 权限处理说明](https://agentclientprotocol.com/protocol/v2/tool-calls)。
 
 排队中的 Run 可在启动前取消，不会创建运行进程。启动中的取消中断启动流程，并由进程监督模块完成清理。针对活动 Run 受理取消时，同时原子暂停该会话的待执行输入，即使随后收到的正常完成结果先赢得终态竞争。针对已经结束的旧 Run 的取消，不应影响后来启动的新 Run。
 
