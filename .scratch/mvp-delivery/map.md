@@ -59,6 +59,8 @@
 
 - [49-project-session-sidebar](issues/49-project-session-sidebar.md)：补齐项目分组/折叠、真实最近排序、搜索快捷键与侧栏开合，新增活动时间持久化；单元、桌面、崩溃恢复与Clippy通过。
 
+- 后续完整原型交付：50 附件、51 长历史、52 原型逐项审计；本轮macOS包已生成，实际原生核对被锁屏阻断，解锁后只在空闲时升级Host。目标保持active。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。

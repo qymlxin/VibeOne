@@ -28,3 +28,8 @@
 | 存储信息、空闲重启、脱敏诊断/复制 | 已有Host链路，逐项复核复制 | 主机版本、空闲保护、允许列表 |
 
 终端在批准原型中明示只读，因此保留只读设计。Skills/MCP 市场、订阅管理等没有进入批准的八类设置原型，不以其他产品参考截图扩大成本次功能承诺。真实 Agent 的认证和实际手机系统权限需要用户环境；不能因此跳过可由本机验证的实现。
+
+
+## 后续执行顺序
+
+[50 附件与图片](../.scratch/mvp-delivery/issues/50-prototype-attachments.md) → [51 长历史](../.scratch/mvp-delivery/issues/51-complete-conversation-history.md) → [52 按原型逐项完整验收](../.scratch/mvp-delivery/issues/52-prototype-final-audit.md)。这些条目尚未完成，目标继续保持进行中。
