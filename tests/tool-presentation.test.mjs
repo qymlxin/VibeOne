@@ -27,3 +27,12 @@ test('only HTTP and HTTPS tool links are clickable',()=>{
  assert.equal(safeToolUrl('https://example.com/path'),'https://example.com/path');
  for (const value of ['javascript:alert(1)','data:text/html,x','file:///etc/passwd','not a URL']) assert.equal(safeToolUrl(value),null);
 });
+
+import {remarkSoftBreaks} from '../apps/desktop/src/markdown-layout.js';
+test('soft line breaks stay inside paragraphs without touching code indentation or inventing block spacing',()=>{
+ const tree={type:'root',children:[{type:'paragraph',children:[{type:'text',value:'title\ndescription'}]},{type:'code',value:'  first\n    second'}]};
+ remarkSoftBreaks()(tree);
+ assert.deepEqual(tree.children[0].children.map(child=>child.type),['text','break','text']);
+ assert.equal(tree.children.length,2);
+ assert.equal(tree.children[1].value,'  first\n    second');
+});

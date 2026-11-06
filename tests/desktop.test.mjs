@@ -316,6 +316,7 @@ test(
       const list=element.querySelector('ol'), paragraph=element.querySelector('p'), firstItem=list.querySelector('li'), firstParagraph=firstItem.querySelector('p');
       return {whiteSpace:getComputedStyle(element).whiteSpace,gap:list.getBoundingClientRect().top-paragraph.getBoundingClientRect().bottom,itemGap:firstParagraph.getBoundingClientRect().top-firstItem.getBoundingClientRect().top,code:element.querySelector('pre code').textContent};
     });
+    assert.ok(await formatted.locator('.desktop-message-text > p br').count()>=1);
     assert.equal(layout.whiteSpace,'normal');assert.ok(layout.gap<24);assert.ok(layout.itemGap<10);assert.ok(layout.code.includes('  first\n    second'));
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-markdown-spacing.png')});
     await page.getByRole('textbox',{name:'发送任务'}).fill('/rich-tools');

@@ -25,7 +25,7 @@ async function run(sessionId, prompt, userId, epoch) {
       if (!active()) return;
       update(sessionId, { sessionUpdate: 'agent_thought', messageId, content: [{ type: 'text', text }] });
     }
-    if (prompt.includes('/format')) response='这是一段说明。\n\n1. **第一项**\n\n   第一项说明。\n\n2. **第二项**\n\n   第二项说明。\n\n```text\n  first\n    second\n```';
+    if (prompt.includes('/format')) response='这是一段说明。\n保留段内换行。\n\n1. **第一项**\n\n   第一项说明。\n\n2. **第二项**\n\n   第二项说明。\n\n```text\n  first\n    second\n```';
     if (prompt.includes('/rich-tools')) {
       const calls=[
         {title:'演示：搜索资料',rawInput:{type:'webSearch',id:'transport-only',query:'summary...',action:{type:'search',queries:['测试查询一','测试查询二']}}},

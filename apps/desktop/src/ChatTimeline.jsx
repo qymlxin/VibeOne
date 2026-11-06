@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import {Check, ChevronDown, LoaderCircle, MessageSquare, Terminal, X} from 'lucide-react';
 import {activityTail} from './chat-timeline.js';
 import {ToolDetails} from './ToolDetails.jsx';
+import {remarkSoftBreaks} from './markdown-layout.js';
 
 const markdownComponents = {
   a: props => <a {...props} target="_blank" rel="noopener noreferrer"/>,
@@ -14,7 +15,7 @@ export const ChatMessage = memo(function ChatMessage({message,name}) {
   return <article className={`desktop-message ${message.role}`}>
     <span className="desktop-avatar">{user ? '你' : <MessageSquare size={14}/>}</span>
     <div><div className="desktop-message-meta"><strong>{user ? '你' : name}</strong>{message.pending && <span>已受理 · 等待 Agent 接受</span>}</div>
-      <div className="desktop-message-text">{user ? message.text || '…' : <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{message.text || '…'}</ReactMarkdown>}</div>
+      <div className="desktop-message-text">{user ? message.text || '…' : <ReactMarkdown remarkPlugins={[remarkGfm,remarkSoftBreaks]} components={markdownComponents}>{message.text || '…'}</ReactMarkdown>}</div>
     </div>
   </article>;
 },(a,b)=>a.name===b.name && a.message.id===b.message.id && a.message.text===b.message.text && a.message.pending===b.message.pending && a.message.role===b.message.role);
