@@ -1,4 +1,5 @@
 use crate::{providers::providers, state::Workbench};
+mod errors;
 mod remote;
 use axum::{
     Extension, Json, Router,
@@ -9,7 +10,7 @@ use axum::{
     http::{HeaderMap, Method, StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{any, get, post},
 };
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -171,7 +172,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/plugins/discard",post(plugin_discard))
         .route("/v1/plugins/{id}/disable",post(plugin_disable))
         .route("/v1/plugins/{id}/invoke",post(plugin_invoke))
-        .route("/v1/plugins/{id}/operations",post(plugin_operation))
+        .route("/v1/plugins/{id}/operations",post(plugin_operation).layer(DefaultBodyLimit::max(600*1024)))
         .route("/v1/operations/{id}",get(operation_status))
         .route("/v1/operations",get(operation_list))
         .route("/v1/plugins/{id}/app",get(plugin_app))
@@ -196,9 +197,12 @@ fn routes(state: Server) -> Router {
         .route("/v1/sessions/{id}/approvals/{request}",post(decide))
         .route("/v1/sessions/{id}/inputs/{request}",post(answer))
         .route("/v1/host/stop",post(shutdown))
+        .route("/v1",any(||async{StatusCode::NOT_FOUND}))
+        .route("/v1/{*path}",any(||async{StatusCode::NOT_FOUND}))
         .layer(DefaultBodyLimit::max(262_144))
         .layer(middleware::from_fn_with_state(state.clone(),authorize))
-        .layer(cors).with_state(state)
+        .layer(cors)
+        .layer(middleware::from_fn(errors::normalize)).with_state(state)
 }
 
 async fn authorize(

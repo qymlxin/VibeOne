@@ -61,6 +61,11 @@ try{
  assert.ok(snapshot.features.includes('conversationHistory'));
  assert.ok(snapshot.features.includes('cursorSync'));
  assert.ok(snapshot.features.includes('pluginOperations'));
+ assert.ok(snapshot.features.includes('structuredErrors'));
+ const denied=await fetch(`${connection.url}/v1/snapshot`);
+ assert.equal(denied.status,401);
+ const failure=await denied.json();assert.equal(failure.code,'UNAUTHENTICATED');
+ assert.equal(failure.requestId,denied.headers.get('x-vibeone-request-id'));
  const baseline=await call('/sync');
  assert.equal(baseline.snapshot.revision,baseline.cursor);
  assert.ok(snapshot.examplePluginPath.startsWith(resources));
@@ -104,7 +109,7 @@ try{
  assert.equal(delta.reset,undefined);
  assert.ok(delta.events.some(event=>event.type==='session.projected'&&event.session.id===session.id));
  await call('/host/stop',{});await exited;
- console.log(JSON.stringify({packagedResources:true,isolatedDirectory:true,web:true,workerContext:true,pluginProvider:true,persistentHistory:true,cursorSync:true,pluginOperations:true,bridges:bridgeResults,nativeClis:true,hostSha256:createHash('sha256').update(await readFile(binary)).digest('hex')},null,2));
+ console.log(JSON.stringify({packagedResources:true,isolatedDirectory:true,web:true,workerContext:true,pluginProvider:true,persistentHistory:true,cursorSync:true,pluginOperations:true,structuredErrors:true,bridges:bridgeResults,nativeClis:true,hostSha256:createHash('sha256').update(await readFile(binary)).digest('hex')},null,2));
 }finally{
  if(child&&child.exitCode===null&&child.signalCode===null){
   if(connection)await fetch(`${connection.url}/v1/host/stop`,{method:'POST',headers:{Authorization:`Bearer ${connection.token}`}}).catch(()=>{});

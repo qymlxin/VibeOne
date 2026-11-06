@@ -66,6 +66,10 @@ test(
       });
     assert.equal((await request("/")).status, 200);
     assert.equal((await request("/v1/snapshot")).status, 401);
+    const unknownApi=await request('/v1/not-a-route');
+    assert.equal(unknownApi.status,401);
+    assert.equal(unknownApi.body.code,'UNAUTHENTICATED','API paths must not fall through to HTML');
+
     assert.equal(
       (await request("/v1/snapshot", undefined, null, connection.token)).status,
       401,
@@ -97,6 +101,9 @@ test(
     assert.ok(poll.headers["set-cookie"][0].includes("Secure"));
     const snapshot = await request("/v1/snapshot", undefined, cookie);
     assert.equal(snapshot.status, 200);
+    const deniedApi=await request('/v1/not-a-route',undefined,cookie);
+    assert.equal(deniedApi.status,403);assert.equal(deniedApi.body.code,'FORBIDDEN');
+
     assert.deepEqual(snapshot.body.operations,[]);
     assert.equal((await request("/v1/operations",undefined,cookie)).status,403);
     assert.equal((await request("/v1/operations/unknown",undefined,cookie)).status,403);

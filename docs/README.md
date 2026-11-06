@@ -5,6 +5,7 @@
 | 文档 | 阅读目标 |
 | --- | --- |
 | [桌面资源与打包](desktop-bundle.md) | 包内ACP桥接器/CLI、资源路径与包外验证 |
+| [HTTP错误契约](http-errors.md) | 统一错误信封、稳定错误码、响应身份和旧主机兼容 |
 | [插件后台操作回执](plugin-operations.md) | 202受理、幂等、持久结果、断线对账及重启中断 |
 | [游标增量同步](cursor-sync.md) | WS通知、HTTP授权增量、快照恢复与客户端去重 |
 | [持久会话历史](conversation-history.md) | 完整档案、分页、旧数据回填与阅读位置 |

@@ -260,3 +260,7 @@ Host 快照通过 `features: ["queuePause"]` 声明支持，旧主机的暂停�
 ## 游标同步交付
 
 桌面和手机现共用投影增量客户端：按主机epoch和cursor追赶，去重、未知事件恢复、慢订阅者断开重连，以及旧主机快照兼容。响应合并同一会话的连续提交，不让前端重新解释ACP；协议和服务链路见[游标增量同步](cursor-sync.md)。
+
+## HTTP失败契约
+
+HTTP4xx/5xx统一使用Rust错误DTO输出code/error/status/requestId，客户端HostRequestError保留原身份和旧主机兼容。鉴权、路由、参数、正文和专用业务错误均走同一信封，保留真实HTTP状态；内部领域错误与业务DTO生成仍分步完善。见[HTTP错误契约](http-errors.md)。

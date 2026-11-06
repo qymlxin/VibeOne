@@ -30,6 +30,9 @@ test('durable plugin receipts pin generations, deduplicate, survive lost replies
  await submit({...body,input:{value:'different'}},409);
  await submit({key:'bad-generation',handler:'count',generation:plugin.generation+1,input:{}},400);
  await submit({key:'bad-handler',handler:'not-published',input:{}},400);
+ const large=await submit({key:'within-plugin-limit',handler:'count',input:{value:'large',padding:'x'.repeat(300000)}});
+ assert.equal((await ended(large.operationId)).result.value,'large');
+ await submit({key:'outside-plugin-limit',handler:'count',input:{padding:'x'.repeat(550000)}},400);
  const failed=await ended((await submit({key:'failure',handler:'count',input:{fail:true}})).operationId);
  assert.equal(failed.state,'failed');assert.equal(failed.error.code,'PLUGIN_OPERATION_FAILED');
  const pending=await submit({key:'pinned',handler:'count',input:{delay:600,value:'old'}});

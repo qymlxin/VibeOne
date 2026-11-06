@@ -89,10 +89,12 @@
 
 - [64-plugin-operation-receipts](issues/64-plugin-operation-receipts.md)：202持久受理、幂等、固定代次、独立执行与恢复已接App SDK/插件页；47项Node、14项Host、桌面/手机、原生忙碌保护及包外验证通过。
 
+- [65-http-error-contract](issues/65-http-error-contract.md)：统一HTTP错误信封、响应身份和客户端错误字段；阻止API落入SPA，并修复插件输入网关限制不一致；49项Node、15项Host、桌面/手机及包外验证通过。
+
 ## Fog
 
 
 - 真实Claude认证及该工具的审批/取消仍由本机账号和实际工具能力决定；Codex路径和人工请求可控时间超时已有实测。
 - 物理 iOS/Android 证书信任、弱网、锁屏及 macOS 托盘/系统通知仍待人工验收。
-- 完整DTO生成与统一错误码仍见14；插件HTTP持久异步回执、客户端游标投影增量及长历史已独立交付。
+- 业务DTO生成与完整领域错误分类仍见14；HTTP失败信封已由65交付；插件HTTP持久异步回执、客户端游标投影增量及长历史已独立交付。
 - 公开 SDK 完整 semver/跨插件依赖、跨平台发行、签名公证后置。

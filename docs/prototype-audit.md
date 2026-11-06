@@ -78,18 +78,18 @@
 
 | 检查 | 结果与具体范围 |
 | --- | --- |
-| `npm run check` | 通过：47项Node/SDK/打包器、workspace Rust、14项Host集成与崩溃恢复；不包含真实模型请求 |
-| `npm run desktop:test` | 55.1秒完整回归通过：真实Host、目录路径导入、历史与重连的实际游标增量、通知桥接状态、插件React及200刻度组件及插件异步操作记录/结果 |
-| `npm run remote:test` | 23.5秒通过：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
+| `npm run check` | 通过：49项Node/SDK/打包器、workspace Rust、15项Host集成与崩溃恢复；不包含真实模型请求 |
+| `npm run desktop:test` | 54.8秒完整回归通过：真实Host、目录路径导入、历史与重连的实际游标增量、通知桥接状态、插件React及200刻度组件及插件异步操作记录/结果 |
+| `npm run remote:test` | 23.4秒通过：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
 | `cargo clippy --workspace --all-targets -- -D warnings` | 通过 |
 | 原生Cargo测试 / Clippy | 5项测试通过；原生Clippy通过；系统回调的实际窗口观察仍未完成 |
-| `npm run desktop:bundle` | 通过，当前macOS调试包828.16MiB；包标识dev.vibeone.desktop，最低系统10.15 |
+| `npm run desktop:bundle` | 通过，当前macOS调试包828.34MiB；包标识dev.vibeone.desktop，最低系统10.15 |
 | `npm run bundle:smoke` | 通过：复制全部资源到仓库外，两个桥接器v2握手和原生CLI启动、可信HTTPS网页、Worker反向调用、插件Provider及历史 |
 | `npm run agent:smoke -- codex claude` | Codex目标文本/end_turn通过；Claude失败，Authentication required，未冒充双工具完成 |
 | `npm run agent:controls` / `-- --input-only` | 真实Codex批准/拒绝、取消待审批、旧请求失效、进程退出、只读恢复及结构化输入通过 |
 | `cargo test -p vibeone-agent-client` | 全13项通过，覆盖初始化45秒人工等待、独立600秒时限、工作预算恢复、迟到答案拒绝和父子进程清理；客户端Clippy通过 |
 
-包内Host SHA-256：`ab742e550fccde6aeb97bdc323415a1677007ef3590b301b4a0104879b326590`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
+包内Host SHA-256：`81fc51df7cf09c264c6227d6f4ec5629bc398123413fccfe8ab331f0f76e4a7b`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
 
 ## 解锁后的原生核对顺序
 
@@ -104,3 +104,5 @@
 2026-11-07：63游标投影增量已接桌面/手机，旧计划15完成；44项Node、13项Host、工作区Rust/Clippy、54.5秒桌面、23.3秒HTTPS手机及包外cursorSync均通过。原生界面仍锁屏，14的完整契约生成/插件持久异步回执仍另行推进，未据此完成总目标。
 
 2026-11-07：64插件操作记录已接真实Worker/SDK与记录界面，重复提交、丢回执、旧代次、失败及崩溃恢复通过；重建包外验证新增pluginOperations通过。通用DTO/统一错误模型及原生/真实Claude/物理设备验收仍未完成。
+
+2026-11-07：65HTTP错误信封已统一，并修复插件操作入口512KiB参数被通用限额提前拒绝的问题；同接口修复前红、修复后执行及超限拒绝通过。重建包外structuredErrors通过。业务DTO生成、完整领域错误分类和实际原生/外部设备条件仍待完成。
