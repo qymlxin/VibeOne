@@ -1,0 +1,87 @@
+// ACP v2 fixture. No model, file operations or shell execution; never presented as a real coding tool.
+import { createInterface } from 'node:readline';
+const input = createInterface({ input: process.stdin });
+const sessions = new Map();
+const pending = new Map();
+let sequence = 0;
+const send = value => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...value })}\n`);
+const update = (sessionId, value) => send({ method: 'session/update', params: { sessionId, update: value } });
+const state = (id, state, stopReason) => update(id, { sessionUpdate: 'state_update', state, ...(stopReason ? { stopReason } : {}) });
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function run(sessionId, prompt, userId, epoch) {
+  const session = sessions.get(sessionId);
+  const active = () => session?.epoch === epoch;
+  let response = `已通过 ACP v2 收到：${prompt}\n\n这是本地演示 Agent，不调用模型或读写项目文件。你可以发送 /approve 体验审批，发送 /wait 后点击停止体验取消。`;
+  try {
+    if (prompt.includes('/wait')) {
+      while (active()) await sleep(50);
+      return;
+    }
+    if (prompt.includes('/approve')) {
+      state(sessionId, 'requires_action');
+      const id = `permission:${++sequence}`;
+      const decision = new Promise(resolve => pending.set(id, { sessionId, resolve }));
+      send({ id, method: 'session/request_permission', params: {
+        sessionId, title: '允许演示 Agent 继续返回结果？', description: '此演示不会运行命令或修改文件。',
+        options: [{ optionId: 'allow', name: '允许一次', kind: 'allow_once' }, { optionId: 'reject', name: '拒绝一次', kind: 'reject_once' }],
+      } });
+      const result = await decision;
+      if (!active()) return;
+      state(sessionId, 'running');
+      response = result?.outcome?.optionId === 'allow' ? '你已允许一次，演示审批链路完成。' : '你已拒绝，Agent 尊重了本次决定。';
+    }
+    const messageId = `agent:${userId}`;
+    for (const text of response.match(/.{1,12}/gs) ?? []) {
+      await sleep(30);
+      if (!active()) return;
+      update(sessionId, { sessionUpdate: 'agent_message_chunk', messageId, content: { type: 'text', text } });
+    }
+    update(sessionId, { sessionUpdate: 'agent_message', messageId, content: [{ type: 'text', text: response }] });
+    state(sessionId, 'idle', 'end_turn');
+  } catch (error) {
+    process.stderr.write(`${error}\n`);
+    state(sessionId, 'idle', 'error');
+  }
+}
+
+for await (const line of input) {
+  const message = JSON.parse(line);
+  if (!message.method) {
+    const request = pending.get(message.id);
+    if (request) { pending.delete(message.id); request.resolve(message.result); }
+    continue;
+  }
+  const { id, method, params = {} } = message;
+  if (method === 'initialize') {
+    send({ id, result: { protocolVersion: process.argv.includes('--v1') ? 1 : 2, info: { name: 'vibeone-demo-agent', version: '0.1.0' }, capabilities: { session: {} } } });
+  } else if (method === 'session/new') {
+    const sessionId = `demo:${++sequence}`;
+    sessions.set(sessionId, { cwd: params.cwd, epoch: 0 });
+    state(sessionId, 'idle'); // Intentionally before the response: clients must preserve early updates.
+    send({ id, result: { sessionId } });
+  } else if (method === 'session/list') {
+    send({ id, result: { sessions: [...sessions].map(([sessionId, value]) => ({ sessionId, cwd: value.cwd })) } });
+  } else if (method === 'session/resume') {
+    if (sessions.has(params.sessionId)) { state(params.sessionId, 'idle'); send({ id, result: {} }); }
+    else send({ id, error: { code: -32002, message: 'Session not found' } });
+  } else if (method === 'session/prompt') {
+    const session = sessions.get(params.sessionId);
+    if (!session) { send({ id, error: { code: -32002, message: 'Session not found' } }); continue; }
+    const userId = `user:${++sequence}`;
+    const epoch = ++session.epoch;
+    update(params.sessionId, { sessionUpdate: 'user_message', messageId: userId, content: params.prompt });
+    state(params.sessionId, 'running'); // Intentionally before acceptance.
+    send({ id, result: { messageId: userId } });
+    void run(params.sessionId, params.prompt.map(block => block.text ?? '').join(''), userId, epoch);
+  } else if (method === 'session/cancel' || method === 'session/close') {
+    const session = sessions.get(params.sessionId);
+    if (session) session.epoch++;
+    for (const [pendingId, request] of pending) {
+      if (request.sessionId === params.sessionId) { pending.delete(pendingId); request.resolve(null); }
+    }
+    state(params.sessionId, 'idle', 'cancelled');
+    if (method === 'session/close') { sessions.delete(params.sessionId); send({ id, result: {} }); }
+  } else if (id !== undefined) send({ id, error: { code: -32601, message: 'Method not implemented by fixture' } });
+}
+process.exit(0);
