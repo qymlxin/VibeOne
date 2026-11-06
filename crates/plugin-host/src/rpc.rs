@@ -30,6 +30,7 @@ struct Routing {
 }
 
 struct State {
+    child: Mutex<Option<Child>>,
     routing: Mutex<Routing>,
     closed: AtomicBool,
     outgoing: mpsc::Sender<Value>,
@@ -43,10 +44,19 @@ impl State {
         for (_, sender) in routing.pending.drain() {
             let _ = sender.send(Err(Error::Closed(reason.into())));
         }
+        routing.instances.clear();
+        routing.invocations.clear();
+        drop(routing);
+        if let Some(child) = self.child.lock().expect("child poisoned").as_mut() {
+            let _ = child.start_kill();
+        }
     }
 
     fn authorize(&self, call: &HostCall) -> Result<()> {
         let routing = self.routing.lock().expect("routing poisoned");
+        if self.closed.load(Ordering::SeqCst) {
+            return Err(Error::Closed("worker unavailable".into()));
+        }
         let grant = routing
             .instances
             .get(&call.instance)
@@ -75,6 +85,21 @@ impl State {
             return Err(Error::Invalid("workspace denied".into()));
         }
         Ok(())
+    }
+
+    fn accept_progress(&self, event: &Value) -> bool {
+        let Ok(key) = serde_json::from_value::<InstanceKey>(event.clone()) else {
+            return false;
+        };
+        let Some(id) = event["requestId"].as_str() else {
+            return false;
+        };
+        self.routing
+            .lock()
+            .expect("routing poisoned")
+            .invocations
+            .get(id)
+            .is_some_and(|(parent, _)| parent == &key)
     }
 }
 
@@ -122,7 +147,6 @@ impl Drop for PendingGuard {
 pub struct PluginHost {
     state: Arc<State>,
     sequence: AtomicU64,
-    child: Mutex<Option<Child>>,
     tasks: Vec<JoinHandle<()>>,
 }
 
@@ -144,6 +168,7 @@ impl PluginHost {
         let (outgoing, mut receiver) = mpsc::channel::<Value>(128);
         let (events, _) = broadcast::channel(256);
         let state = Arc::new(State {
+            child: Mutex::new(Some(child)),
             routing: Mutex::new(Routing::default()),
             closed: AtomicBool::new(false),
             outgoing,
@@ -180,7 +205,9 @@ impl PluginHost {
                 }
                 if let Some(method) = message["method"].as_str() {
                     if method == "plugin/progress" {
-                        let _ = reader_state.events.send(message["params"].clone());
+                        if reader_state.accept_progress(&message["params"]) {
+                            let _ = reader_state.events.send(message["params"].clone());
+                        }
                     } else if method == "host/call" {
                         if callbacks.len() >= 128 {
                             let _ = reader_state
@@ -250,7 +277,6 @@ impl PluginHost {
         let host = Self {
             state,
             sequence: AtomicU64::new(0),
-            child: Mutex::new(Some(child)),
             tasks: vec![writer, reader],
         };
         let response = host
@@ -398,7 +424,7 @@ impl PluginHost {
 
     pub fn terminate(&self) -> Result<()> {
         self.state.close("worker terminated");
-        if let Some(child) = self.child.lock().expect("child poisoned").as_mut() {
+        if let Some(child) = self.state.child.lock().expect("child poisoned").as_mut() {
             child.start_kill()?;
         }
         Ok(())
@@ -414,15 +440,18 @@ impl PluginHost {
             .keys()
             .cloned()
             .collect();
-        for key in keys {
-            let _ = self.deactivate(&key).await;
-        }
+        let _ = tokio::time::timeout(Duration::from_secs(2), async {
+            for key in keys {
+                let _ = self.deactivate(&key).await;
+            }
+        })
+        .await;
         self.terminate()?;
         for task in self.tasks.drain(..) {
             task.abort();
         }
         // The child is always reaped, including the explicit shutdown path.
-        let child = self.child.lock().expect("child poisoned").take();
+        let child = self.state.child.lock().expect("child poisoned").take();
         if let Some(mut child) = child {
             child.wait().await?;
         }

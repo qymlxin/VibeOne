@@ -59,12 +59,13 @@ export class PluginEngine {
     return `${instanceId}#${params.generation}`;
   }
 
-  #host(instance: InstanceContext['identity'], fallbackSignal: AbortSignal): HostClient {
+  #host(instance: InstanceContext['identity'], fallbackSignal: AbortSignal, bound?: Execution): HostClient {
     return { call: (capability, operation, input = null) => {
-      const execution = this.#execution.getStore();
-      if (execution && (execution.instanceId !== instance.instanceId || execution.generation !== instance.generation)) {
+      const current = this.#execution.getStore();
+      if (current && (current.instanceId !== instance.instanceId || current.generation !== instance.generation)) {
         return Promise.reject(new PluginError('instance_mismatch', 'Host proxy used by another instance'));
       }
+      const execution = bound ?? current;
       return this.transport.request('host/call', {
         ...instance, requestId: execution?.requestId ?? null, workspaceId: execution?.workspaceId ?? null,
         capability, operation, input,
@@ -123,9 +124,11 @@ export class PluginEngine {
       instance.ready = true;
       return { ...identity, handlers: [...handlers.keys()].sort() };
     } catch (error) {
+      const cancelled = controller.signal.aborted;
       controller.abort();
       if (this.#instances.get(key) === instance) this.#instances.delete(key);
       try { await scope.dispose(); } catch (cleanupError) { console.error(cleanupError); }
+      if (cancelled) throw new PluginError('cancelled', 'Activation cancelled');
       throw error;
     }
   }
@@ -141,10 +144,16 @@ export class PluginEngine {
     if (typeof timeoutMs !== 'number' || !Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 300_000) throw new PluginError('invalid_params', 'timeoutMs must be 1..300000');
     const workspaceId = params.workspaceId === undefined ? undefined : requiredString(params.workspaceId, 'workspaceId');
     const controller = new AbortController();
-    const signal = AbortSignal.any([controller.signal, instance.controller.signal, AbortSignal.timeout(timeoutMs)]);
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(new DOMException('Invocation deadline exceeded', 'TimeoutError')), timeoutMs);
+    timer.unref();
+    const signal = AbortSignal.any([controller.signal, instance.controller.signal, deadline.signal]);
+    const scope = new Scope();
+    const executionContext = { ...instance.context.identity, requestId, workspaceId, signal };
     this.#calls.set(requestId, { instance, controller });
     const ctx: InvocationContext = Object.freeze({
-      ...instance.context, requestId, workspaceId, signal,
+      ...instance.context, requestId, workspaceId, signal, scope,
+      host: this.#host(instance.context.identity, signal, executionContext),
       progress: (value: Json) => {
         if (signal.aborted) return;
         this.transport.notify('plugin/progress', { ...instance.context.identity, requestId, value });
@@ -155,7 +164,7 @@ export class PluginEngine {
       abort = () => reject(new PluginError(signal.reason?.name === 'TimeoutError' ? 'timeout' : 'cancelled', 'Plugin invocation stopped'));
       signal.addEventListener('abort', abort, { once: true });
     });
-    const execution = this.#execution.run({ ...instance.context.identity, requestId, workspaceId, signal }, () =>
+    const execution = this.#execution.run(executionContext, () =>
       Promise.resolve().then(() => handler((params.input ?? null) as Json, ctx)));
     // A non-cooperative handler still consumes capacity after cancellation.
     void execution.finally(() => this.#calls.delete(requestId)).catch(() => {});
@@ -164,7 +173,9 @@ export class PluginEngine {
     } finally {
       // Late callbacks and host calls from a timed-out handler remain cancelled.
       controller.abort();
+      clearTimeout(timer);
       signal.removeEventListener('abort', abort);
+      await scope.dispose();
     }
   }
 

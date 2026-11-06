@@ -132,6 +132,17 @@ async fn rust_node_bidirectional_rpc_progress_and_authorization() {
         result,
         json!({"workspace": "authorized", "input": {"hello": "node"}})
     );
+    let detached = host
+        .invoke(
+            &key(),
+            "detached-reverse",
+            Value::Null,
+            Some("authorized"),
+            Duration::from_secs(2),
+        )
+        .await
+        .unwrap();
+    assert_eq!(detached["workspace"], "authorized");
     assert!(
         host.invoke(
             &key(),
@@ -145,7 +156,7 @@ async fn rust_node_bidirectional_rpc_progress_and_authorization() {
     );
     host.invoke(
         &key(),
-        "progress",
+        "spoof-progress",
         Value::Null,
         None,
         Duration::from_secs(2),
@@ -203,6 +214,21 @@ async fn node_crash_fails_waiting_calls_instead_of_hanging() {
         tokio::time::timeout(Duration::from_secs(3), async { tokio::join!(invoke, kill) })
             .await
             .unwrap();
+    assert!(matches!(result, Err(Error::Closed(_))));
+    host.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn malformed_worker_output_closes_transport_and_fails_the_pending_call() {
+    let host = host().await;
+    host.activate(activation(&[])).await.unwrap();
+    let key = key();
+    let result = tokio::time::timeout(
+        Duration::from_secs(2),
+        host.invoke(&key, "corrupt", Value::Null, None, Duration::from_secs(2)),
+    )
+    .await
+    .unwrap();
     assert!(matches!(result, Err(Error::Closed(_))));
     host.shutdown().await.unwrap();
 }

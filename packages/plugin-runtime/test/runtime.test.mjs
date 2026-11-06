@@ -82,6 +82,8 @@ test('cancellation is scoped, timeout stops calls, progress and failures do not 
   assert.equal(progress[0].value.percent, 50);
   await assert.rejects(invoke(peer, 'fail'), /Fixture failure/);
   await assert.rejects(invoke(peer, 'missing'), error => error.code === 'handler_missing');
+  assert.equal(await invoke(peer, 'resource'), 1);
+  assert.equal(await invoke(peer, 'resources'), 0);
   await peer.request('plugin/deactivate', instance());
   await assert.rejects(invoke(peer, 'inspect'), error => error.code === 'instance_unavailable');
 });
@@ -116,4 +118,17 @@ test('manifest rejects API mismatches, duplicate contributions and symlink escap
   manifest.contributions.push(manifest.contributions[0]);
   await writeFile(join(directory, 'plugin.json'), JSON.stringify(manifest));
   await assert.rejects(loadWorkerPackage(directory), /Duplicate contribution/);
+});
+
+test('deactivation cancels an in-progress activation without deleting a subsequent instance', { timeout: 10_000 }, async t => {
+  const { peer } = await start(t);
+  const activating = peer.request('plugin/activate', {
+    ...instance(), pluginId: 'dev.vibeone.fixture', packagePath: fixture, config: { startupDelay: 1000 },
+  });
+  const cancelled = assert.rejects(activating, error => error.code === 'cancelled');
+  assert.equal((await peer.request('plugin/health', {})).instances, 1);
+  await peer.request('plugin/deactivate', instance());
+  await activate(peer);
+  await cancelled;
+  assert.equal((await invoke(peer, 'inspect')).generation, 1);
 });

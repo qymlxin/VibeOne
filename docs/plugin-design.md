@@ -303,6 +303,8 @@ App 的 `activate(ctx)` 由客户端加载器调用；客户端 SDK 在本地创
 
 Node 收到 `plugin/activate` 后，用 Host 已绑定的实例身份和消息中的配置创建实例上下文，再执行插件初始化与 handler 注册。收到 `plugin/invoke` 后，查找该实例、generation 和 handler，为本次调用创建上下文，最后执行 `handler(input, ctx)`。ctx 暴露实例能力及本次调用字段；共享实例对象不保存可被并发调用覆盖的 requestId、工作区范围或取消控制器。
 
+初始化时的 `ctx.scope` 管理实例资源，handler 中的 `ctx.scope` 管理本次调用资源。调用结束时取消调用信号、清理截止时间计时器并释放调用 Scope；插件代次停用时再释放实例 Scope。调用侧宿主代理显式绑定父请求与取消信号，即使回调离开原异步上下文，也不能退化成无父请求的宿主调用。
+
 ```text
 Rust Host ── plugin/activate：身份元数据、配置 ──→ Node runner
                                                    │ 本地创建实例上下文
