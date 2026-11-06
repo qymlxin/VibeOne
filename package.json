@@ -1,9 +1,19 @@
 {
-  "name": "vibeone-design-prototype",
+  "name": "vibeone",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "examples/plugins/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run build && node --test packages/*/test/*.test.mjs",
+    "check": "npm test && cargo test --workspace",
     "prototype": "vite prototype --host 127.0.0.1 --port 4173",
     "prototype:build": "vite build prototype --outDir ../prototype-dist"
   },
@@ -14,6 +24,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
+    "@types/node": "22.19.0",
+    "typescript": "5.9.3",
     "vite": "^6.0.0"
   }
 }

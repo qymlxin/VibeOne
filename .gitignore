@@ -1,4 +1,8 @@
 node_modules/
+packages/*/dist/
+examples/plugins/*/dist/
+target/
+*.tsbuildinfo
 prototype-dist/
 .impeccable/review/
 
