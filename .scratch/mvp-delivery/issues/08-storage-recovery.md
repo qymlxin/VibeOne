@@ -1,6 +1,6 @@
 # 08 · SQLite 迁移与重启恢复
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: B
 Blocked by: 07
@@ -11,7 +11,7 @@ Blocked by: 07
 
 ## 依赖
 
-[07](./07-host-lifecycle.md)。本任务为待评审计划，尚未开始实现。
+[07](./07-host-lifecycle.md)。当前实施数据库与恢复基础；现有 Host 实例锁已具备，完整进程生命周期验收另行保留。
 
 ## 验收
 

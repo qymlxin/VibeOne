@@ -1,0 +1,244 @@
+//! Embedded SQLite persistence. A committed session projection and its event share one transaction.
+use serde::Serialize;
+use serde_json::{Value, json};
+use sqlx::{
+    Row, SqlitePool,
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous},
+};
+use std::{path::Path, time::Duration};
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("数据库访问失败：{0}")]
+    Database(#[from] sqlx::Error),
+    #[error("数据库版本或迁移不兼容：{0}")]
+    Migration(#[from] sqlx::migrate::MigrateError),
+    #[error("存储记录无效：{0}")]
+    Json(#[from] serde_json::Error),
+    #[error("本地存储目录不可用：{0}")]
+    Io(#[from] std::io::Error),
+    #[error("会话状态版本冲突")]
+    Conflict,
+    #[error("会话身份或工作区不匹配")]
+    Identity,
+}
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Clone, Serialize)]
+pub struct Workspace {
+    pub id: String,
+    pub path: String,
+    pub name: String,
+}
+pub struct SavedSession {
+    pub id: String,
+    pub workspace: String,
+    pub revision: i64,
+    pub snapshot: Value,
+}
+#[derive(Clone)]
+pub struct Store {
+    pool: SqlitePool,
+}
+
+impl Store {
+    pub async fn open(directory: &Path) -> Result<Self> {
+        std::fs::create_dir_all(directory)?;
+        let path = directory.join("vibeone.sqlite3");
+        let options = SqliteConnectOptions::new()
+            .filename(&path)
+            .create_if_missing(true)
+            .foreign_keys(true)
+            .journal_mode(SqliteJournalMode::Wal)
+            .synchronous(SqliteSynchronous::Full)
+            .busy_timeout(Duration::from_secs(5));
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+        }
+        sqlx::migrate!("./migrations").run(&pool).await?;
+        Ok(Self { pool })
+    }
+
+    pub async fn save(&self, session: &SavedSession, kind: &str, event: &Value) -> Result<u64> {
+        if session.snapshot["id"] != session.id
+            || session.snapshot["workspace"] != session.workspace
+        {
+            return Err(Error::Identity);
+        }
+        let mut tx = self.pool.begin().await?;
+        let workspace_id = uuid::Uuid::new_v4().to_string();
+        let name = Path::new(&session.workspace)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+        sqlx::query(
+            "INSERT INTO workspaces(id,path,name) VALUES(?,?,?) ON CONFLICT(path) DO NOTHING",
+        )
+        .bind(workspace_id)
+        .bind(&session.workspace)
+        .bind(name.as_ref())
+        .execute(&mut *tx)
+        .await?;
+        let result=sqlx::query("INSERT INTO sessions(id,workspace_path,revision,snapshot) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,snapshot=excluded.snapshot,updated_at=unixepoch() WHERE sessions.revision < excluded.revision AND sessions.workspace_path=excluded.workspace_path")
+            .bind(&session.id).bind(&session.workspace).bind(session.revision).bind(serde_json::to_string(&session.snapshot)?).execute(&mut *tx).await?;
+        if result.rows_affected() != 1 {
+            return Err(Error::Conflict);
+        }
+        let seq = sqlx::query("INSERT INTO event_log(session_id,kind,payload) VALUES(?,?,?)")
+            .bind(&session.id)
+            .bind(kind)
+            .bind(serde_json::to_string(event)?)
+            .execute(&mut *tx)
+            .await?
+            .last_insert_rowid();
+        tx.commit().await?;
+        Ok(seq as u64)
+    }
+
+    pub async fn sessions(&self) -> Result<Vec<SavedSession>> {
+        let rows = sqlx::query(
+            "SELECT id,workspace_path,revision,snapshot FROM sessions ORDER BY updated_at,id",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| {
+                Ok(SavedSession {
+                    id: row.try_get("id")?,
+                    workspace: row.try_get("workspace_path")?,
+                    revision: row.try_get("revision")?,
+                    snapshot: serde_json::from_str(row.try_get("snapshot")?)?,
+                })
+            })
+            .collect()
+    }
+    pub async fn workspaces(&self) -> Result<Vec<Workspace>> {
+        sqlx::query("SELECT id,path,name FROM workspaces ORDER BY created_at,id")
+            .fetch_all(&self.pool)
+            .await?
+            .into_iter()
+            .map(|row| {
+                Ok(Workspace {
+                    id: row.try_get("id")?,
+                    path: row.try_get("path")?,
+                    name: row.try_get("name")?,
+                })
+            })
+            .collect()
+    }
+    pub async fn cursor(&self) -> Result<u64> {
+        Ok(
+            sqlx::query_scalar::<_, i64>("SELECT COALESCE(MAX(seq),0) FROM event_log")
+                .fetch_one(&self.pool)
+                .await? as u64,
+        )
+    }
+
+    /// Called only after the Host's instance lock is held, before accepting clients.
+    pub async fn recover(&self) -> Result<()> {
+        let records = self.sessions().await?;
+        for mut session in records {
+            let active = matches!(
+                session.snapshot["status"].as_str(),
+                Some("starting" | "running" | "requires_action" | "cancelling")
+            );
+            session.snapshot["approvals"] = json!([]);
+            session.snapshot["historyOnly"] = json!(
+                session.snapshot["messages"]
+                    .as_array()
+                    .is_some_and(|messages| !messages.is_empty())
+            );
+            if active {
+                session.snapshot["status"] = json!("interrupted");
+                session.snapshot["stopReason"] = json!("interrupted");
+                session.snapshot["error"] =
+                    json!("Host 已重启，上一轮执行已中断；历史已保留，请新建会话开始新的执行。");
+            }
+            if let Some(messages) = session.snapshot["messages"].as_array_mut() {
+                for message in messages {
+                    if message["pending"] == true {
+                        message["pending"] = json!(false);
+                        message["delivery"] = json!("interrupted");
+                    }
+                }
+            }
+            session.revision += 1;
+            self.save(
+                &session,
+                "session.recovered",
+                &json!({"interrupted":active}),
+            )
+            .await?;
+        }
+        Ok(())
+    }
+    pub async fn close(&self) {
+        self.pool.close().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn record(revision: i64, status: &str) -> SavedSession {
+        SavedSession {
+            id: "a".into(),
+            workspace: "/workspace".into(),
+            revision,
+            snapshot: json!({"id":"a","workspace":"/workspace","status":status,"messages":[{"id":"user","role":"user","text":"accepted","pending":true}],"approvals":[{"id":"old-request"}]}),
+        }
+    }
+    #[tokio::test]
+    async fn transactions_reject_stale_versions_and_survive_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).await.unwrap();
+        store
+            .save(&record(2, "idle"), "created", &json!({}))
+            .await
+            .unwrap();
+        assert!(matches!(
+            store.save(&record(1, "running"), "stale", &json!({})).await,
+            Err(Error::Conflict)
+        ));
+        assert_eq!(store.cursor().await.unwrap(), 1);
+        assert_eq!(store.workspaces().await.unwrap().len(), 1);
+        store.close().await;
+        let reopened = Store::open(dir.path()).await.unwrap();
+        assert_eq!(reopened.sessions().await.unwrap()[0].revision, 2);
+        reopened.close().await;
+    }
+    #[tokio::test]
+    async fn restart_invalidates_requests_and_never_replays_pending_input() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).await.unwrap();
+        store
+            .save(&record(1, "requires_action"), "created", &json!({}))
+            .await
+            .unwrap();
+        store.recover().await.unwrap();
+        let saved = store.sessions().await.unwrap().remove(0);
+        assert_eq!(saved.snapshot["status"], "interrupted");
+        assert_eq!(saved.snapshot["approvals"], json!([]));
+        assert_eq!(saved.snapshot["messages"][0]["delivery"], "interrupted");
+        assert_eq!(saved.snapshot["historyOnly"], true);
+        store.close().await;
+    }
+    #[tokio::test]
+    async fn future_schema_is_rejected_without_resetting_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).await.unwrap();
+        sqlx::query("INSERT INTO _sqlx_migrations(version,description,success,checksum,execution_time) VALUES(999,'future',1,x'00',0)").execute(&store.pool).await.unwrap();
+        store.close().await;
+        assert!(matches!(
+            Store::open(dir.path()).await,
+            Err(Error::Migration(_))
+        ));
+        assert!(dir.path().join("vibeone.sqlite3").is_file());
+    }
+}
