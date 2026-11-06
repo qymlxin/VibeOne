@@ -69,12 +69,12 @@ Host 管理 Node.js 运行时及 Worker runner。引擎支持同进程多逻辑�
 
 - 查询通过 HTTP 200 返回数据；客户端以 Promise 等待响应。
 - Agent 消息提交返回 HTTP 202 与 `operationId`，表示受理或进入下一轮队列；Run 状态随后由 Host 发布。
-- 插件命令调用 `POST /v1/plugins/{id}/invoke`，该 HTTP 请求等待最终 JSON 或错误。Rust 内部获取代次租约，经 stdio `plugin/invoke` 调用 Node。`ctx.services.invokeWorker()` 的 Promise 在最终 HTTP 响应后结束，最长调用预算 30 秒。
+- 新版插件命令调用 `POST /v1/plugins/{id}/operations`，持久受理后返回202/operationId；Rust固定代次租约，经stdio `plugin/invoke`独立执行。App SDK查询持久终态后结算Promise，执行预算仍为30秒；旧`/invoke`等待最终HTTP结果的接口保留兼容。
 - Worker 用 `plugin/progress` 单向通知 Host。当前进度放入有上限的内存投影，Host 发 WS `changed/cursor` 通知，客户端再获取快照；没有把临时插件进度作为业务历史持久化。
-- 会话、Run、审批、输入和通知 outbox 通过 SQLite 事务保存；重连以快照恢复。通用插件命令的持久 `operationId` 查询尚未交付，不能用 Agent Run 的 202 契约代表所有插件调用。
+- 会话、Run、人工决定、通知outbox及插件操作记录通过SQLite事务保存，状态通过游标投影同步。插件操作可按ID查询，旧进行中操作重启后标为中断，不自动重放；详见[插件后台操作回执](plugin-operations.md)。
 - 本版插件管理和第三方 App ESM 运行面只在桌面开放；手机共享工作台业务 API，并经过设备与工作区角色校验。手机不运行本地 Worker。
 
-更完整的增量事件客户端、通用插件操作记录和 native Worker 仍是后续范围。
+增量客户端与通用插件操作记录已交付；公开SDK兼容冻结及更广泛native Worker生态仍按后续计划推进。
 
 ## 3. 插件包结构
 

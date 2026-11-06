@@ -125,7 +125,7 @@ export function usePlugins(workbench) {
         },
       },
       invokeWorker: (handler, input, workspaceId) =>
-        latest.current.call(`/plugins/${id}/invoke`, {
+        latest.current.invokePlugin(id, {
           handler,
           input,
           workspaceId,
@@ -239,7 +239,7 @@ export function PluginManager({ workbench, plugins }) {
     [config, setConfig] = useState("{}"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [result, setResult] = useState(null);
+    [result, setResult] = useState(undefined);
   const [installOpen,setInstallOpen]=useState(false),[selectedPlugin,setSelectedPlugin]=useState(null);
   async function run(action) {
     setBusy(true);
@@ -416,7 +416,7 @@ export function PluginManager({ workbench, plugins }) {
                   onClick={() =>
                     void run(async () =>
                       setResult(
-                        await workbench.call(`/plugins/${plugin.id}/invoke`, {
+                        await workbench.invokePlugin(plugin.id, {
                           handler: item.binding.handler,
                           input: { path: "." },
                           workspaceId: plugin.workspaces[0],
@@ -451,6 +451,7 @@ export function PluginManager({ workbench, plugins }) {
           </section>
         </PluginBoundary>
       ))}
+      {!!workbench.operations?.length&&<details className="desktop-settings-group" aria-label="最近后台操作"><summary>最近后台操作 · {workbench.operations.length}</summary><p>操作在主机执行。关闭页面不会取消已受理的操作；中断记录不会自动重试。</p>{workbench.operations.map(operation=><div className="desktop-settings-row" key={operation.id}><div><strong>{operation.title??operation.handler}</strong><p>{operation.pluginName??operation.pluginId} · {new Date(operation.createdAt).toLocaleString()}</p></div><span>{({accepted:'已受理',running:'执行中',succeeded:'已完成',failed:'失败',interrupted:'已中断'})[operation.state]??'未知状态'}</span><button type="button" disabled={busy||workbench.phase!=='online'} aria-label={`查看操作结果 ${operation.id}`} onClick={()=>void run(async()=>{const record=await workbench.read(`/operations/${operation.id}`);setResult(record.state==='succeeded'?record.result:{state:record.state,...record.error});})}>查看结果</button></div>)}</details>}
       {!!workbench.pluginEvents?.length && (
         <details>
           <summary>插件执行进度</summary>
@@ -461,7 +462,7 @@ export function PluginManager({ workbench, plugins }) {
           ))}
         </details>
       )}
-      {result && (
+      {result !== undefined && (
         <pre className="desktop-diagnostic">
           {JSON.stringify(result, null, 2)}
         </pre>

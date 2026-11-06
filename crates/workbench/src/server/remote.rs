@@ -327,6 +327,7 @@ pub(super) fn filter_snapshot(mut snapshot: Value, identity: &Identity) -> Value
     snapshot["pluginEvents"] = json!([]);
     snapshot["plugins"] = json!([]);
     snapshot["notifications"] = json!([]);
+    snapshot["operations"] = json!([]);
     if let Some(profiles) = snapshot["profiles"].as_array_mut() {
         for profile in profiles {
             if let Some(profile) = profile.as_object_mut() {

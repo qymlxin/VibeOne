@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { connectHost, restartHost, request } from "./api.js";
 import { createWorkbenchSync } from "./workbench-sync.js";
+import { invokePluginOperation } from "./plugin-operations.js";
 
 export function useWorkbench() {
   const [connection, setConnection] = useState(null);
@@ -105,5 +106,10 @@ export function useWorkbench() {
     [connection, phase],
   );
   const read=useCallback(async(path,signal)=>{if(!connection||phase!=='online')throw Error('主机未连接');return request(connection,path,undefined,signal);},[connection,phase]);
-  return { ...snapshot, dataDirectory:connection?.dataDirectory, migrationPending:!!connection?.migrationPending, migrationWarning:connection?.migrationWarning, phase, error, call, read, reconnect, restart };
+  const hasPluginOperations=!!snapshot.features?.includes('pluginOperations');
+  const invokePlugin=useCallback((id,body)=>{
+    if(!hasPluginOperations)return call(`/plugins/${id}/invoke`,body);
+    return invokePluginOperation({submit:(id,body)=>call(`/plugins/${id}/operations`,body),read:id=>read(`/operations/${id}`),refresh:()=>refreshRef.current()},id,body);
+  },[call,read,hasPluginOperations]);
+  return { ...snapshot, dataDirectory:connection?.dataDirectory, migrationPending:!!connection?.migrationPending, migrationWarning:connection?.migrationWarning, phase, error, call, read, invokePlugin, reconnect, restart };
 }

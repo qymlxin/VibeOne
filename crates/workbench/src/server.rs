@@ -171,6 +171,9 @@ fn routes(state: Server) -> Router {
         .route("/v1/plugins/discard",post(plugin_discard))
         .route("/v1/plugins/{id}/disable",post(plugin_disable))
         .route("/v1/plugins/{id}/invoke",post(plugin_invoke))
+        .route("/v1/plugins/{id}/operations",post(plugin_operation))
+        .route("/v1/operations/{id}",get(operation_status))
+        .route("/v1/operations",get(operation_list))
         .route("/v1/plugins/{id}/app",get(plugin_app))
         .route("/v1/diagnostics",get(diagnostics))
         .route("/v1/event-log",get(event_page))
@@ -488,6 +491,27 @@ async fn plugin_invoke(
         .await
         .map(Json)
         .map_err(fail)
+}
+async fn plugin_operation(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    command(async move { state.workbench.submit_plugin_operation(&id, body).await })
+        .await
+        .map(|receipt| (StatusCode::ACCEPTED, Json(receipt)))
+        .map_err(fail)
+}
+async fn operation_status(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
+    state.workbench.operation(&id).map(Json).map_err(|message| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({"code":"OPERATION_NOT_FOUND","error":message})),
+        )
+    })
+}
+async fn operation_list(State(state): State<Server>) -> Json<Value> {
+    Json(json!({"operations":state.workbench.operation_summaries()}))
 }
 async fn plugin_app(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
     let record = state

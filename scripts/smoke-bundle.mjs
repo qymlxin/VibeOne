@@ -60,6 +60,7 @@ try{
  const snapshot=await call('/snapshot');
  assert.ok(snapshot.features.includes('conversationHistory'));
  assert.ok(snapshot.features.includes('cursorSync'));
+ assert.ok(snapshot.features.includes('pluginOperations'));
  const baseline=await call('/sync');
  assert.equal(baseline.snapshot.revision,baseline.cursor);
  assert.ok(snapshot.examplePluginPath.startsWith(resources));
@@ -86,6 +87,12 @@ try{
  await call('/plugins/commit',{ticket:candidate.ticket});
  const scan=await call(`/plugins/${candidate.plugin.id}/invoke`,{handler:'workspace.scan',workspaceId:workspaceInfo.id,input:{path:'.'}});
  assert.ok(scan.entries.some(item=>item.name==='bundle-only.txt'));
+ const operation=await call(`/plugins/${candidate.plugin.id}/operations`,{key:'bundle-operation',handler:'workspace.scan',workspaceId:workspaceInfo.id,input:{path:'.'}});
+ let receipt;
+ for(let index=0;index<150;index++){receipt=await call(`/operations/${operation.operationId}`);if(!['accepted','running'].includes(receipt.state))break;await sleep(30);}
+ assert.equal(receipt.state,'succeeded',receipt.error?.message);
+ assert.ok(receipt.result.entries.some(item=>item.name==='bundle-only.txt'));
+
  const provider=manifest.contributions.find(item=>item.kind==='agent.provider');
  assert.ok(provider,'example package must contribute a real Provider');
  const session=await call('/sessions',{provider:`${candidate.plugin.id}:${provider.id}`,workspace});
@@ -97,7 +104,7 @@ try{
  assert.equal(delta.reset,undefined);
  assert.ok(delta.events.some(event=>event.type==='session.projected'&&event.session.id===session.id));
  await call('/host/stop',{});await exited;
- console.log(JSON.stringify({packagedResources:true,isolatedDirectory:true,web:true,workerContext:true,pluginProvider:true,persistentHistory:true,cursorSync:true,bridges:bridgeResults,nativeClis:true,hostSha256:createHash('sha256').update(await readFile(binary)).digest('hex')},null,2));
+ console.log(JSON.stringify({packagedResources:true,isolatedDirectory:true,web:true,workerContext:true,pluginProvider:true,persistentHistory:true,cursorSync:true,pluginOperations:true,bridges:bridgeResults,nativeClis:true,hostSha256:createHash('sha256').update(await readFile(binary)).digest('hex')},null,2));
 }finally{
  if(child&&child.exitCode===null&&child.signalCode===null){
   if(connection)await fetch(`${connection.url}/v1/host/stop`,{method:'POST',headers:{Authorization:`Bearer ${connection.token}`}}).catch(()=>{});

@@ -52,7 +52,7 @@ export default defineApp(ctx => {
 - `ctx.commands.register`：注册本地命令。
 - `ctx.services.workbench.snapshot()`：读取当前会话、工作区和插件进度。
 - `ctx.services.workbench.subscribe(listener)`：订阅宿主快照，订阅自动加入实例 Scope。
-- `ctx.services.invokeWorker(handler, input, workspaceId)`：提交可序列化输入，绑定当前插件代次；过期 App 不能静默调用新代次。
+- `ctx.services.invokeWorker(handler, input, workspaceId)`：提交可序列化输入，绑定当前插件代次；过期 App 不能静默调用新代次。新版主机先返回持久回执，由桌面服务等待终态后结算Promise；网络异常错误附operationId或operationKey，不会自动重复副作用。详情见[插件后台操作回执](plugin-operations.md)。
 - `ctx.hooks.on('workbench.changed', listener)`：接收会话快照变化；异常隔离在插件边界。
 
 宿主共享 `react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@vibeone/plugin-sdk` 和 `@vibeone/plugin-sdk/app`。App 产物必须为单文件，不提供任意相对模块和 CSS 资源加载器。样式可使用宿主 CSS 变量和局部样式。

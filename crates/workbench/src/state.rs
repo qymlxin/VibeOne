@@ -15,6 +15,7 @@ mod attachments;
 mod catalog;
 mod execution;
 mod history;
+mod operations;
 mod outbox;
 mod sync;
 use vibeone_storage::{SavedSession, Store, Workspace};
@@ -69,6 +70,7 @@ pub struct Workbench {
     publication: Mutex<()>,
     sync_gate: tokio::sync::Mutex<()>,
     sync_epoch: String,
+    operation_gate: tokio::sync::Mutex<()>,
     leases: Mutex<HashMap<String, String>>,
     catalog: Mutex<HashMap<String, HashMap<String, Value>>>,
     stopping: AtomicBool,
@@ -131,6 +133,19 @@ impl Workbench {
                 .map_err(|error| error.to_string())?;
         }
         store.recover().await.map_err(|error| error.to_string())?;
+        for (kind, id, mut value) in store.catalog().await.map_err(|error| error.to_string())? {
+            if kind == "operation"
+                && matches!(value["state"].as_str(), Some("accepted" | "running"))
+            {
+                value["state"] = json!("interrupted");
+                value["finishedAt"] = json!(execution::now());
+                value["error"] = json!({"code":"HOST_INTERRUPTED","message":"主机已重启，操作结果不确定；未自动重放。"});
+                store
+                    .put_catalog("operation", &id, &value)
+                    .await
+                    .map_err(|error| error.to_string())?;
+            }
+        }
         let mut sessions = HashMap::new();
         for saved in store.sessions().await.map_err(|error| error.to_string())? {
             let saved = history::prepare(&store, saved).await?;
@@ -159,6 +174,7 @@ impl Workbench {
             publication: Mutex::new(()),
             sync_gate: tokio::sync::Mutex::new(()),
             sync_epoch: uuid::Uuid::new_v4().to_string(),
+            operation_gate: tokio::sync::Mutex::new(()),
             leases: Mutex::default(),
             catalog: Mutex::new(catalog),
             stopping: AtomicBool::new(false),
@@ -187,6 +203,22 @@ impl Workbench {
         let _publication = self.publication.lock().expect("publication poisoned");
         let message = format!("本地存储失败，已停止接收新执行：{error}");
         *self.storage_error.lock().expect("storage error poisoned") = Some(message.clone());
+        // Durable completion can no longer be established. Do not leave an
+        // apparently active receipt permanently blocking recovery/restart.
+        if let Some(operations) = self
+            .catalog
+            .lock()
+            .expect("catalog poisoned")
+            .get_mut("operation")
+        {
+            for operation in operations.values_mut() {
+                if matches!(operation["state"].as_str(), Some("accepted" | "running")) {
+                    operation["state"] = json!("interrupted");
+                    operation["finishedAt"] = json!(execution::now());
+                    operation["error"] = json!({"code":"STORAGE_UNAVAILABLE","message":"主机存储不可用，操作结果不确定；请检查诊断后重启主机，不要直接重复执行。"});
+                }
+            }
+        }
         let entries: Vec<_> = self
             .sessions
             .lock()
@@ -278,7 +310,7 @@ impl Workbench {
             .map(|entry| entry.view.lock().expect("view poisoned").clone())
             .collect();
         views.sort_by(|a, b| a.id.cmp(&b.id));
-        json!({"apiVersion":3,"features":["queuePause","attachments","conversationHistory","cursorSync"],"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"examplePluginPath":std::env::var_os("VIBEONE_EXAMPLE_PLUGIN").map(PathBuf::from).unwrap_or_else(||Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/plugins/workspace-tools")),"pluginEvents":self.plugins.events(),"plugins":self.catalog("plugin"),"notifications":self.catalog("notification"),"profiles":self.catalog("profile"),"providers":self.provider_descriptors(),"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
+        json!({"apiVersion":3,"features":["queuePause","attachments","conversationHistory","cursorSync","pluginOperations"],"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"examplePluginPath":std::env::var_os("VIBEONE_EXAMPLE_PLUGIN").map(PathBuf::from).unwrap_or_else(||Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/plugins/workspace-tools")),"pluginEvents":self.plugins.events(),"operations":self.operation_summaries(),"plugins":self.catalog("plugin"),"notifications":self.catalog("notification"),"profiles":self.catalog("profile"),"providers":self.provider_descriptors(),"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
     }
     pub fn entry(&self, id: &str) -> Result<Arc<Entry>, String> {
         self.sessions

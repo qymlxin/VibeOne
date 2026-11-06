@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="640" viewBox="0 0 1000 640" role="img" aria-labelledby="title desc">
+<title id="title">插件后台命令的异步受理与结果对账</title><desc id="desc">桌面以HTTP提交幂等键，Host固定插件代次租约并持久保存受理，返回202。独立任务以stdio Plugin RPC调用Worker，结果持久化后异步通知。桌面查询结果并结算SDK Promise。</desc>
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#657080"/></marker></defs><rect width="1000" height="640" rx="16" fill="white"/>
+<g font-family="system-ui,sans-serif" fill="#1a1c1f"><text x="30" y="40" font-size="21" font-weight="600">HTTP返回受理，Worker独立执行</text>
+<g fill="#f4f5f7" stroke="#cbd0d7"><rect x="30" y="72" width="230" height="72" rx="10"/><rect x="385" y="72" width="230" height="72" rx="10"/><rect x="740" y="72" width="230" height="72" rx="10"/></g>
+<g font-size="16" font-weight="600"><text x="52" y="102">桌面 / App SDK</text><text x="407" y="102">Rust Host + SQLite</text><text x="762" y="102">固定代次的Node Worker</text></g>
+<g font-size="13" fill="#505965"><text x="52" y="126">Promise等待终态</text><text x="407" y="126">权限、幂等、持久状态</text><text x="762" y="126">JS处理器 + 反向Context调用</text></g>
+<g stroke="#cbd0d7" stroke-dasharray="4 5"><path d="M145 155V520"/><path d="M500 155V520"/><path d="M855 155V520"/></g>
+<g stroke="#657080" fill="none" marker-end="url(#a)"><path d="M145 190H490"/><path d="M500 244H155"/><path d="M500 300H845"/><path d="M855 354H510"/><path d="M500 408H155" stroke-dasharray="6 4"/><path d="M145 456H490"/><path d="M500 505H155"/></g>
+<g font-size="14"><text x="175" y="178">① HTTP提交 + 幂等键</text><text x="185" y="232">② 固定租约、落库 → 202回执</text><text x="571" y="288">③ 独立任务：stdio Plugin RPC</text><text x="596" y="342">④ 结果 / 错误 → 持久终态</text><text x="183" y="396">⑤ WS异步通知，游标同步状态</text><text x="193" y="444">⑥ HTTP按operationId查询</text><text x="184" y="493">⑦ 最终JSON / 错误，结算Promise</text></g>
+<text x="30" y="556" font-size="15">页面断开不取消已受理操作；同键不重复执行；重启中断未完成操作，不自动重放</text><text x="30" y="590" font-size="13" fill="#505965">旧invoke入口保留兼容；原始Worker进度仍为有界内存记录；管理接口不向手机开放。</text><text x="30" y="620" font-size="13" fill="#505965">回执发送与Worker执行可并行；HTTP不等待Worker终态，图中先后不代表网络到达顺序。</text></g></svg>

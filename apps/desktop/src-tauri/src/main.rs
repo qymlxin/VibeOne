@@ -63,6 +63,17 @@ fn session_busy(session: &Value) -> bool {
     })
 }
 
+fn host_busy(snapshot: &Value) -> bool {
+    snapshot["sessions"]
+        .as_array()
+        .is_none_or(|sessions| sessions.iter().any(session_busy))
+        || snapshot["operations"].as_array().is_some_and(|operations| {
+            operations.iter().any(|operation| {
+                matches!(operation["state"].as_str(), Some("accepted" | "running"))
+            })
+        })
+}
+
 async fn launch_host(app: &tauri::AppHandle) -> Result<Value, String> {
     let mut data = data::target()?;
     let mut migration_warning = None;
@@ -92,10 +103,7 @@ async fn launch_host(app: &tauri::AppHandle) -> Result<Value, String> {
                 .json()
                 .await
                 .map_err(|error| error.to_string())?;
-            if snapshot["sessions"]
-                .as_array()
-                .is_none_or(|sessions| sessions.iter().any(session_busy))
-            {
+            if host_busy(&snapshot) {
                 connection["migrationPending"] = Value::Bool(true);
                 return Ok(connection);
             }
@@ -270,9 +278,11 @@ async fn restart_host(
             .json()
             .await
             .map_err(|error| error.to_string())?;
-        let sessions = snapshot["sessions"].as_array().ok_or("主机会话格式无效")?;
-        if sessions.iter().any(session_busy) {
-            return Err("请先完成或停止所有执行并处理审批、补充输入，再重启主机".into());
+        if host_busy(&snapshot) {
+            return Err(
+                "请先完成或停止所有执行并处理审批、补充输入，等待插件后台操作结束后再重启主机"
+                    .into(),
+            );
         }
         if snapshot["persistent"] != true {
             save_legacy(&data, &snapshot)?;
@@ -457,6 +467,23 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn running_plugin_operations_prevent_restart_and_data_migration() {
+        for state in ["accepted", "running"] {
+            assert!(host_busy(
+                &serde_json::json!({"sessions":[],"operations":[{"state":state}]})
+            ));
+        }
+        for state in ["succeeded", "failed", "interrupted"] {
+            assert!(!host_busy(
+                &serde_json::json!({"sessions":[],"operations":[{"state":state}]})
+            ));
+        }
+        assert!(
+            !host_busy(&serde_json::json!({"sessions":[]})),
+            "old Hosts have no operation field"
+        );
+    }
     #[test]
     fn external_links_only_allow_web_urls_without_embedded_credentials() {
         assert_eq!(

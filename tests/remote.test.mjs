@@ -97,6 +97,10 @@ test(
     assert.ok(poll.headers["set-cookie"][0].includes("Secure"));
     const snapshot = await request("/v1/snapshot", undefined, cookie);
     assert.equal(snapshot.status, 200);
+    assert.deepEqual(snapshot.body.operations,[]);
+    assert.equal((await request("/v1/operations",undefined,cookie)).status,403);
+    assert.equal((await request("/v1/operations/unknown",undefined,cookie)).status,403);
+    assert.equal((await request("/v1/plugins/unknown/operations",{key:"blocked"},cookie)).status,403);
     assert.deepEqual(
       snapshot.body.sessions.map((s) => s.id),
       [visible.id],

@@ -765,6 +765,19 @@ test(
         node.textContent.includes('"entries"'),
       ),
     );
+    await settingsNav.getByRole('button',{name:'常规',exact:true}).click();
+    await settingsNav.getByRole('button',{name:'插件',exact:true}).click();
+    const operations=page.locator('details[aria-label="最近后台操作"]');
+    await operations.locator(':scope > summary').click();
+    await operations.getByText('已完成',{exact:true}).waitFor();
+    await operations.getByRole('button',{name:/查看操作结果/}).first().click();
+    await page.locator('.desktop-diagnostic').filter({hasText:'"entries"'}).last().waitFor();
+    await operations.screenshot({path:join(tmpdir(),'vibeone-plugin-operations-dark.png')});
+    await settingsNav.getByRole('button',{name:'外观',exact:true}).click();
+    await page.getByRole('button',{name:'亮色',exact:true}).click();
+    await settingsNav.getByRole('button',{name:'插件',exact:true}).click();
+    await operations.locator(':scope > summary').click();
+    await operations.screenshot({path:join(tmpdir(),'vibeone-plugin-operations-light.png')});
     assert.equal(
       await page.evaluate(async () => {
         const [react, dom, client] = await Promise.all([

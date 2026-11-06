@@ -8,7 +8,7 @@ use std::{
 };
 use vibeone_plugin_host::{
     Activation, Error, HostCall, HostCapabilityBroker, HostFuture, InstanceGrant, InstanceKey,
-    PluginHost, PluginManager,
+    PluginHost, PluginLease, PluginManager,
 };
 
 struct Broker(Weak<Workbench>);
@@ -61,6 +61,30 @@ struct Candidate {
     manager: Arc<PluginManager>,
     base: u64,
     created: std::time::Instant,
+}
+pub(crate) struct PreparedInvocation {
+    lease: PluginLease,
+    pub(crate) title: String,
+    pub(crate) plugin_name: String,
+    handler: String,
+    input: Value,
+    workspace: Option<String>,
+}
+impl PreparedInvocation {
+    pub(crate) fn generation(&self) -> u64 {
+        self.lease.key().generation
+    }
+    pub(crate) async fn execute(self) -> Result<Value, String> {
+        self.lease
+            .invoke(
+                &self.handler,
+                self.input,
+                self.workspace.as_deref(),
+                Duration::from_secs(30),
+            )
+            .await
+            .map_err(|error| error.to_string())
+    }
 }
 pub(crate) struct Plugins {
     directory: PathBuf,
@@ -581,6 +605,28 @@ impl Plugins {
         id: &str,
         body: Value,
     ) -> Result<Value, String> {
+        let prepared = self.prepare_invocation(workbench, id, &body).await?;
+        let generation = prepared.generation();
+        let result = prepared.execute().await;
+        if let Err(error) = &result {
+            let _gate = self.gate.lock().await;
+            if let Some(mut current) = workbench
+                .catalog("plugin")
+                .into_iter()
+                .find(|record| record["id"] == id && record["generation"] == generation)
+            {
+                current["error"] = json!(error.chars().take(2000).collect::<String>());
+                let _ = workbench.put_catalog("plugin", id, current).await;
+            }
+        }
+        result
+    }
+    pub(crate) async fn prepare_invocation(
+        &self,
+        workbench: &Workbench,
+        id: &str,
+        body: &Value,
+    ) -> Result<PreparedInvocation, String> {
         let gate = self.gate.lock().await;
         let manager = self
             .current
@@ -623,24 +669,23 @@ impl Plugins {
             return Err("插件代次正在切换，请稍后重试".into());
         }
         drop(gate);
-        let result = lease
-            .invoke(
-                handler,
-                body["input"].clone(),
-                workspace,
-                Duration::from_secs(30),
-            )
-            .await
-            .map_err(|error| error.to_string());
-        if let Err(error) = &result {
-            let _gate = self.gate.lock().await;
-            if let Some(mut current) = workbench.catalog("plugin").into_iter().find(|current| {
-                current["id"] == id && current["generation"] == record["generation"]
-            }) {
-                current["error"] = json!(error.chars().take(2000).collect::<String>());
-                let _ = workbench.put_catalog("plugin", id, current).await;
-            }
-        }
-        result
+        let title = record["manifest"]["contributions"]
+            .as_array()
+            .and_then(|items| {
+                items
+                    .iter()
+                    .find(|item| item["binding"]["handler"] == handler)
+            })
+            .and_then(|item| item["title"].as_str())
+            .unwrap_or(handler)
+            .to_owned();
+        Ok(PreparedInvocation {
+            title,
+            plugin_name: record["name"].as_str().unwrap_or(id).to_owned(),
+            lease,
+            handler: handler.into(),
+            input: body["input"].clone(),
+            workspace: workspace.map(str::to_owned),
+        })
     }
 }
