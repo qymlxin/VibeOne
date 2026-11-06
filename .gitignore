@@ -3,6 +3,10 @@ packages/*/dist/
 examples/plugins/*/dist/
 target/
 *.tsbuildinfo
+apps/desktop/dist/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/bin/
+apps/desktop/src-tauri/gen/
 prototype-dist/
 .impeccable/review/
 

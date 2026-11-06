@@ -2,7 +2,24 @@
 
 基于 ACP 的 Agent 工作台设计，面向桌面操作与手机远程查看、控制和审批。
 
-当前包含功能与架构设计、可交互 React 原型、品牌 SVG，以及 P0 插件 SDK、Node 执行引擎和 Rust CLI Host。插件跨进程调用已实现；Tauri 桌面壳、真实 Agent 接入、数据库与手机后端仍待实现，UI 原型继续使用内存模拟数据。
+当前包含 Tauri + React 桌面开发预览版、独立 Rust Host、ACP v2 客户端，以及 JS/TS 插件 SDK 和 Node 执行引擎。桌面可操作真实 Host 的会话、消息、审批和取消；另保留原先的模拟数据 UI 原型。数据库历史、手机配对及完整 MVP 验收仍待实施。
+
+## 体验桌面应用（macOS）
+
+```sh
+npm ci
+npm run desktop
+```
+
+需要 Rust 工具链和 Xcode Command Line Tools。启动后选择工作目录和 Agent，创建会话后发送第一条消息。默认“本地演示”不调用模型，可发送 `/approve` 体验审批、`/wait` 体验停止；Codex 和 Claude Code 使用本机已有认证。桥接器启动入口可用不代表已认证，缺少认证或网络失败会显示在会话中。
+
+构建不依赖 Vite 开发服务器的本地 `.app`：`npm run desktop:bundle`。产物位于 `apps/desktop/src-tauri/target/debug/bundle/macos/VibeOne.app`；这是本地开发包，尚未做正式签名、公证和分发验收。`npm run desktop:build` 构建 release 包。
+
+当前桌面通过仅监听 loopback 且需要认证的 HTTP/WS 连接独立 Host。关闭窗口不停止 Host；重开应用会连接同一主机。会话暂时只保留到本次 Host 停止，重启 Host 不恢复历史，运行中暂不提供下一轮消息排队。
+
+ACP 显式使用 `protocolVersion: 2`（官方 Draft），Rust SDK 锁定 `5.0.0`，不静默降级 v1。prompt 回执表示接受，执行完成等待独立的会话 idle 更新。Plugin RPC v1 保持独立。
+
+测试：`npm run check` 验证插件、ACP 与 Host；`npm run desktop:test` 验证 React 界面连接真实本地 Host 的流程，macOS 默认使用已安装的 Google Chrome，其他环境可设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE`。
 
 ## 运行真实插件链路
 

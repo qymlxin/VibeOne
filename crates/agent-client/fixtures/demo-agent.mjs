@@ -13,6 +13,7 @@ async function run(sessionId, prompt, userId, epoch) {
   const session = sessions.get(sessionId);
   const active = () => session?.epoch === epoch;
   let response = `已通过 ACP v2 收到：${prompt}\n\n这是本地演示 Agent，不调用模型或读写项目文件。你可以发送 /approve 体验审批，发送 /wait 后点击停止体验取消。`;
+  if (prompt.includes('/long')) response = '这是一段用于验证流式消息滚动位置的演示内容。\n'.repeat(90);
   try {
     if (prompt.includes('/wait')) {
       while (active()) await sleep(50);
@@ -54,6 +55,7 @@ for await (const line of input) {
   }
   const { id, method, params = {} } = message;
   if (method === 'initialize') {
+    if (process.argv.includes('--malformed')) { process.stdout.write('invalid json\n'); process.exit(1); }
     send({ id, result: { protocolVersion: process.argv.includes('--v1') ? 1 : 2, info: { name: 'vibeone-demo-agent', version: '0.1.0' }, capabilities: { session: {} } } });
   } else if (method === 'session/new') {
     const sessionId = `demo:${++sequence}`;
@@ -66,6 +68,7 @@ for await (const line of input) {
     if (sessions.has(params.sessionId)) { state(params.sessionId, 'idle'); send({ id, result: {} }); }
     else send({ id, error: { code: -32002, message: 'Session not found' } });
   } else if (method === 'session/prompt') {
+    if (process.argv.includes('--crash')) process.exit(23);
     const session = sessions.get(params.sessionId);
     if (!session) { send({ id, error: { code: -32002, message: 'Session not found' } }); continue; }
     const userId = `user:${++sequence}`;

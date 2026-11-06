@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "workspaces": [
+    "apps/*",
     "packages/*",
     "examples/plugins/*"
   ],
@@ -13,8 +14,13 @@
   "scripts": {
     "build": "npm run build -w @vibeone/plugin-sdk && npm run build -w @vibeone/plugin-runtime && npm run build -w @vibeone/example-workspace-tools",
     "test": "npm run build && node --test packages/*/test/*.test.mjs",
-    "check": "npm test && cargo test --workspace",
+    "check": "npm test && cargo test --workspace && npm run host:test",
+    "host:test": "cargo build -p vibeone-host && node --test tests/workbench.test.mjs",
+    "desktop:test": "cargo build -p vibeone-host && node --test tests/desktop.test.mjs",
     "plugin:scan": "npm run build && cargo run -p vibeone-host -- plugin scan --workspace .",
+    "desktop": "node scripts/prepare-desktop.mjs && npm run desktop -w @vibeone/desktop",
+    "desktop:bundle": "node scripts/prepare-desktop.mjs && npm run desktop:build -w @vibeone/desktop -- --debug",
+    "desktop:build": "node scripts/prepare-desktop.mjs --release && npm run desktop:build -w @vibeone/desktop",
     "prototype": "vite prototype --host 127.0.0.1 --port 4173",
     "prototype:build": "vite build prototype --outDir ../prototype-dist"
   },
@@ -24,7 +30,11 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.101.0",
+    "@agentclientprotocol/codex-acp": "2.5.0",
     "@playwright/test": "^1.56.0",
+    "@tauri-apps/api": "2.12.4",
+    "@tauri-apps/cli": "2.12.4",
     "@types/node": "22.19.0",
     "typescript": "5.9.3",
     "vite": "^6.0.0"
