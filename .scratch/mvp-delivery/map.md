@@ -67,6 +67,8 @@
 
 - [51-complete-conversation-history](issues/51-complete-conversation-history.md)：补齐事务历史档案/分页、可中断回填、旧消息及工具增量、前端重连补齐/阅读锚点与长导航；Host、恢复、桌面和HTTPS手机通过。
 
+- [54-notification-permission-state](issues/54-notification-permission-state.md)：补齐本设备通知开关与真实权限查询、macOS系统回调及冷启动事件基线；桌面/手机与原生编译检查通过，系统弹窗仍归52实机验收。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。

@@ -234,6 +234,11 @@ test(
     await page.getByRole('button',{name:'亮色',exact:true}).click();
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-live-settings-mobile.png')});
+    await settingsNav.getByRole('button',{name:'通知',exact:true}).click();
+    await page.getByText('系统权限',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'刷新通知权限',exact:true}).click();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({path:join(tmpdir(),'vibeone-notifications-mobile.png')});
     await page.getByRole('button',{name:'返回工作台',exact:true}).click();
     await page.getByRole("button", { name: "会话列表", exact: true }).click();
     await page.getByRole("button", { name: "新建会话", exact: true }).click();

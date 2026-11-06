@@ -85,6 +85,7 @@ test(
       ({ connection, directory }) => {
         const NativeWebSocket = window.WebSocket;
         window.__testSockets = [];
+        window.__notificationPermission='granted';window.__notifications=[];
         window.WebSocket = class extends NativeWebSocket {
           constructor(...args) {
             super(...args);
@@ -92,7 +93,10 @@ test(
           }
         };
         window.__TAURI_INTERNALS__ = {
-          invoke: async (command) => {
+          invoke: async (command,args) => {
+            if(command==='notification_permission'){if(window.__notificationQueryFail)throw Error('权限查询测试失败');return {status:window.__notificationPermission,source:'native-bridge-test'};}
+            if(command==='request_notification_permission'){window.__notificationPermission=window.__notificationRequestDenied?'denied':'granted';return {status:window.__notificationPermission,source:'native-bridge-test'};}
+            if(command==='plugin:notification|notify'){window.__notifications.push(args.options);return;}
             if (command === "host_connection") return connection;
             if (command === "restart_host") { await new Promise(resolve=>setTimeout(resolve,500)); return connection; }
             if (command === "choose_workspace") return directory;
@@ -626,6 +630,40 @@ test(
     await page.getByRole('textbox',{name:'启动参数 JSON',exact:true}).fill('');
     await page.getByRole('button',{name:'保存配置',exact:true}).click();
     await page.locator('.desktop-settings-object-list').getByRole('button').filter({hasText:'桌面审阅配置'}).waitFor();
+    await page.evaluate(()=>{window.__notificationPermission='default';});
+    await settingsNav.getByRole('button',{name:'通知',exact:true}).click();
+    await page.getByText('尚未请求',{exact:true}).waitFor();
+    await page.evaluate(()=>{window.__notificationQueryFail=true;});
+    await page.getByRole('button',{name:'刷新通知权限',exact:true}).click();
+    await page.getByRole('alert').getByText('权限查询测试失败',{exact:true}).waitFor();
+    await page.evaluate(()=>{window.__notificationQueryFail=false;window.__notificationRequestDenied=true;});
+    await page.getByRole('switch',{name:'桌面通知',exact:true}).click();
+    await page.getByRole('alert').getByText('系统通知权限未开启，请在系统设置中允许 VibeOne 通知',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('switch',{name:'桌面通知',exact:true}).getAttribute('aria-checked'),'false');
+    await page.evaluate(()=>{window.__notificationRequestDenied=false;});
+    await page.getByRole('switch',{name:'桌面通知',exact:true}).click();
+    await page.getByText('已授权',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('switch',{name:'桌面通知',exact:true}).getAttribute('aria-checked'),'true');
+    await page.evaluate(()=>{window.__notificationPermission='denied';});
+    await page.getByRole('button',{name:'刷新通知权限',exact:true}).click();
+    await page.getByText('未授权，请检查系统设置',{exact:true}).waitFor();
+    await page.getByText('提醒开关已开启，但当前没有可用的通知授权。',{exact:true}).waitFor();
+    await page.screenshot({path:join(tmpdir(),'vibeone-notifications-desktop.png')});
+    await page.getByRole('switch',{name:'桌面通知',exact:true}).click();
+    assert.equal(await page.getByRole('switch',{name:'桌面通知',exact:true}).getAttribute('aria-checked'),'false');
+    await page.evaluate(()=>{window.__notificationPermission='granted';window.__notifications=[];localStorage.setItem('vibeone-notifications','enabled');});
+    await page.reload();
+    await page.getByText('工作主机 · 本机已连接',{exact:true}).waitFor();
+    await page.locator('.desktop-session').filter({hasText:'长历史回归'}).waitFor();
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(()=>window.__notifications.length),0,'first snapshot must establish a baseline without replaying old finished Runs');
+    await page.evaluate(()=>{window.__notificationPermission='granted';});
+    const notificationSession=await (await fetch(`${connection.url}/v1/sessions`,{method:'POST',headers:historyHeaders,body:JSON.stringify({provider:'demo',workspace:directory})})).json();
+    await fetch(`${connection.url}/v1/sessions/${notificationSession.id}/messages`,{method:'POST',headers:historyHeaders,body:JSON.stringify({text:'notification new Run'})});
+    await page.waitForFunction(()=>window.__notifications.some(notification=>notification.title==='VibeOne · 执行结束'));
+    await page.getByRole('button',{name:'连接与设置',exact:true}).click();
+    await settingsNav.getByRole('button',{name:'通知',exact:true}).click();
+    await page.getByRole('switch',{name:'桌面通知',exact:true}).click();
     await settingsNav.getByRole('button',{name:'外观',exact:true}).click();
     await page.getByLabel('背景颜色',{exact:true}).fill('#151515');
     await page.getByRole('button',{name:'亮色',exact:true}).click();

@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod data;
+mod notification_permission;
 use serde_json::Value;
 use std::{
     fs::OpenOptions,
@@ -424,7 +425,9 @@ fn main() {
             restart_host,
             choose_workspace,
             open_external,
-            export_remote_certificate
+            export_remote_certificate,
+            notification_permission::notification_permission,
+            notification_permission::request_notification_permission
         ])
         .build(tauri::generate_context!())
         .expect("VibeOne 桌面应用启动失败")
