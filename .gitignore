@@ -20,3 +20,7 @@ prototype-dist/
 !.env.example
 __pycache__/
 *.py[cod]
+
+apps/desktop/src-tauri/runtime/
+apps/desktop/src-tauri/web/
+apps/desktop/src-tauri/examples/

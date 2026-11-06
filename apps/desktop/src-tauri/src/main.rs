@@ -81,7 +81,29 @@ async fn launch_host(app: &tauri::AppHandle) -> Result<Value, String> {
     let log = options
         .open(data.join("host.log"))
         .map_err(|error| error.to_string())?;
+    let resources = app
+        .path()
+        .resource_dir()
+        .map_err(|error| error.to_string())?;
     let mut command = Command::new(binary);
+    if resources
+        .join("runtime/plugin-runtime/dist/main.js")
+        .is_file()
+    {
+        command.env("VIBEONE_RUNTIME_DIR", resources.join("runtime"));
+    }
+    if resources.join("web/index.html").is_file() {
+        command.env("VIBEONE_WEB_DIR", resources.join("web"));
+    }
+    if resources
+        .join("examples/workspace-tools/plugin.json")
+        .is_file()
+    {
+        command.env(
+            "VIBEONE_EXAMPLE_PLUGIN",
+            resources.join("examples/workspace-tools"),
+        );
+    }
     command
         .args(["serve", "--data-dir"])
         .arg(&data)
@@ -173,8 +195,11 @@ async fn restart_host(
             ) || session["approvals"]
                 .as_array()
                 .is_some_and(|items| !items.is_empty())
+                || session["inputs"]
+                    .as_array()
+                    .is_some_and(|items| !items.is_empty())
         }) {
-            return Err("请先完成或停止所有执行并处理审批，再重启主机".into());
+            return Err("请先完成或停止所有执行并处理审批、补充输入，再重启主机".into());
         }
         if snapshot["persistent"] != true {
             save_legacy(&data, &snapshot)?;
@@ -200,6 +225,30 @@ async fn restart_host(
 }
 
 #[tauri::command]
+async fn export_remote_certificate(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let source = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("VibeOne-Root-CA.crt");
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(file) = app
+            .dialog()
+            .file()
+            .set_file_name("VibeOne-Root-CA.crt")
+            .blocking_save_file()
+        else {
+            return Ok(None);
+        };
+        let path = file.into_path().map_err(|error| error.to_string())?;
+        std::fs::copy(source, &path).map_err(|error| error.to_string())?;
+        Ok(Some(path.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
 async fn choose_workspace(app: tauri::AppHandle) -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         app.dialog()
@@ -220,14 +269,81 @@ async fn choose_workspace(app: tauri::AppHandle) -> Result<Option<String>, Strin
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(Launcher::default())
+        .setup(|app| {
+            use tauri::{
+                menu::{Menu, MenuItem},
+                tray::TrayIconBuilder,
+            };
+            let open = MenuItem::with_id(app, "open", "打开 VibeOne", true, None::<&str>)?;
+            let quit =
+                MenuItem::with_id(app, "quit", "退出桌面（主机继续运行）", true, None::<&str>)?;
+            let stop = MenuItem::with_id(app, "stop", "停止所有执行并退出", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&open, &quit, &stop])?;
+            let mut tray = TrayIconBuilder::new()
+                .menu(&menu)
+                .tooltip("VibeOne")
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "open" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => app.exit(0),
+                    "stop" => {
+                        let app = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Ok(data) = app.path().app_data_dir()
+                                && let Some(connection) = healthy(&data.join("host.json")).await
+                            {
+                                if let (Some(url), Some(token)) =
+                                    (connection["url"].as_str(), connection["token"].as_str())
+                                {
+                                    let _ = reqwest::Client::new()
+                                        .post(format!("{url}/v1/host/stop"))
+                                        .bearer_auth(token)
+                                        .send()
+                                        .await;
+                                }
+                            }
+                            app.exit(0);
+                        });
+                    }
+                    _ => {}
+                });
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            }
+            tray.build(app)?;
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             host_connection,
             restart_host,
-            choose_workspace
+            choose_workspace,
+            export_remote_certificate
         ])
-        .run(tauri::generate_context!())
-        .expect("VibeOne 桌面应用启动失败");
+        .build(tauri::generate_context!())
+        .expect("VibeOne 桌面应用启动失败")
+        .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if matches!(event, tauri::RunEvent::Reopen { .. }) {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }
 
 #[cfg(test)]
