@@ -686,6 +686,17 @@ impl Workbench {
         let _gate = entry.gate.lock().await;
         let mut view = entry.view.lock().expect("view poisoned").clone();
         if !view.active {
+            if !view.queue.is_empty() {
+                view.queue_paused = true;
+                view.stop_reason = Some("cancelled".into());
+                self.commit(&entry, view, "queue.stop_requested", &json!({}))
+                    .await?;
+                self.leases
+                    .lock()
+                    .expect("leases poisoned")
+                    .retain(|_, owner| owner != id);
+                entry.wake.notify_one();
+            }
             return Ok(());
         }
         view.queue_paused = true;
@@ -763,6 +774,7 @@ impl Workbench {
             }
             view.queue_paused = false;
         }
+        let release_lease = !view.active && (view.queue_paused || view.queue.is_empty());
         self.commit(
             &entry,
             view,
@@ -770,6 +782,12 @@ impl Workbench {
             &json!({"pause":pause,"resume":resume}),
         )
         .await?;
+        if release_lease {
+            self.leases
+                .lock()
+                .expect("leases poisoned")
+                .retain(|_, owner| owner != id);
+        }
         self.driver(entry.clone());
         Ok(())
     }

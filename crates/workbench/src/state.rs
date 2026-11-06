@@ -861,3 +861,108 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod cancel_gap_tests {
+    use super::*;
+    #[tokio::test]
+    async fn idle_pause_and_withdraw_release_the_reserved_workspace() {
+        for withdraw in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let provider = Provider {
+                id: "demo".into(),
+                name: "Demo".into(),
+                available: true,
+                description: "Fixture".into(),
+                command: std::env::current_exe().unwrap(),
+                args: vec![],
+            };
+            let workbench = Workbench::open(directory.path(), vec![provider])
+                .await
+                .unwrap();
+            let id = workbench.create("demo", "", None).await.unwrap();
+            let receipt = workbench
+                .submit(&id, "queued task".into(), None, vec![], vec![])
+                .await
+                .unwrap();
+            workbench
+                .queue_action(
+                    &id,
+                    withdraw.then_some(receipt.operation_id),
+                    !withdraw,
+                    false,
+                    false,
+                )
+                .await
+                .unwrap();
+            let entry = workbench.entry(&id).unwrap();
+            assert!(!entry.view.lock().unwrap().active);
+            assert!(
+                workbench
+                    .leases
+                    .lock()
+                    .unwrap()
+                    .values()
+                    .all(|owner| owner != &id),
+                "an idle paused or withdrawn queue cannot reserve the workspace indefinitely"
+            );
+            tokio::task::yield_now().await;
+            assert!(entry.view.lock().unwrap().messages.is_empty());
+            workbench.close().await;
+        }
+    }
+
+    #[tokio::test]
+    async fn stop_before_driver_start_pauses_the_accepted_queue_without_running_it() {
+        let directory = tempfile::tempdir().unwrap();
+        let provider = Provider {
+            id: "demo".into(),
+            name: "Demo".into(),
+            available: true,
+            description: "Fixture".into(),
+            command: std::env::current_exe().unwrap(),
+            args: vec![],
+        };
+        let workbench = Workbench::open(directory.path(), vec![provider])
+            .await
+            .unwrap();
+        let id = workbench.create("demo", "", None).await.unwrap();
+        let receipt = workbench
+            .submit(
+                &id,
+                "queued task".into(),
+                Some("stop-gap".into()),
+                vec![],
+                vec![],
+            )
+            .await
+            .unwrap();
+        let entry = workbench.entry(&id).unwrap();
+        assert!(!entry.view.lock().unwrap().active);
+        workbench.cancel(&id).await.unwrap();
+        {
+            let view = entry.view.lock().unwrap();
+            assert!(
+                view.queue_paused,
+                "an accepted stop must not disappear between queue acceptance and driver start"
+            );
+            assert!(!view.active);
+            assert_eq!(view.queue.len(), 1);
+            assert_eq!(view.queue[0].id, receipt.operation_id);
+            assert_eq!(view.queue[0].status, "queued");
+            assert_eq!(view.stop_reason.as_deref(), Some("cancelled"));
+            assert!(
+                workbench
+                    .leases
+                    .lock()
+                    .unwrap()
+                    .values()
+                    .all(|owner| owner != &id)
+            );
+        }
+        tokio::task::yield_now().await;
+        assert!(!entry.view.lock().unwrap().active);
+        assert!(entry.view.lock().unwrap().messages.is_empty());
+        workbench.close().await;
+    }
+}

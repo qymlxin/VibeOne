@@ -101,6 +101,8 @@
 
 - [70-snapshot-attention-contracts](issues/70-snapshot-attention-contracts.md)：快照封装、手机范围过滤及待处理/决定公共字段已接生产类型；旧失效审批事件的回填兼容有红/绿验证，原始事件与消息保留。
 
+- [72-stop-queue-transition](issues/72-stop-queue-transition.md)：停止在受理与driver启动之间持久暂停队列；空闲暂停/撤空后释放预留租约。两条实际边界红/绿回归通过，手机验证绑定当前Run身份。
+
 ## Fog
 
 

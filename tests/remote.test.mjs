@@ -247,10 +247,14 @@ test(
     await page
       .getByText("你已允许一次，演示审批链路完成。", { exact: true })
       .waitFor();
+    await wait(visible.id,session=>session.status==='idle'&&session.runs.at(-1)?.status==='completed');
     await page.getByRole("textbox", { name: "发送任务" }).fill("/wait");
     await page.getByRole("button", { name: "发送消息", exact: true }).click();
+    const waitingRun=await wait(visible.id,session=>session.status==='running'&&session.runs.at(-1)?.text==='/wait');
     await page.getByRole("button", { name: "停止执行", exact: true }).click();
     await page.getByText("本轮已停止", { exact: true }).waitFor();
+    const stoppedRun=await wait(visible.id,session=>session.stopReason==='cancelled'&&session.runs.at(-1)?.id===waitingRun.runs.at(-1).id&&session.runs.at(-1)?.status==='cancelled');
+    assert.equal(stoppedRun.queuePaused,true);
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth,
