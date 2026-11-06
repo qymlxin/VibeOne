@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod data;
 use serde_json::Value;
 use std::{
     fs::OpenOptions,
@@ -34,6 +35,7 @@ async fn healthy(path: &Path) -> Option<Value> {
         .ok()?;
     if health["name"] == "vibeone-host" && health["protocolVersion"] == 2 {
         connection["persistent"] = health["persistent"].clone();
+        connection["dataDirectory"] = serde_json::json!(path.parent());
         Some(connection)
     } else {
         None
@@ -49,11 +51,75 @@ async fn host_connection(
     launch_host(&app).await
 }
 
+fn session_busy(session: &Value) -> bool {
+    matches!(
+        session["status"].as_str(),
+        Some("starting" | "running" | "requires_action" | "cancelling")
+    ) || ["approvals", "inputs"].iter().any(|key| {
+        session[*key]
+            .as_array()
+            .is_some_and(|items| !items.is_empty())
+    })
+}
+
 async fn launch_host(app: &tauri::AppHandle) -> Result<Value, String> {
-    let data = app
+    let data = data::target()?;
+    let legacy = app
         .path()
         .app_data_dir()
         .map_err(|error| error.to_string())?;
+    if !data.exists() && legacy.is_dir() && legacy != data {
+        if let Some(mut connection) = healthy(&legacy.join("host.json")).await {
+            let client = reqwest::Client::builder()
+                .timeout(Duration::from_secs(3))
+                .build()
+                .map_err(|error| error.to_string())?;
+            let url = connection["url"].as_str().ok_or("主机地址无效")?.to_owned();
+            let token = connection["token"]
+                .as_str()
+                .ok_or("主机凭证无效")?
+                .to_owned();
+            let snapshot: Value = client
+                .get(format!("{url}/v1/snapshot"))
+                .bearer_auth(&token)
+                .send()
+                .await
+                .map_err(|error| error.to_string())?
+                .error_for_status()
+                .map_err(|error| error.to_string())?
+                .json()
+                .await
+                .map_err(|error| error.to_string())?;
+            if snapshot["sessions"]
+                .as_array()
+                .is_none_or(|sessions| sessions.iter().any(session_busy))
+            {
+                connection["migrationPending"] = Value::Bool(true);
+                return Ok(connection);
+            }
+            if snapshot["persistent"] != true {
+                save_legacy(&legacy, &snapshot)?;
+            }
+            client
+                .post(format!("{url}/v1/host/stop"))
+                .bearer_auth(&token)
+                .send()
+                .await
+                .map_err(|error| error.to_string())?
+                .error_for_status()
+                .map_err(|error| error.to_string())?;
+            for _ in 0..100 {
+                if !legacy.join("host.json").exists() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+            if legacy.join("host.json").exists() {
+                return Err("旧主机尚未退出，原数据尚未迁移".into());
+            }
+        }
+        data::migrate(&legacy, &data)?;
+    }
     std::fs::create_dir_all(&data).map_err(|error| error.to_string())?;
     let record = data.join("host.json");
     if let Some(connection) = healthy(&record).await {
@@ -164,10 +230,7 @@ async fn restart_host(
     launcher: State<'_, Launcher>,
 ) -> Result<Value, String> {
     let _gate = launcher.0.lock().await;
-    let data = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?;
+    let data = data::current(&app)?;
     let record = data.join("host.json");
     if let Some(connection) = healthy(&record).await {
         let client = reqwest::Client::builder()
@@ -188,17 +251,7 @@ async fn restart_host(
             .await
             .map_err(|error| error.to_string())?;
         let sessions = snapshot["sessions"].as_array().ok_or("主机会话格式无效")?;
-        if sessions.iter().any(|session| {
-            matches!(
-                session["status"].as_str(),
-                Some("starting" | "running" | "requires_action" | "cancelling")
-            ) || session["approvals"]
-                .as_array()
-                .is_some_and(|items| !items.is_empty())
-                || session["inputs"]
-                    .as_array()
-                    .is_some_and(|items| !items.is_empty())
-        }) {
+        if sessions.iter().any(session_busy) {
             return Err("请先完成或停止所有执行并处理审批、补充输入，再重启主机".into());
         }
         if snapshot["persistent"] != true {
@@ -226,11 +279,7 @@ async fn restart_host(
 
 #[tauri::command]
 async fn export_remote_certificate(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let source = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("VibeOne-Root-CA.crt");
+    let source = data::current(&app)?.join("VibeOne-Root-CA.crt");
     tauri::async_runtime::spawn_blocking(move || {
         let Some(file) = app
             .dialog()
@@ -295,7 +344,7 @@ fn main() {
                     "stop" => {
                         let app = app.clone();
                         tauri::async_runtime::spawn(async move {
-                            if let Ok(data) = app.path().app_data_dir()
+                            if let Ok(data) = data::current(&app)
                                 && let Some(connection) = healthy(&data.join("host.json")).await
                             {
                                 if let (Some(url), Some(token)) =
