@@ -109,6 +109,8 @@
 
 - [74-catalog-domain-errors](issues/74-catalog-domain-errors.md)：工作区/Profile类型化领域错误及稳定HTTP码；真实SQLite失败、22项Workbench、18项Host、Clippy和包外验证通过，其他业务错误仍由14继续。
 
+- [75-provider-probe](issues/75-provider-probe.md)：主动环境探测、版本与CLI状态已交付；初始化不创建会话或任务，超时清理、隐私过滤、亮暗及真实双桥接器验证通过。02仍缺CLI Profile选择入口。
+
 ## Fog
 
 

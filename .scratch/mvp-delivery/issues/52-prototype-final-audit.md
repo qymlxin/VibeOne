@@ -2,6 +2,8 @@
 
 Status: claimed
 Type: task
+
+75已补齐主动环境探测和认证引导，19项Host、桌面亮暗及包外检查通过；本轮CUA仍返回Mac locked，原生和物理设备项未验收。
 Blocked by: 50, 51
 
 ## 范围
