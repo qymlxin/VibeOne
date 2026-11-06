@@ -507,6 +507,7 @@ async fn snapshot(
 #[derive(Deserialize)]
 struct Create {
     provider: String,
+    #[serde(default)]
     workspace: String,
     #[serde(rename = "profileId")]
     profile_id: Option<String>,

@@ -97,3 +97,21 @@ test(
     assert.ok(!diagnostic.includes("token"));
   },
 );
+
+test('sessions can create independent managed projects without choosing a directory', {timeout:20000}, async t => {
+  const {directory,call,wait}=await host(t);
+  const first=await call('/sessions',{provider:'demo'});
+  const second=await call('/sessions',{provider:'demo',workspace:''});
+  const snapshot=await call('/snapshot');
+  const a=snapshot.sessions.find(s=>s.id===first.id),b=snapshot.sessions.find(s=>s.id===second.id);
+  const {realpath,stat}=await import('node:fs/promises');
+  const base=await realpath(join(directory,'projects'));
+  assert.equal(a.workspace.startsWith(base+'/'),true);
+  assert.notEqual(a.workspace,b.workspace);
+  assert.equal((await stat(a.workspace)).isDirectory(),true);
+  assert.equal(a.messages.length,0);
+  const reused=await call('/sessions',{provider:'demo',workspace:a.workspace});
+  assert.equal((await call('/snapshot')).sessions.find(s=>s.id===reused.id).workspace,a.workspace);
+  await call(`/sessions/${first.id}/messages`,{text:'managed project works'});
+  await wait(first.id,s=>s.stopReason==='end_turn');
+});

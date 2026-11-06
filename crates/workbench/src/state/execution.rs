@@ -594,6 +594,7 @@ impl Workbench {
                 view.history_only = false;
                 view.status = "idle".into();
                 view.error = None;
+                view.agent_state["contextRestartedAt"] = json!(now());
             }
             view.queue_paused = false;
         }

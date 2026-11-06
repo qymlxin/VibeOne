@@ -54,6 +54,7 @@ impl Entry {
 }
 
 pub struct Workbench {
+    directory: PathBuf,
     pub providers: Vec<Provider>,
     pub(crate) plugins: crate::plugins::Plugins,
     pub sessions: Mutex<HashMap<String, Arc<Entry>>>,
@@ -140,6 +141,7 @@ impl Workbench {
             catalog.entry(kind).or_default().insert(id, value);
         }
         Ok(Arc::new(Self {
+            directory: directory.to_path_buf(),
             providers,
             plugins: crate::plugins::Plugins::new(directory.to_path_buf()),
             sessions: Mutex::new(sessions),
@@ -324,9 +326,29 @@ impl Workbench {
         } else {
             None
         };
-        let workspace = PathBuf::from(workspace)
-            .canonicalize()
-            .map_err(|_| "工作目录不存在")?;
+        if workspace.trim().is_empty() && provider.id.contains(':') {
+            return Err("插件 Agent 需要选择已经授权的工作区".into());
+        }
+        let workspace = if workspace.trim().is_empty() {
+            let path = self
+                .directory
+                .join("projects")
+                .join(format!("project-{}", uuid::Uuid::new_v4()));
+            let mut builder = std::fs::DirBuilder::new();
+            builder.recursive(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::DirBuilderExt;
+                builder.mode(0o700);
+            }
+            builder
+                .create(&path)
+                .map_err(|error| format!("默认项目创建失败：{error}"))?;
+            path
+        } else {
+            PathBuf::from(workspace)
+        };
+        let workspace = workspace.canonicalize().map_err(|_| "工作目录不存在")?;
         if !workspace.is_dir() {
             return Err("请选择目录作为工作区".into());
         }

@@ -157,6 +157,15 @@ test(
       final.find((item) => item.id === id).messages.length,
       resumed.messages.length,
     );
+    const oldMessages=final.find(item=>item.id===empty.id).messages;
+    await request(`/sessions/${empty.id}/queue`,{resume:true,freshContext:true});
+    const continuing=(await request('/snapshot')).sessions.find(item=>item.id===empty.id);
+    assert.equal(continuing.historyOnly,false);
+    assert.deepEqual(continuing.messages,oldMessages,'continuation does not replay old messages');
+    assert.ok(continuing.agentState.contextRestartedAt);
+    await request(`/sessions/${empty.id}/messages`,{text:'continue in a new context'});
+    const continued=await waitFor(empty.id,s=>s.runs.some(r=>r.text==='continue in a new context'&&r.status==='completed'));
+    assert.ok(continued.messages.some(m=>m.text==='fresh execution'));
     await request("/host/stop", {});
     await exited;
   },

@@ -20,6 +20,19 @@ async fn main() {
 
 async fn run() -> Result<()> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    if args.len() == 1 && args[0] == "serve" {
+        let directory = std::env::var_os("VIBEONE_DATA_DIR")
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME")
+                    .or_else(|| std::env::var_os("USERPROFILE"))
+                    .map(|home| PathBuf::from(home).join(".vibeone"))
+            })
+            .ok_or_else(|| Error::Invalid("无法确定用户目录，请指定 --data-dir".into()))?;
+        return vibeone_workbench::serve(directory)
+            .await
+            .map_err(|error| Error::Invalid(error.to_string()));
+    }
     if args.len() == 3 && args[0] == "serve" && args[1] == "--data-dir" {
         return vibeone_workbench::serve(PathBuf::from(&args[2]))
             .await
@@ -27,7 +40,7 @@ async fn run() -> Result<()> {
     }
     if args.is_empty() || args[0] == "--help" {
         println!(
-            "VibeOne Host (P0)\n\n  vibeone-host serve --data-dir <directory>\n  vibeone-host plugin scan --workspace <directory>\n\nserve starts the authenticated local ACP v2 workbench; plugin scan runs Rust → Node → Rust."
+            "VibeOne Host (P0)\n\n  vibeone-host serve [--data-dir <directory>]\n  vibeone-host plugin scan --workspace <directory>\n\nserve starts the authenticated local ACP v2 workbench; plugin scan runs Rust → Node → Rust."
         );
         return Ok(());
     }
