@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { remotePreferences } from "./remote-preferences.js";
 import { exportRemoteCertificate } from "./api.js";
 
 export function RemoteSettings({ workbench }) {
@@ -10,23 +11,32 @@ export function RemoteSettings({ workbench }) {
     [role, setRole] = useState("operator"),
     [selected, setSelected] = useState([]),
     [error, setError] = useState(""),
+    [statusError, setStatusError] = useState(""),
     [busy, setBusy] = useState(false);
-  async function refresh() {
-    const value = await workbench.call("/devices");
+  const dirty=useRef(false), request=useRef(0), mounted=useRef(false);
+  const refresh=useCallback(async (confirmed=false) => {
+    const id=++request.current;
+    const value=await workbench.call("/devices");
+    if(!mounted.current||id!==request.current)return;
     setState(value);
-    setIp((current) => current || value.suggestedIp || "");
-  }
+    if(confirmed||!dirty.current){
+      const preferences=remotePreferences(value);
+      setIp(preferences.ip);setPort(preferences.port);dirty.current=false;
+    }
+  },[workbench.call]);
   useEffect(() => {
-    void refresh().catch(() => {});
-    const timer = setInterval(() => void refresh().catch(() => {}), 3000);
-    return () => clearInterval(timer);
-  }, [workbench.call]);
-  async function run(action) {
+    mounted.current=true;
+    const poll=()=>void refresh().then(()=>{if(mounted.current)setStatusError("");}).catch(error=>{if(mounted.current)setStatusError(`远程状态读取失败：${error.message??error}`);});
+    poll();
+    const timer=setInterval(poll,3000);
+    return()=>{mounted.current=false;++request.current;clearInterval(timer);};
+  }, [refresh]);
+  async function run(action, confirmConfiguration=false) {
     setBusy(true);
     setError("");
     try {
       await action();
-      await refresh();
+      await refresh(confirmConfiguration);
     } catch (error) {
       setError(error.message ?? String(error));
     } finally {
@@ -40,13 +50,15 @@ export function RemoteSettings({ workbench }) {
         通过局域网或已有可信网络连接。首次使用需将此主机的 CA
         证书安装并设为受信任，再在手机浏览器打开 HTTPS 地址。
       </p>
+      {state?.configuration?.enabled&&!state.url&&<p role="status">配置已保存为开启，但当前入口未运行。请核对 IP 和端口后重新开启。</p>}
       <div className="desktop-management-form">
         <label>
           本机局域网 / 可信网络 IP
           <input
             value={ip}
-            onChange={(event) => setIp(event.target.value)}
-            disabled={!!state?.url}
+            aria-label="远程入口 IP"
+            onChange={(event) => {dirty.current=true;setIp(event.target.value);}}
+            disabled={busy || !state || !!state.url}
           />
         </label>
         <label>
@@ -56,12 +68,13 @@ export function RemoteSettings({ workbench }) {
             min="0"
             max="65535"
             value={port}
-            onChange={(event) => setPort(event.target.value)}
-            disabled={!!state?.url}
+            aria-label="远程入口端口"
+            onChange={(event) => {dirty.current=true;setPort(event.target.value);}}
+            disabled={busy || !state || !!state.url}
           />
         </label>
         <button
-          disabled={busy || !!state?.url || !ip}
+          disabled={busy || !state || !!state.url || !ip || !/^\d+$/.test(port) || Number(port)>65535}
           onClick={() =>
             void run(async () => {
               const result = await workbench.call("/remote", {
@@ -70,7 +83,7 @@ export function RemoteSettings({ workbench }) {
                 port: Number(port),
               });
               setQr(result.qr);
-            })
+            }, true)
           }
         >
           开启 HTTPS 手机入口
@@ -124,7 +137,7 @@ export function RemoteSettings({ workbench }) {
                   await workbench.call("/remote", { enabled: false });
                   setCode(null);
                   setQr(null);
-                })
+                }, true)
               }
             >
               关闭手机入口
@@ -213,6 +226,7 @@ export function RemoteSettings({ workbench }) {
           </button>
         </article>
       ))}
+      {statusError && <p role="alert">{statusError}</p>}
       {error && <p role="alert">{error}</p>}
     </section>
   );

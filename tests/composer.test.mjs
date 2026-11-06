@@ -100,3 +100,12 @@ test('choosing inside a trigger replaces its complete suffix but preserves follo
  const quoted='看 @"folder name/file.txt" 后文';
  assert.equal(replaceToken(quoted,composerToken(quoted,10),''),'看  后文');
 });
+
+import {remotePreferences} from '../apps/desktop/src/remote-preferences.js';
+test('remote settings hydrate saved intent, actual IP and legacy Host addresses separately',()=>{
+ assert.deepEqual(remotePreferences({configuration:{enabled:false,ip:'127.0.0.2',port:0},suggestedIp:'192.168.1.2'}),{ip:'127.0.0.2',port:'0'});
+ assert.deepEqual(remotePreferences({url:'https://127.0.0.3:1234',configuration:{ip:'127.0.0.2',port:0}}),{ip:'127.0.0.3',port:'0'});
+ assert.deepEqual(remotePreferences({url:'https://[::1]:1234'}),{ip:'::1',port:'1234'});
+ assert.deepEqual(remotePreferences({suggestedIp:'192.168.1.2',configuration:{port:99999}}),{ip:'192.168.1.2',port:'0'});
+ assert.deepEqual(remotePreferences(null),{ip:'',port:'0'});
+});

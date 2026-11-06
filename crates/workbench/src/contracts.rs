@@ -2,6 +2,31 @@ use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+/// Last durably confirmed intent; the live listener is reported separately.
+#[derive(Clone, Default, Serialize, Deserialize, JsonSchema)]
+pub struct RemoteConfiguration {
+    pub enabled: bool,
+    pub ip: Option<String>,
+    pub port: Option<u16>,
+}
+#[derive(Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteClaimSummary {
+    pub id: String,
+    pub name: String,
+    pub expires_at: u64,
+}
+#[derive(Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteStatusResponse {
+    pub url: Option<String>,
+    pub configuration: RemoteConfiguration,
+    pub devices: Vec<Value>,
+    pub claims: Vec<RemoteClaimSummary>,
+    pub suggested_ip: Option<String>,
+    pub certificate_path: String,
+}
+
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileSummary {
@@ -397,6 +422,8 @@ pub enum ProfileResponse {
 /// Generated from the same types used by the HTTP extractors/serializers.
 pub fn schemas() -> Value {
     json!({
+        "RemoteConfiguration":schema_for!(RemoteConfiguration),
+        "RemoteStatusResponse":schema_for!(RemoteStatusResponse),
         "CreateSessionRequest":schema_for!(CreateSessionRequest),
         "SubmitMessageRequest":schema_for!(SubmitMessageRequest),
         "QueueRequest":schema_for!(QueueRequest),

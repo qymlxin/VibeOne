@@ -1,4 +1,5 @@
 use super::*;
+use crate::contracts::{RemoteClaimSummary, RemoteConfiguration, RemoteStatusResponse};
 use crate::domain_error::{DomainError, ErrorKind};
 mod tls;
 use axum::extract::ConnectInfo;
@@ -347,13 +348,39 @@ pub(super) async fn configure(State(state): State<Server>, Json(body): Json<Valu
         .map(Json)
         .map_err(domain_fail)
 }
+pub(super) fn saved_configuration(state: &Server) -> RemoteConfiguration {
+    let record = state
+        .workbench
+        .catalog("setting")
+        .into_iter()
+        .find(|record| record["id"] == "remote")
+        .unwrap_or(Value::Null);
+    RemoteConfiguration {
+        enabled: record["enabled"] == true,
+        ip: record["ip"]
+            .as_str()
+            .and_then(|ip| ip.parse::<IpAddr>().ok())
+            .map(|ip| ip.to_string()),
+        port: record["port"]
+            .as_u64()
+            .and_then(|port| u16::try_from(port).ok()),
+    }
+}
+
 async fn configure_remote(state: &Server, body: Value) -> Result<Value, DomainError> {
     let _gate = state.remote.gate.lock().await;
     if body["enabled"] == false {
         state.remote.stop_locked();
         state
             .workbench
-            .save_catalog("setting", "remote", json!({"id":"remote","enabled":false}))
+            .save_catalog("setting", "remote", {
+                let mut configuration = saved_configuration(state);
+                configuration.enabled = false;
+                let mut record =
+                    serde_json::to_value(configuration).expect("remote configuration serializes");
+                record["id"] = json!("remote");
+                record
+            })
             .await?;
         return Ok(json!({"enabled":false}));
     }
@@ -376,17 +403,12 @@ async fn configure_remote(state: &Server, body: Value) -> Result<Value, DomainEr
             .ok_or_else(|| remote_error(ErrorKind::InvalidInput, "端口必须为0至65535的整数"))?,
     };
     let status = state.remote.start_locked(state.clone(), ip, port).await?;
-    let actual = status["url"]
-        .as_str()
-        .and_then(|url| url.rsplit(':').next())
-        .and_then(|value| value.parse::<u16>().ok())
-        .ok_or_else(|| remote_error(ErrorKind::Internal, "无法确认远程监听端口"))?;
     if let Err(error) = state
         .workbench
         .save_catalog(
             "setting",
             "remote",
-            json!({"id":"remote","enabled":true,"ip":ip.to_string(),"port":actual}),
+            json!({"id":"remote","enabled":true,"ip":ip.to_string(),"port":port}),
         )
         .await
     {
@@ -403,7 +425,8 @@ fn suggested_ip() -> Option<String> {
         .ok()
         .map(|address| address.ip().to_string())
 }
-pub(super) async fn status(State(state): State<Server>) -> Json<Value> {
+pub(super) async fn status(State(state): State<Server>) -> Json<RemoteStatusResponse> {
+    let _gate = state.remote.gate.lock().await;
     let devices = state
         .workbench
         .catalog("device")
@@ -420,11 +443,25 @@ pub(super) async fn status(State(state): State<Server>) -> Json<Value> {
         .expect("pairing poisoned")
         .values()
         .filter(|claim| claim.expires > now() && claim.token.is_none() && !claim.denied)
-        .map(|claim| json!({"id":claim.id,"name":claim.name,"expiresAt":claim.expires}))
+        .map(|claim| RemoteClaimSummary {
+            id: claim.id.clone(),
+            name: claim.name.clone(),
+            expires_at: claim.expires,
+        })
         .collect::<Vec<_>>();
-    Json(
-        json!({"url":state.remote.url(),"devices":devices,"claims":claims,"suggestedIp":suggested_ip(),"certificatePath":state.remote.directory.join("VibeOne-Root-CA.crt")}),
-    )
+    Json(RemoteStatusResponse {
+        url: state.remote.url(),
+        configuration: saved_configuration(&state),
+        devices,
+        claims,
+        suggested_ip: suggested_ip(),
+        certificate_path: state
+            .remote
+            .directory
+            .join("VibeOne-Root-CA.crt")
+            .to_string_lossy()
+            .into_owned(),
+    })
 }
 pub(super) async fn pairing_code(State(state): State<Server>) -> ApiResult {
     let _gate = state.remote.gate.lock().await;
@@ -814,6 +851,27 @@ mod remote_failure_tests {
             workspace,
         )
     }
+    #[tokio::test]
+    async fn disabled_preferences_survive_reopening_storage() {
+        let (directory, state, _) = fixture().await;
+        state.workbench.save_catalog("setting", "remote", json!({"id":"remote","enabled":true,"ip":"127.0.0.2","port":0,"unexpected":"private"})).await.unwrap();
+        configure_remote(&state, json!({"enabled":false}))
+            .await
+            .unwrap();
+        state.workbench.close().await;
+        let restored = Workbench::open(directory.path(), vec![]).await.unwrap();
+        let record = restored
+            .catalog("setting")
+            .into_iter()
+            .find(|record| record["id"] == "remote")
+            .unwrap();
+        assert_eq!(
+            record,
+            json!({"id":"remote","enabled":false,"ip":"127.0.0.2","port":0})
+        );
+        restored.close().await;
+    }
+
     fn pending(state: &Server) {
         *state.remote.running.lock().unwrap() = Some(Running {
             id: "fixture".into(),

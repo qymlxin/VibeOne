@@ -75,3 +75,19 @@ test('remote controls classify failures and occupied ports cannot replace certif
  assert.equal((await local('/devices')).url,null);assert.equal((await readdir(directory)).some(name=>name.startsWith('.remote-')),false);
  if(process.platform!=='win32')assert.equal((await stat(tlsPath)).mode&0o077,0);
 });
+
+
+test('remote configuration preserves confirmed address and automatic port after disabling',{timeout:22000},async t=>{
+ const {local}=await setup(t);
+ assert.deepEqual((await local('/devices')).configuration,{enabled:false,ip:null,port:null});
+ const active=await local('/remote',{enabled:true,ip:'127.0.0.1',port:0});
+ let state=await local('/devices');
+ assert.equal(state.url,active.url);
+ assert.deepEqual(state.configuration,{enabled:true,ip:'127.0.0.1',port:0});
+ await local('/remote',{enabled:false,ip:'not-a-config',port:99999});
+ state=await local('/devices');
+ assert.equal(state.url,null);
+ assert.deepEqual(state.configuration,{enabled:false,ip:'127.0.0.1',port:0});
+ await local('/remote',{enabled:true,ip:'not-an-ip',port:0},400,'INVALID_INPUT');
+ assert.deepEqual((await local('/devices')).configuration,state.configuration);
+});

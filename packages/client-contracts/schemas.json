@@ -1,4 +1,122 @@
 {
+  "RemoteConfiguration": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "RemoteConfiguration",
+    "description": "Last durably confirmed intent; the live listener is reported separately.",
+    "type": "object",
+    "required": [
+      "enabled"
+    ],
+    "properties": {
+      "enabled": {
+        "type": "boolean"
+      },
+      "ip": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "port": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint16",
+        "minimum": 0
+      }
+    }
+  },
+  "RemoteStatusResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "RemoteStatusResponse",
+    "type": "object",
+    "required": [
+      "certificatePath",
+      "claims",
+      "configuration",
+      "devices"
+    ],
+    "properties": {
+      "certificatePath": {
+        "type": "string"
+      },
+      "claims": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/RemoteClaimSummary"
+        }
+      },
+      "configuration": {
+        "$ref": "#/definitions/RemoteConfiguration"
+      },
+      "devices": {
+        "type": "array",
+        "items": true
+      },
+      "suggestedIp": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "url": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "definitions": {
+      "RemoteClaimSummary": {
+        "type": "object",
+        "required": [
+          "expiresAt",
+          "id",
+          "name"
+        ],
+        "properties": {
+          "expiresAt": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "RemoteConfiguration": {
+        "description": "Last durably confirmed intent; the live listener is reported separately.",
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "ip": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint16",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
   "CreateSessionRequest": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "CreateSessionRequest",

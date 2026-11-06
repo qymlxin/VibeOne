@@ -137,6 +137,8 @@
 
 - [88-composer-interaction](issues/88-composer-interaction.md)：指令/引用重新聚焦、中段完整词替换、Esc事件竞争与引用简名完成；54项Node、桌面/HTTPS手机及打包烟测通过。
 
+- [89-remote-preferences](issues/89-remote-preferences.md)：远程IP/端口持久配置、实际状态分离、轮询保留编辑及回显完成；全量、桌面/手机与包外检查通过。重新进入二维码丢失下一项继续。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

@@ -102,18 +102,12 @@ pub async fn serve(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error + 
         remote: Arc::new(remote::Remote::new(data_dir.clone())),
         is_remote: false,
     };
-    if let Some(config) = workbench
-        .catalog("setting")
-        .into_iter()
-        .find(|item| item["id"] == "remote" && item["enabled"] == true)
-        && let Some(ip) = config["ip"].as_str().and_then(|ip| ip.parse().ok())
+    let config = remote::saved_configuration(&state);
+    if config.enabled
+        && let Some(ip) = config.ip.as_deref().and_then(|ip| ip.parse().ok())
         && let Err(error) = state
             .remote
-            .start(
-                state.clone(),
-                ip,
-                config["port"].as_u64().unwrap_or(0) as u16,
-            )
+            .start(state.clone(), ip, config.port.unwrap_or(0))
             .await
     {
         eprintln!("remote startup failed: {error}");
