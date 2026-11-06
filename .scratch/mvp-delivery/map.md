@@ -127,6 +127,8 @@
 
 - [83-plugin-resource-inspection](issues/83-plugin-resource-inspection.md)：插件清单/App普通文件约束、有界读取、异步检查与明确错误完成；命名管道红/绿及全量、桌面/手机、包外验证通过。插件其余入口及最终实机验收继续。
 
+- [85-cli-timeout-close-test](issues/85-cli-timeout-close-test.md)：修正macOS超时关闭的RST/EOF断言，仍严格验证连接关闭和凭据不回显；真实TCP测试三次通过，生产CLI未改。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

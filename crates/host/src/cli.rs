@@ -242,15 +242,28 @@ mod tests {
         let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
             let mut bytes = [0; 4096];
-            let _ = stream.read(&mut bytes).await.unwrap();
+            while !request.windows(4).any(|part| part == b"\r\n\r\n") {
+                let count = stream.read(&mut bytes).await.unwrap();
+                assert!(count > 0 && request.len() + count <= 65536);
+                request.extend_from_slice(&bytes[..count]);
+            }
             stream
                 .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n")
                 .await
                 .unwrap();
             let _ = ready_tx.send(());
             let mut closed = [0; 1];
-            stream.read(&mut closed).await.unwrap()
+            match stream.read(&mut closed).await {
+                Ok(0) => (),
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::ConnectionAborted
+                    ) => {}
+                result => panic!("deadline must close the socket; observed {result:?}"),
+            }
         });
         let request = tokio::spawn(async move {
             LocalHost {
@@ -266,10 +279,9 @@ mod tests {
         let failure = request.await.unwrap().unwrap_err();
         assert!(failure.contains("超时"));
         assert!(!failure.contains("private-fixture"));
-        assert_eq!(
-            server.await.unwrap(),
-            0,
-            "deadline closes the socket instead of leaking a driver"
-        );
+        tokio::time::timeout(Duration::from_secs(1), server)
+            .await
+            .expect("deadline closes the socket instead of leaking a driver")
+            .unwrap();
     }
 }
