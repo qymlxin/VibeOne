@@ -165,6 +165,11 @@ test(
     await page.getByText("本机 · 已连接", { exact: true }).waitFor();
     await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('dark');
     await page.locator(".desktop-session").first().click();
+    await page.getByRole('textbox',{name:'发送任务'}).fill('/fi');
+    await page.getByRole('option',{name:/files/}).waitFor();
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-composer-mobile.png')});
+    assert.equal(await page.locator('.composer-picker').evaluate(element=>{const r=element.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0;}),true);
+    await page.getByRole('textbox',{name:'发送任务'}).press('Escape');
     await page.emulateMedia({reducedMotion:'reduce'});
     await page.getByRole('textbox',{name:'发送任务'}).fill('/activity');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();

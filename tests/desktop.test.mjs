@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -14,6 +14,8 @@ test(
   async (t) => {
     const directory = await mkdtemp(join(tmpdir(), "vibeone-desktop-test-"));
     await writeFile(join(directory,'preview.txt'),'workspace preview text\n');
+    await mkdir(join(directory,'folder name'));
+    await writeFile(join(directory,'folder name','child.txt'),'nested text');
     const child = spawn(
       resolve("target/debug/vibeone-host"),
       ["serve", "--data-dir", directory],
@@ -116,11 +118,33 @@ test(
         throw Error(await page.locator("body").innerText());
       });
     await page.getByRole("button", { name: "创建会话", exact: true }).click();
-    await page
-      .getByRole("textbox", { name: "发送任务" })
-      .fill("桌面集成测试 /thought");
+    const composer=page.getByRole('textbox',{name:'发送任务'});
+    await composer.fill('/fi');
+    await page.getByRole('option',{name:/files/}).waitFor();
+    await composer.press('Enter');
+    await page.getByRole('heading',{name:'工作区文件',exact:true}).waitFor();
+    assert.equal(await composer.inputValue(),'');
+    await page.getByRole('button',{name:'引用文件',exact:true}).click();
+    await composer.fill('@folder');
+    await page.getByRole('option',{name:/folder name/}).click();
+    await page.getByRole('option',{name:/child.txt/}).waitFor();
+    await page.getByRole('button',{name:/上级目录/}).click();
+    await page.getByRole('option',{name:/folder name/}).waitFor();
+    await composer.fill('@preview');
+    await page.getByRole('option',{name:/preview.txt/}).waitFor();
+    await page.screenshot({path:join(tmpdir(),'vibeone-composer-light.png')});
+    await page.emulateMedia({colorScheme:'dark'});
+    await page.waitForTimeout(150);
+    await page.screenshot({path:join(tmpdir(),'vibeone-composer-dark.png')});
+    await page.emulateMedia({colorScheme:'light'});
+    await page.waitForTimeout(150);
+    await composer.press('Tab');
+    await page.getByRole('button',{name:'移除引用 preview.txt'}).waitFor();
+    await composer.fill('桌面集成测试 /thought');
     await page.getByRole("button", { name: "发送消息" }).click();
     await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000}).catch(async error=>{throw new Error(`${error.message}\nReact errors: ${JSON.stringify(errors)}\n${(await page.locator("body").innerText()).slice(-6000)}`);});
+    assert.equal(await page.getByRole('button',{name:'移除引用 preview.txt'}).count(),0);
+    assert.match(await page.locator('.desktop-message.user').first().innerText(),/workspace preview text/);
     assert.equal(await page.locator(".desktop-message.user").count(), 1);
     assert.equal(await page.locator(".desktop-message.assistant").count(), 1);
     assert.equal(await page.locator('.desktop-message.thought').count(),0,'thoughts should not expand into the conversation body');

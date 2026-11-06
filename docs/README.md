@@ -4,6 +4,7 @@
 
 | 文档 | 阅读目标 |
 | --- | --- |
+| [输入框指令与引用](composer-interactions.md) | `/` 指令、`@` 文件引用、键盘操作与发送链路 |
 | [体验与验收](acceptance.md) | 当前可体验功能、自动验证、实机清单与已知边界 |
 | [插件作者指南](plugin-authoring.md) | JS/TS/TSX 创建、构建、打包、Context、扩展点与更新规则 |
 | [主要功能设计](core-functions.md) | 当前 UI 基线下的核心范围、用户操作、队列与执行规则、模块职责和开发切片 |

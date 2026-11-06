@@ -178,3 +178,8 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 `npm run check` 包含插件 SDK/运行时、作者工具、ACP、存储、Host、队列、权限、工作区、插件业务消费和崩溃恢复。桌面与手机浏览器测试使用本机 Chrome；可通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` 指定测试浏览器。
 
 真实模型验收单独运行 `npm run agent:smoke -- codex claude`，使用本机已有认证和临时工作区，不放进默认测试套件。
+
+
+## 指令与引用菜单（2026-11-06）
+
+输入 `/` 或点击「指令」选择 Agent 上报命令，输入 `@` 或点击「引用文件」浏览工作区并选择文本文件。键盘和目录空格、真实文件正文发送、成功清空、亮暗/手机菜单已自动验证；真实 macOS Codex 会话的 ACP 命令列表已核对。物理手机输入法与软键盘遮挡仍建议实机检查。详情见 [输入框指令与文件引用](composer-interactions.md)。

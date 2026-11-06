@@ -17,6 +17,7 @@ import {
   Sun,
   X,
 } from "lucide-react";
+import { ComposerInput } from "./ComposerInput.jsx";
 import { useNotifications } from "./notifications.js";
 import { RemoteSettings, PhoneGate } from "./Remote.jsx";
 import { isNative } from "./api.js";
@@ -461,7 +462,13 @@ function Conversation({ session, workbench, online, act }) {
   const openFile=useCallback(path=>{setFileTarget({path,key:crypto.randomUUID()});setTab('files');},[]);
   const previewContext=useMemo(()=>({workspace:session.workspace,openUrl,openFile}),[session.workspace,openUrl,openFile]);
   const requestKey = useRef(null);
-  const [fileReference, setFileReference] = useState("");
+  const [fileReferences, setFileReferences] = useState(() => {
+    try { const saved=JSON.parse(localStorage.getItem(`vibeone-references:${session.id}`)||'[]'); return Array.isArray(saved)?saved.filter(path=>typeof path==='string').slice(0,5):[]; } catch {return [];}
+  });
+  const changeReferences = files => {
+    setFileReferences(files); requestKey.current=null;
+    try {if(files.length)localStorage.setItem(`vibeone-references:${session.id}`,JSON.stringify(files));else localStorage.removeItem(`vibeone-references:${session.id}`);}catch{}
+  };
   const [title, setTitle] = useState(session.title);
   const readOnly = session.historyOnly || session.archived || !canOperate;
   const [sending, setSending] = useState(false);
@@ -494,13 +501,13 @@ function Conversation({ session, workbench, online, act }) {
     const result = await act(() =>
       workbench.call(`/sessions/${session.id}/messages`, {
         text: draft,
-        files: fileReference.trim() ? [fileReference.trim()] : [],
+        files: fileReferences,
         key: (requestKey.current ??= crypto.randomUUID()),
       }),
     );
     if (result) {
       setDraft("");
-      setFileReference("");
+      changeReferences([]);
       requestKey.current = null;
     }
     setSending(false);
@@ -746,53 +753,17 @@ function Conversation({ session, workbench, online, act }) {
           <p className="desktop-field-help">正在新的 Agent 上下文中继续；上方旧消息仅作为本地历史保留。</p>
         )}
         <div className="desktop-composer">
-          <label className="desktop-file-reference">
-            引用工作区文件（可选）
-            <input
-              aria-label="引用文件路径"
-              disabled={readOnly}
-              placeholder="例如 src/main.rs · 文本文件最大 32 KiB"
-              value={fileReference}
-              onChange={(event) => {
-                setFileReference(event.target.value);
-                requestKey.current = null;
-              }}
-            />
-          </label>
           <Queue
             session={session}
             workbench={workbench}
             online={online && canOperate}
             act={act}
           />
-          <textarea
-            aria-label="发送任务"
-            disabled={readOnly}
-            value={draft}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              requestKey.current = null;
-            }}
-            placeholder={
-              !canOperate
-                ? "此设备仅可查看或审批，不能发送任务"
-                : readOnly
-                  ? "先取消归档或点击“在新上下文继续”以发送消息"
-                  : active
-                    ? "当前正在执行，发送后加入下一轮队列…"
-                    : "描述任务，或发送新的指令…"
-            }
-            onKeyDown={(event) => {
-              if (
-                event.key === "Enter" &&
-                !event.shiftKey &&
-                !event.nativeEvent.isComposing
-              ) {
-                event.preventDefault();
-                void send();
-              }
-            }}
-          />
+          <ComposerInput session={session} workbench={workbench} value={draft}
+            onChange={text=>{setDraft(text);requestKey.current=null;}}
+            files={fileReferences} onFiles={changeReferences} onSubmit={()=>void send()}
+            onPanel={setTab} disabled={readOnly || sending} online={online}
+            placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档或在新上下文继续" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 引用文件…"}/>
           <div>
             <span>
               <MessageSquare size={13} />

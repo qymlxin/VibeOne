@@ -47,6 +47,8 @@
 - [22-local-plugin-product](issues/22-local-plugin-product.md)：可信本地包检查、授权范围、配置校验、持久安装/更新/停用/重新启用与管理界面已实现；App 候选先成功再发布 Worker 路由，失败保留旧代次。每候选独立 Runner，自动重启预算明确为 0。Node/Rust/Host/桌面测试通过。
 - [23-plugin-consumers](issues/23-plugin-consumers.md)：示例插件实际贡献 Provider、React 面板、命令、设置与通知渠道；会话持有 Provider 代次租约，停用后已有租约继续排空；通知来自事务 outbox，独立超时重试。自动验证业务链路通过；操作系统通知权限及外部通知渠道另行人工验证。
 
+- [44-composer-menus](issues/44-composer-menus.md)：正式输入框接入 ACP 指令与工作台快捷入口、`@` 目录浏览和多文件引用标签；复用 Host 校验和队列，补充键盘、输入法与手机适配以及中文文档、SVG。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。
