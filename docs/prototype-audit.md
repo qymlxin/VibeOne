@@ -78,7 +78,7 @@
 
 | 检查 | 结果与具体范围 |
 | --- | --- |
-| `npm run check` | 通过：51项Node/SDK/打包器、生成契约比对/类型正反例、workspace Rust、16项Host集成与崩溃恢复；不包含真实模型请求 |
+| `npm run check` | 通过：51项Node/SDK/打包器、生成契约比对/类型正反例、workspace Rust、21项Host集成与崩溃恢复；不包含真实模型请求 |
 | `npm run desktop:test` | 61.7秒完整回归通过（73新增目录引用、图片视口延迟加载和菜单关闭断言）：真实Host、目录路径导入、历史与重连的实际游标增量、通知桥接状态、插件React及200刻度组件及插件异步操作记录/结果 |
 | `npm run remote:test` | 23.7秒通过（含文件夹引用入口和触控尺寸）：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
 | `cargo clippy --workspace --all-targets -- -D warnings` | 通过 |
@@ -89,7 +89,7 @@
 | `npm run agent:controls` / `-- --input-only` | 真实Codex批准/拒绝、取消待审批、旧请求失效、进程退出、只读恢复及结构化输入通过 |
 | `cargo test -p vibeone-agent-client` | 全13项通过，覆盖初始化45秒人工等待、独立600秒时限、工作预算恢复、迟到答案拒绝和父子进程清理；客户端Clippy通过 |
 
-包内Host SHA-256：`3ce5e977e14c1b4b51625164c10a8da1e79580b1c3ea3d61a890db38cf013fd1`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
+包内Host SHA-256：`64bc7347f72e603d84973cd14621561b60612ec6596788d6092f8d5e842d25ff`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
 
 ## 解锁后的原生核对顺序
 
@@ -122,3 +122,5 @@
 74：工作区导入和Profile保存/移除采用显式领域错误，含SQLite故障、稳定错误码、容量及修订/摘要保护验证。最终22项Workbench、18项Host、Clippy和生成契约检查通过；桌面61.8秒/HTTPS手机23.6秒在同功能迁移期间通过，最终底层类型保留改动由完整Host套件另行覆盖。829.54MiB包及仓库外smoke通过，错误链路SVG已渲染查看。CUA再次返回Mac locked，原生和物理设备验收继续保留；其他领域错误及02环境探测未宣称完成。
 
 75：主动环境探测及有界CLI状态已接设置页。全量check含51项Node、workspace Rust、19项Host与SQLite恢复；客户端13项、Workbench23项、Clippy和手机权限验证通过。最后对照SDK修正v2基础会话声明后，专门Host探测与最终桌面62.7秒通过，亮暗截图和SVG已查看。830.64MiB包及仓库外smoke通过。全量check和手机运行在最后能力显示字段修正之前，最终字段由专门Host和桌面回归覆盖。真实Codex/Claude只读握手通过，CLI分别已登录/未登录；CUA仍Mac locked。02、14和52继续保留未完成项。
+
+76：CLI配置摘要、按ID探测及创建会话已交付；02结合75完成实现验收。完整check含51项Node、workspace Rust、21项Host及SQLite恢复通过，CLI超时关闭连接也有虚拟时钟验证；Clippy、桌面62.0秒、手机23.7秒、831.59MiB包和仓库外smoke通过。新SVG已渲染核对。没有以CLI/浏览器检查替代原生及物理设备验收；14和52仍未完成。

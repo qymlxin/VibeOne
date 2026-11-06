@@ -109,9 +109,13 @@
 
 - [74-catalog-domain-errors](issues/74-catalog-domain-errors.md)：工作区/Profile类型化领域错误及稳定HTTP码；真实SQLite失败、22项Workbench、18项Host、Clippy和包外验证通过，其他业务错误仍由14继续。
 
-- [75-provider-probe](issues/75-provider-probe.md)：主动环境探测、版本与CLI状态已交付；初始化不创建会话或任务，超时清理、隐私过滤、亮暗及真实双桥接器验证通过。02仍缺CLI Profile选择入口。
+- [75-provider-probe](issues/75-provider-probe.md)：主动环境探测、版本与CLI状态已交付；初始化不创建会话或任务，超时清理、隐私过滤、亮暗及真实双桥接器验证通过。CLI入口由76补齐。
+
+- [76-cli-profile-selection](issues/76-cli-profile-selection.md)：配置摘要、CLI按ID探测/创建及本地传输限制已交付，完整回归与包外检查通过；02结合75由此完成。
 
 ## Fog
+
+- 最终验收需核对core-functions.md的显式会话恢复要求与当前“新上下文继续”策略；协议能力声明不等于已实现上游上下文恢复。
 
 
 - 真实Claude认证及该工具的审批/取消仍由本机账号和实际工具能力决定；Codex路径和人工请求可控时间超时已有实测。

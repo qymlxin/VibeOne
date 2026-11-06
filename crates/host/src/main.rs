@@ -1,3 +1,4 @@
+mod cli;
 mod workspace;
 
 use serde_json::json;
@@ -20,6 +21,12 @@ async fn main() {
 
 async fn run() -> Result<()> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    if args
+        .first()
+        .is_some_and(|value| value == "profiles" || value == "session")
+    {
+        return cli::run(&args).await.map_err(Error::Invalid);
+    }
     if args.len() == 1 && args[0] == "serve" {
         let directory = std::env::var_os("VIBEONE_DATA_DIR")
             .map(PathBuf::from)
@@ -42,6 +49,7 @@ async fn run() -> Result<()> {
         println!(
             "VibeOne Host (P0)\n\n  vibeone-host serve [--data-dir <directory>]\n  vibeone-host plugin scan --workspace <directory>\n\nserve starts the authenticated local ACP v2 workbench; plugin scan runs Rust → Node → Rust."
         );
+        println!("\n{}", cli::USAGE);
         return Ok(());
     }
     if args.len() != 4 || args[0] != "plugin" || args[1] != "scan" || args[2] != "--workspace" {

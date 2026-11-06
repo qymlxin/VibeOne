@@ -4,6 +4,21 @@ use serde_json::{Value, json};
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ProfileSummary {
+    pub id: String,
+    pub name: String,
+    pub provider: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision: Option<u64>,
+}
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ProfileCatalogResponse {
+    pub profiles: Vec<ProfileSummary>,
+    pub issues: Vec<ProfileIssue>,
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ProviderProbeRequest {
     #[serde(default)]
     pub profile_id: Option<String>,
@@ -154,7 +169,7 @@ impl From<ProfileView> for PinnedProfile {
         }
     }
 }
-#[derive(Clone, Serialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileIssue {
     pub id: String,
@@ -400,6 +415,8 @@ pub fn schemas() -> Value {
         "RunRecord":schema_for!(RunRecord),
         "SessionView":schema_for!(crate::projection::SessionView),
         "ProfileView":schema_for!(ProfileView),
+        "ProfileSummary":schema_for!(ProfileSummary),
+        "ProfileCatalogResponse":schema_for!(ProfileCatalogResponse),
         "PinnedProfile":schema_for!(PinnedProfile),
         "ProfileIssue":schema_for!(ProfileIssue),
         "ProfileRequest":schema_for!(ProfileRequest),

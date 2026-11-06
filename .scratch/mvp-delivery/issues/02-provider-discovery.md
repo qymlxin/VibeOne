@@ -1,6 +1,6 @@
 # 02 · Agent Provider 描述与环境探测
 
-Status: claimed
+Status: resolved
 Type: task
 Batch: A
 Blocked by: 01
@@ -33,3 +33,7 @@ Blocked by: 01
 完整运行入口、自动验证和人工待验见 [验收清单](../../../docs/acceptance.md)。
 
 2026-11-07：75补齐设置页和Host的初始化版本探测、v2会话/媒体能力及内置CLI登录状态与引导。真实Codex/Claude桥接器均完成只读初始化，分别报告CLI已登录/未登录；不创建上游会话或请求模型。自定义配置认证保留未确认；CLI目前仍仅有serve/plugin scan，尚无通过命令行选择已保存Profile的入口，因此02继续claimed，未冒充整票完成。
+
+## Answer
+
+76已补齐剩余CLI配置选择：按ID列出、探测并创建会话，由Host固定修订和工作目录。结合75的实际版本/协议检测、CLI认证状态与指引，以及现有Profile启动参数校验、媒体能力和会话configOptions显示，本票实现范围完成。v2基础会话能力不套用v1加载标志；具体模式在上游会话建立后读取，不伪造支持。认证凭据继续由原工具管理，不从状态输出收集或保存凭据。CLI和完整Host/桌面/手机验证已通过，见76。此关闭不表示已完成所有工具的实际模型认证，也不表示总原型或原生验收完成。

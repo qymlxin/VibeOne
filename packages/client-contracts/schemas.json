@@ -1703,6 +1703,114 @@
     },
     "additionalProperties": true
   },
+  "ProfileSummary": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProfileSummary",
+    "type": "object",
+    "required": [
+      "id",
+      "name",
+      "provider"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "provider": {
+        "type": "string"
+      },
+      "revision": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      }
+    }
+  },
+  "ProfileCatalogResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProfileCatalogResponse",
+    "type": "object",
+    "required": [
+      "issues",
+      "profiles"
+    ],
+    "properties": {
+      "issues": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/ProfileIssue"
+        }
+      },
+      "profiles": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/ProfileSummary"
+        }
+      }
+    },
+    "definitions": {
+      "ProfileIssue": {
+        "type": "object",
+        "required": [
+          "error",
+          "id",
+          "recordHash"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "recordHash": {
+            "type": "string"
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      },
+      "ProfileSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "provider"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
   "PinnedProfile": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "PinnedProfile",

@@ -177,7 +177,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/snapshot",get(snapshot))
         .route("/v1/sync",get(sync_view))
         .route("/v1/workspaces",post(import_workspace))
-        .route("/v1/profiles",post(profile))
+        .route("/v1/profiles",get(profile_catalog).post(profile))
         .route("/v1/providers/{id}/probe",post(provider_probe))
         .route("/v1/remote",post(remote::configure))
         .route("/v1/devices",get(remote::status))
@@ -324,6 +324,9 @@ async fn import_workspace(
         .await
         .map(Json)
         .map_err(domain_fail)
+}
+async fn profile_catalog(State(state): State<Server>) -> Json<ProfileCatalogResponse> {
+    Json(state.workbench.profile_catalog())
 }
 async fn profile(
     State(state): State<Server>,

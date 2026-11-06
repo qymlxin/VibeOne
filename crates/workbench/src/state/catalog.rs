@@ -187,6 +187,21 @@ impl Workbench {
         }
         Ok(profile)
     }
+    pub(crate) fn profile_catalog(&self) -> crate::contracts::ProfileCatalogResponse {
+        let (profiles, issues) = self.profile_views();
+        crate::contracts::ProfileCatalogResponse {
+            profiles: profiles
+                .into_iter()
+                .map(|profile| crate::contracts::ProfileSummary {
+                    id: profile.id,
+                    name: profile.name,
+                    provider: profile.provider,
+                    revision: profile.details.revision,
+                })
+                .collect(),
+            issues,
+        }
+    }
     pub(crate) fn profile_views(
         &self,
     ) -> (

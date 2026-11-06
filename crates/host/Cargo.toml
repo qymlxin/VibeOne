@@ -9,3 +9,10 @@ vibeone-plugin-host = { path = "../plugin-host" }
 vibeone-workbench = { path = "../workbench" }
 serde_json.workspace = true
 tokio.workspace = true
+
+hyper = { version = "=1.12.0", features = ["client", "http1"] }
+hyper-util = { version = "=0.1.21", features = ["tokio"] }
+http-body-util = "=0.1.5"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
