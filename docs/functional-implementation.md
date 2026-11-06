@@ -168,7 +168,7 @@ PWA 后台可能暂停连接，通知是增强通道；推送只传不透明对�
 | `approval.list/decide` | 范围 / option_id、请求版本 | 决定、投递状态或冲突 |
 | `device.pair/revoke` | 单次码 / device_id | 配对状态 / 撤销回执 |
 | `sync.snapshot/subscribe` | 授权范围、cursor | revision、high-water mark、事件 |
-| `plugin.inspect/install` | 包引用、digest、安装意图 | 检查结果、operation_id |
+| `plugin.inspect/install` | 包引用、digest、安装意图 | 检查结果、operation_id（94已补后台入口，95接正式页面） |
 | `plugin.enable/update/disable` | plugin_id、期望代 | operation_id、catalog revision |
 | `plugin.command.invoke` | contribution、generation、输入 | 执行回执或结构化结果 |
 

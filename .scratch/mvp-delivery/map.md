@@ -147,6 +147,8 @@
 
 - [93-operation-response-contracts](issues/93-operation-response-contracts.md)：插件操作实际回执/摘要/详情与快照操作元数据使用共享类型，明确公开字段、JSON结果及旧记录兼容；全量、类型反例、桌面/手机与重建包外检查通过。14原始验收继续核对。
 
+- [94-plugin-lifecycle-receipts](issues/94-plugin-lifecycle-receipts.md)：审计确认生命周期缺少原定operationId，已补齐本机持久入口、共用执行器和真实回执验证；正式页面由95接入。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

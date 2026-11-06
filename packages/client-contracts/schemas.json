@@ -1,4 +1,36 @@
 {
+  "PluginLifecycleRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PluginLifecycleRequest",
+    "type": "object",
+    "required": [
+      "action",
+      "input",
+      "key"
+    ],
+    "properties": {
+      "action": {
+        "$ref": "#/definitions/PluginLifecycleAction"
+      },
+      "input": true,
+      "key": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "definitions": {
+      "PluginLifecycleAction": {
+        "type": "string",
+        "enum": [
+          "inspect",
+          "prepare",
+          "commit",
+          "discard",
+          "disable"
+        ]
+      }
+    }
+  },
   "PluginOperationReceipt": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "PluginOperationReceipt",
@@ -69,6 +101,12 @@
         "type": "string"
       },
       "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "kind": {
         "type": [
           "string",
           "null"
@@ -173,6 +211,12 @@
         "type": "string"
       },
       "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "kind": {
         "type": [
           "string",
           "null"
@@ -307,6 +351,12 @@
             "type": "string"
           },
           "key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
             "type": [
               "string",
               "null"
@@ -1212,6 +1262,12 @@
               "null"
             ]
           },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "pluginId": {
             "type": [
               "string",
@@ -1765,6 +1821,12 @@
             "type": "string"
           },
           "key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
             "type": [
               "string",
               "null"

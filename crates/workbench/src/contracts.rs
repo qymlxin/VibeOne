@@ -154,6 +154,22 @@ pub struct PluginTicketRequest {
 pub struct CreateSessionResponse {
     pub id: String,
 }
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginLifecycleAction {
+    Inspect,
+    Prepare,
+    Commit,
+    Discard,
+    Disable,
+}
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PluginLifecycleRequest {
+    pub key: String,
+    pub action: PluginLifecycleAction,
+    pub input: Value,
+}
 #[derive(Clone, Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginOperationReceipt {
@@ -169,6 +185,8 @@ pub struct PluginOperationError {
 #[serde(rename_all = "camelCase")]
 pub struct PluginOperationSummary {
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
     pub state: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
@@ -498,6 +516,7 @@ pub enum ProfileResponse {
 /// Generated from the same types used by the HTTP extractors/serializers.
 pub fn schemas() -> Value {
     json!({
+        "PluginLifecycleRequest":schema_for!(PluginLifecycleRequest),
         "PluginOperationReceipt":schema_for!(PluginOperationReceipt),
         "PluginOperationSummary":schema_for!(PluginOperationSummary),
         "PluginOperationRecord":schema_for!(PluginOperationRecord),

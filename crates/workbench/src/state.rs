@@ -384,6 +384,7 @@ impl Workbench {
                     "conversationHistory",
                     "cursorSync",
                     "pluginOperations",
+                    "pluginLifecycleOperations",
                     "structuredErrors",
                 ]
                 .into_iter()

@@ -161,6 +161,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/plugins/{id}/operations",post(plugin_operation).layer(DefaultBodyLimit::max(600*1024)))
         .route("/v1/operations/{id}",get(operation_status))
         .route("/v1/operations",get(operation_list))
+        .route("/v1/plugin-lifecycle/operations",post(plugin_lifecycle).layer(DefaultBodyLimit::max(600*1024)))
         .route("/v1/plugins/{id}/app",get(plugin_app))
         .route("/v1/diagnostics",get(diagnostics))
         .route("/v1/event-log",get(event_page))
@@ -525,6 +526,15 @@ async fn plugin_operation(
     Json(body): Json<Value>,
 ) -> Result<(StatusCode, Json<PluginOperationReceipt>), (StatusCode, Json<Value>)> {
     domain_command(async move { state.workbench.submit_plugin_operation(&id, body).await })
+        .await
+        .map(|receipt| (StatusCode::ACCEPTED, Json(receipt)))
+        .map_err(domain_fail)
+}
+async fn plugin_lifecycle(
+    State(state): State<Server>,
+    Json(request): Json<PluginLifecycleRequest>,
+) -> Result<(StatusCode, Json<PluginOperationReceipt>), (StatusCode, Json<Value>)> {
+    domain_command(async move { state.workbench.submit_plugin_lifecycle(request).await })
         .await
         .map(|receipt| (StatusCode::ACCEPTED, Json(receipt)))
         .map_err(domain_fail)

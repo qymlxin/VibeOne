@@ -1,7 +1,8 @@
 //! Durable receipts for trusted local plugin commands; interrupted work is never replayed.
 use super::*;
 use crate::contracts::{
-    PluginOperationError, PluginOperationReceipt, PluginOperationRecord, PluginOperationSummary,
+    PluginLifecycleAction, PluginLifecycleRequest, PluginOperationError, PluginOperationReceipt,
+    PluginOperationRecord, PluginOperationSummary,
 };
 use sha2::{Digest, Sha256};
 
@@ -114,12 +115,21 @@ impl Workbench {
         }
         let prepared = self.plugins.prepare_invocation(self, plugin, &body).await?;
         let id = uuid::Uuid::new_v4().to_string();
-        let record = json!({"id":id,"key":key,"fingerprint":fingerprint,"pluginId":plugin,"generation":prepared.generation(),"handler":body["handler"],"title":prepared.title,"pluginName":prepared.plugin_name,"workspaceId":body["workspaceId"],"state":"accepted","createdAt":execution::now()});
+        let record = json!({"id":id,"key":key,"fingerprint":fingerprint,"kind":"plugin.command","pluginId":plugin,"generation":prepared.generation(),"handler":body["handler"],"title":prepared.title,"pluginName":prepared.plugin_name,"workspaceId":body["workspaceId"],"state":"accepted","createdAt":execution::now()});
         self.save_catalog("operation", &id, record.clone()).await?;
         let receipt = PluginOperationReceipt {
             operation_id: id.clone(),
             state: "accepted".into(),
         };
+        self.start_operation(id, record, async move { prepared.execute().await });
+        Ok(receipt)
+    }
+    fn start_operation(
+        self: &Arc<Self>,
+        id: String,
+        record: Value,
+        work: impl std::future::Future<Output = Result<Value, DomainError>> + Send + 'static,
+    ) {
         let workbench = self.clone();
         tokio::spawn(async move {
             let mut record = record;
@@ -131,14 +141,12 @@ impl Workbench {
             {
                 return;
             }
-            let job = tokio::spawn(async move { prepared.execute().await });
-            let result = job.await.unwrap_or_else(|_| {
+            match tokio::spawn(work).await.unwrap_or_else(|_| {
                 Err(DomainError::new(
                     ErrorKind::PluginOperationFailed,
-                    "插件操作执行任务异常结束",
+                    "后台操作执行任务异常结束",
                 ))
-            });
-            match result {
+            }) {
                 Ok(value) => {
                     record["state"] = json!("succeeded");
                     record["result"] = value;
@@ -151,7 +159,122 @@ impl Workbench {
             record["finishedAt"] = json!(execution::now());
             let _ = workbench.put_catalog("operation", &id, record).await;
         });
-        Ok(receipt)
+    }
+    pub(crate) async fn submit_plugin_lifecycle(
+        self: &Arc<Self>,
+        request: PluginLifecycleRequest,
+    ) -> Result<PluginOperationReceipt, DomainError> {
+        use PluginLifecycleAction::*;
+        self.command_available()?;
+        if request.key.is_empty() || request.key.len() > 128 {
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "操作幂等键必须为1至128字节",
+            ));
+        }
+        let field = match request.action {
+            Inspect | Prepare => "path",
+            Commit | Discard => "ticket",
+            Disable => "id",
+        };
+        let target = request.input[field]
+            .as_str()
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                DomainError::new(ErrorKind::InvalidInput, "插件管理操作缺少有效目标参数")
+            })?
+            .to_owned();
+        if !request.input.is_object() {
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "插件管理参数须为对象",
+            ));
+        }
+        if matches!(request.action, Prepare) && request.input["trusted"] != true {
+            return Err(DomainError::new(
+                ErrorKind::PluginTrustRequired,
+                "请先确认信任此插件",
+            ));
+        }
+        let bytes = serde_json::to_vec(
+            &json!({"kind":"plugin.lifecycle","action":request.action,"input":request.input}),
+        )
+        .map_err(|_| DomainError::new(ErrorKind::Internal, "插件管理请求序列化失败"))?;
+        if bytes.len() > 512 * 1024 {
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "插件管理输入超过512KiB",
+            ));
+        }
+        let fingerprint = Sha256::digest(bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        let _gate = self.operation_gate.lock().await;
+        self.command_available()?;
+        let records = self.operation_records();
+        if let Some((id, record)) = records
+            .iter()
+            .find(|(_, record)| record["key"] == request.key)
+        {
+            if record["fingerprint"] != fingerprint {
+                return Err(DomainError::new(
+                    ErrorKind::IdempotencyConflict,
+                    "同一幂等键的插件操作内容不同",
+                ));
+            }
+            if record["id"] != *id {
+                return Err(DomainError::new(ErrorKind::Internal, "操作回执身份无效"));
+            }
+            let state = record["state"]
+                .as_str()
+                .ok_or_else(|| DomainError::new(ErrorKind::Internal, "操作回执状态无效"))?;
+            return Ok(PluginOperationReceipt {
+                operation_id: id.clone(),
+                state: state.to_owned(),
+            });
+        }
+        if records
+            .iter()
+            .filter(|(_, record)| matches!(record["state"].as_str(), Some("accepted" | "running")))
+            .count()
+            >= 32
+        {
+            return Err(DomainError::new(
+                ErrorKind::OperationLimit,
+                "插件后台操作已达到并发上限32",
+            ));
+        }
+        let title = match request.action {
+            Inspect => "检查插件",
+            Prepare => "准备插件候选",
+            Commit => "发布插件候选",
+            Discard => "丢弃插件候选",
+            Disable => "停用插件",
+        };
+        let id = uuid::Uuid::new_v4().to_string();
+        let record = json!({"id":id,"key":request.key,"fingerprint":fingerprint,"kind":"plugin.lifecycle","handler":request.action,"title":title,"pluginId":if matches!(request.action,Disable){Some(target.clone())}else{None},"state":"accepted","createdAt":execution::now()});
+        self.save_catalog("operation", &id, record.clone()).await?;
+        let workbench = self.clone();
+        self.start_operation(id.clone(), record, async move {
+            match request.action {
+                Inspect => crate::plugins::inspect(PathBuf::from(target)).await,
+                Prepare => workbench.plugins.prepare(&workbench, request.input).await,
+                Commit => workbench.plugins.commit(&workbench, &target).await,
+                Discard => {
+                    workbench.plugins.discard(&target);
+                    Ok(json!({"discarded":true}))
+                }
+                Disable => {
+                    workbench.plugins.disable(&workbench, &target).await?;
+                    Ok(json!({"disabled":true}))
+                }
+            }
+        });
+        Ok(PluginOperationReceipt {
+            operation_id: id,
+            state: "accepted".into(),
+        })
     }
 }
 
@@ -172,6 +295,7 @@ fn operation_summary(id: &str, record: &Value) -> PluginOperationSummary {
     let text = |key: &str| record[key].as_str().map(str::to_owned);
     PluginOperationSummary {
         id: id.to_owned(),
+        kind: text("kind"),
         state: text("state").unwrap_or_else(|| "invalid".into()),
         key: text("key"),
         plugin_id: text("pluginId"),
@@ -189,6 +313,61 @@ fn operation_summary(id: &str, record: &Value) -> PluginOperationSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn lifecycle_receipts_obey_storage_failure_capacity_and_restart_rules() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(directory.path(), vec![]).await.unwrap();
+        for index in 0..32 {
+            let id = format!("active-{index}");
+            workbench
+                .save_catalog(
+                    "operation",
+                    &id,
+                    json!({"id":id,"kind":"plugin.lifecycle","state":"accepted"}),
+                )
+                .await
+                .unwrap();
+        }
+        let request = || PluginLifecycleRequest {
+            key: "new".into(),
+            action: PluginLifecycleAction::Inspect,
+            input: json!({"path":"/missing"}),
+        };
+        assert_eq!(
+            workbench
+                .submit_plugin_lifecycle(request())
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::OperationLimit
+        );
+        workbench.close().await;
+        let restored = Workbench::open(directory.path(), vec![]).await.unwrap();
+        assert!(
+            restored
+                .catalog("operation")
+                .iter()
+                .all(|record| record["state"] == "interrupted"
+                    && record["kind"] == "plugin.lifecycle")
+        );
+        restored.store.close().await;
+        assert_eq!(
+            restored
+                .submit_plugin_lifecycle(request())
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::StorageUnavailable
+        );
+        assert!(
+            !restored
+                .catalog("operation")
+                .iter()
+                .any(|record| record["key"] == "new")
+        );
+        restored.close().await;
+    }
+
     #[tokio::test]
     async fn operation_public_records_preserve_results_without_private_storage_fields() {
         let directory = tempfile::tempdir().unwrap();
