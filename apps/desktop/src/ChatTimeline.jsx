@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {Check, ChevronDown, LoaderCircle, MessageSquare, Terminal, X} from 'lucide-react';
 import {activityTail} from './chat-timeline.js';
+import {ToolDetails} from './ToolDetails.jsx';
 
 const markdownComponents = {
   a: props => <a {...props} target="_blank" rel="noopener noreferrer"/>,
@@ -24,13 +25,7 @@ function ActivityItem({activity,onInspect}) {
   const {item,type,text}=activity;
   return <details className={`desktop-activity-item ${type}`} onToggle={event=>{if(event.currentTarget.open)onInspect();}}>
     <summary><span>{typeLabel[type]}</span><span>{activityTail(text)}</span>{type==='tool' && <span>{toolStatus[item.status] ?? item.status ?? '处理中'}</span>}<ChevronDown size={12}/></summary>
-    {type==='tool' ? <div className="desktop-activity-detail">
-      {item.rawInput != null && <><strong>输入</strong><pre>{JSON.stringify(item.rawInput,null,2)}</pre></>}
-      {item.content != null && <><strong>内容</strong><pre>{JSON.stringify(item.content,null,2)}</pre></>}
-      {item.output && <><strong>输出</strong><pre>{item.output}</pre></>}
-      {item.rawOutput != null && <pre>{JSON.stringify(item.rawOutput,null,2)}</pre>}
-      {item.rawInput == null && item.content == null && !item.output && item.rawOutput == null && <p>Agent 尚未返回工具详情。</p>}
-    </div> : <pre className="desktop-activity-detail">{text}</pre>}
+    {type==='tool' ? <ToolDetails tool={item}/> : <pre className="desktop-activity-detail">{text}</pre>}
   </details>;
 }
 

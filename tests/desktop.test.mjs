@@ -157,7 +157,7 @@ test(
     assert.equal(await latestProcess.getByRole('button').getAttribute('aria-expanded'),'false');
     await latestProcess.getByRole('button').click();
     const firstTool=latestProcess.locator('.desktop-activity-item.tool').first();
-    await firstTool.locator('summary').click();
+    await firstTool.locator(':scope > summary').click();
     await firstTool.getByText('输入',{exact:true}).waitFor();
     assert.ok((await firstTool.innerText()).includes('模拟步骤完成'));
     await latestProcess.getByRole('button').click();
@@ -305,6 +305,41 @@ test(
       );
     });
     await page.getByText("本轮执行结束", { exact: true }).waitFor();
+
+    await page.setViewportSize({width:1360,height:900});
+    await page.getByRole('textbox',{name:'发送任务'}).fill('/format');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    const formatted=page.locator('.desktop-message.assistant').last();
+    await formatted.locator('pre code').filter({hasText:'second'}).waitFor();
+    await page.getByText('本轮执行结束',{exact:true}).waitFor();
+    const layout=await formatted.locator('.desktop-message-text').evaluate(element=>{
+      const list=element.querySelector('ol'), paragraph=element.querySelector('p'), firstItem=list.querySelector('li'), firstParagraph=firstItem.querySelector('p');
+      return {whiteSpace:getComputedStyle(element).whiteSpace,gap:list.getBoundingClientRect().top-paragraph.getBoundingClientRect().bottom,itemGap:firstParagraph.getBoundingClientRect().top-firstItem.getBoundingClientRect().top,code:element.querySelector('pre code').textContent};
+    });
+    assert.equal(layout.whiteSpace,'normal');assert.ok(layout.gap<24);assert.ok(layout.itemGap<10);assert.ok(layout.code.includes('  first\n    second'));
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-markdown-spacing.png')});
+    await page.getByRole('textbox',{name:'发送任务'}).fill('/rich-tools');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    await page.getByText('工具视图演示已完成。没有搜索网页或执行命令。',{exact:true}).waitFor();
+    await page.getByText('本轮执行结束',{exact:true}).waitFor();
+    const rich=page.locator('.desktop-turn').last().getByRole('region',{name:'Agent 处理过程'});
+    await rich.getByRole('button').click();
+    const richTools=rich.locator('.desktop-activity-item.tool');
+    await richTools.nth(0).locator(':scope > summary').click();
+    await richTools.nth(0).getByText('测试查询一',{exact:true}).waitFor();
+    assert.equal(await richTools.nth(0).locator('.desktop-tool-raw').getAttribute('open'),null);
+    assert.equal(await richTools.nth(0).locator('pre:visible').count(),0);
+    assert.equal(await richTools.nth(0).locator('.desktop-tool-raw pre').count(),0);
+    await richTools.nth(0).locator('.desktop-tool-raw > summary').click();
+    assert.ok((await richTools.nth(0).locator('.desktop-tool-raw pre').innerText()).includes('transport-only'));
+    await richTools.nth(0).locator('.desktop-tool-raw > summary').click();
+
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-tool-search-rendered.png')});
+    await richTools.nth(1).locator(':scope > summary').click();
+    assert.equal(await richTools.nth(1).getByRole('link').getAttribute('href'),'https://example.com/docs');
+    await richTools.nth(2).locator(':scope > summary').click();
+    await richTools.nth(2).getByText('退出码',{exact:true}).waitFor();
+    await richTools.nth(2).getByText('hello',{exact:true}).waitFor();
 
     await page.getByRole("button", { name: "连接与设置", exact: true }).click();
     await page

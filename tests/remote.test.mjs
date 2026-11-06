@@ -175,6 +175,16 @@ test(
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-mobile.png')});
     await page.getByText('本轮执行结束',{exact:true}).waitFor();
 
+    await page.getByRole('textbox',{name:'发送任务'}).fill('/rich-tools');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    await page.getByText('工具视图演示已完成。没有搜索网页或执行命令。',{exact:true}).waitFor();
+    await page.getByText('本轮执行结束',{exact:true}).waitFor();
+    const mobileTool=page.locator('.desktop-turn').last().getByRole('region',{name:'Agent 处理过程'});
+    await mobileTool.getByRole('button').click();
+    await mobileTool.locator('.desktop-activity-item.tool').first().locator(':scope > summary').click();
+    await mobileTool.getByText('测试查询一',{exact:true}).waitFor();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-tool-details-mobile.png')});
     await page.getByRole("textbox", { name: "发送任务" }).fill("/approve");
     await page.getByRole("button", { name: "发送消息", exact: true }).click();
     await page.getByRole("button", { name: "允许一次", exact: true }).click();

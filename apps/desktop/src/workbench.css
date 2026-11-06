@@ -1196,11 +1196,11 @@ p {
 .desktop-activity .desktop-live-status { margin: 0; padding: 5px 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
 .desktop-activity-history { max-height: 320px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 6px; }
 .desktop-activity-item { border-bottom: 1px solid var(--line); }
-.desktop-activity-item summary { display: flex; align-items: baseline; gap: 8px; padding: 9px 0; cursor: pointer; }
-.desktop-activity-item summary > span:first-child { flex: none; font-size: 11px; }
-.desktop-activity-item summary > span:nth-child(2) { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
-.desktop-activity-item summary > span:nth-child(3), .desktop-activity-item summary > svg { flex: none; }
-.desktop-activity-item[open] summary > svg { transform: rotate(180deg); }
+.desktop-activity-item > summary { display: flex; align-items: baseline; gap: 8px; padding: 9px 0; cursor: pointer; }
+.desktop-activity-item > summary > span:first-child { flex: none; font-size: 11px; }
+.desktop-activity-item > summary > span:nth-child(2) { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.desktop-activity-item > summary > span:nth-child(3), .desktop-activity-item > summary > svg { flex: none; }
+.desktop-activity-item[open] > summary > svg { transform: rotate(180deg); }
 .desktop-activity-detail { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; margin: 0; padding: 6px 0 12px; font-size: 12px; line-height: 1.75; color: var(--ink); }
 .desktop-activity-item:not(.tool) > pre { font-family: inherit; }
 .desktop-activity-detail pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
@@ -1213,3 +1213,37 @@ p {
   .desktop-activity-toggle { gap: 6px; min-height: 40px; }
   .desktop-activity-history { max-height: 260px; }
 }
+
+/* Markdown blocks own their spacing; preserved source newlines are only for input/code. */
+.desktop-message.assistant .desktop-message-text { white-space: normal; }
+.desktop-message.assistant .desktop-message-text > :first-child { margin-top: 0; }
+.desktop-message.assistant .desktop-message-text > :last-child { margin-bottom: 0; }
+.desktop-message-text p { margin: 0 0 8px; }
+.desktop-message-text :is(ul,ol) { margin: 8px 0; padding-left: 1.6em; }
+.desktop-message-text li { margin: 4px 0; }
+.desktop-message-text li > p { margin: 3px 0; }
+.desktop-message-text li > :is(ul,ol) { margin: 4px 0; }
+.desktop-message-text :is(h1,h2,h3,h4) { margin: 16px 0 8px; font-weight: 600; line-height: 1.5; }
+.desktop-message-text :is(h1,h2) { font-size: 17px; }
+.desktop-message-text :is(h3,h4) { font-size: 14px; }
+.desktop-message-text blockquote { margin: 8px 0; padding-left: 12px; border-left: 1px solid var(--line-strong); color: var(--muted); }
+.desktop-message-text a, .desktop-tool-detail a { color: var(--ink); text-underline-offset: 3px; overflow-wrap: anywhere; }
+.desktop-message-text a:hover, .desktop-tool-detail a:hover { text-decoration-thickness: 2px; }
+.desktop-message-text pre code { white-space: inherit; }
+.desktop-tool-detail { padding: 6px 0 12px; color: var(--ink); white-space: normal; font-size: 12px; line-height: 1.65; }
+.desktop-tool-detail h4 { margin: 8px 0; font-size: 11px; color: var(--muted); font-weight: 500; }
+.desktop-tool-detail h5 { font-size: 11px; margin: 6px 0; font-weight: 500; }
+.desktop-tool-detail section + section { margin-top: 12px; }
+.desktop-tool-fields { display: grid; grid-template-columns: minmax(4em,auto) minmax(0,1fr); gap: 6px 12px; margin: 0; align-items: baseline; }
+.desktop-tool-fields dt { color: var(--muted); overflow-wrap: anywhere; }
+.desktop-tool-fields dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.desktop-tool-fields .desktop-tool-fields { margin: 0; }
+.desktop-tool-detail ul { padding-left: 1.4em; margin: 0; }
+.desktop-tool-detail li + li { margin-top: 5px; }
+.desktop-tool-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.desktop-tool-muted { color: var(--muted); }
+.desktop-tool-detail pre { white-space: pre; max-height: 240px; overflow: auto; overscroll-behavior: contain; margin: 0; padding: 8px; background: var(--soft); font: 11px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.desktop-tool-raw { margin-top: 12px; }
+.desktop-tool-raw > summary { cursor: pointer; color: var(--muted); font-size: 11px; padding: 4px 0; }
+.desktop-tool-raw > pre { margin-top: 6px; }
+.desktop-tool-diff code { overflow-wrap: anywhere; }

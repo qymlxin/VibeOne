@@ -25,6 +25,16 @@ async function run(sessionId, prompt, userId, epoch) {
       if (!active()) return;
       update(sessionId, { sessionUpdate: 'agent_thought', messageId, content: [{ type: 'text', text }] });
     }
+    if (prompt.includes('/format')) response='这是一段说明。\n\n1. **第一项**\n\n   第一项说明。\n\n2. **第二项**\n\n   第二项说明。\n\n```text\n  first\n    second\n```';
+    if (prompt.includes('/rich-tools')) {
+      const calls=[
+        {title:'演示：搜索资料',rawInput:{type:'webSearch',id:'transport-only',query:'summary...',action:{type:'search',queries:['测试查询一','测试查询二']}}},
+        {title:'演示：打开网页',rawInput:{type:'webSearch',action:{type:'openPage',url:'https://example.com/docs'}}},
+        {title:'演示：运行命令',rawInput:{command:"printf 'hello'",cwd:'/demo'},rawOutput:{exit_code:0},content:[{type:'content',content:{type:'text',text:'hello'}}]},
+      ];
+      calls.forEach((call,index)=>update(sessionId,{sessionUpdate:'tool_call_update',toolCallId:`rich:${userId}:${index}`,status:'completed',...call}));
+      response='工具视图演示已完成。没有搜索网页或执行命令。';
+    }
     if (prompt.includes('/activity')) {
       update(sessionId,{sessionUpdate:'agent_message',messageId:`commentary:${userId}`,content:[{type:'text',text:'演示：我先梳理任务，再检查处理步骤。'}]});
       const stages=['梳理任务范围','检查目录结构','核对变更影响','整理执行结果'];
