@@ -10,6 +10,7 @@ use std::{
 };
 use tokio::sync::{broadcast, watch};
 use vibeone_agent_client::AgentSession;
+mod catalog;
 mod execution;
 use vibeone_storage::{SavedSession, Store, Workspace};
 
@@ -48,6 +49,7 @@ pub struct Workbench {
     catalog_gate: tokio::sync::Mutex<()>,
     publication: Mutex<()>,
     leases: Mutex<HashMap<String, String>>,
+    catalog: Mutex<HashMap<String, HashMap<String, Value>>>,
     stopping: AtomicBool,
     storage_error: Mutex<Option<String>>,
 }
@@ -118,6 +120,10 @@ impl Workbench {
             .workspaces()
             .await
             .map_err(|error| error.to_string())?;
+        let mut catalog = HashMap::<String, HashMap<String, Value>>::new();
+        for (kind, id, value) in store.catalog().await.map_err(|error| error.to_string())? {
+            catalog.entry(kind).or_default().insert(id, value);
+        }
         Ok(Arc::new(Self {
             providers,
             sessions: Mutex::new(sessions),
@@ -128,6 +134,7 @@ impl Workbench {
             catalog_gate: tokio::sync::Mutex::new(()),
             publication: Mutex::new(()),
             leases: Mutex::default(),
+            catalog: Mutex::new(catalog),
             stopping: AtomicBool::new(false),
             storage_error: Mutex::default(),
         }))
@@ -227,7 +234,7 @@ impl Workbench {
             .map(|entry| entry.view.lock().expect("view poisoned").clone())
             .collect();
         views.sort_by(|a, b| a.id.cmp(&b.id));
-        json!({"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"providers":self.providers,"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
+        json!({"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"profiles":self.catalog("profile"),"providers":self.providers,"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
     }
     pub fn entry(&self, id: &str) -> Result<Arc<Entry>, String> {
         self.sessions
@@ -237,9 +244,27 @@ impl Workbench {
             .cloned()
             .ok_or("会话不存在".into())
     }
-    pub async fn create(&self, provider: &str, workspace: &str) -> Result<String, String> {
+    pub async fn create(
+        &self,
+        provider: &str,
+        workspace: &str,
+        profile_id: Option<&str>,
+    ) -> Result<String, String> {
         self.available()?;
         let _catalog = self.catalog_gate.lock().await;
+        let profile = match profile_id {
+            Some(id) => Some(
+                self.catalog("profile")
+                    .into_iter()
+                    .find(|item| item["id"] == id)
+                    .ok_or("Agent Profile 不存在")?,
+            ),
+            None => None,
+        };
+        let provider = profile
+            .as_ref()
+            .and_then(|item| item["provider"].as_str())
+            .unwrap_or(provider);
         let provider = self
             .providers
             .iter()
@@ -281,7 +306,7 @@ impl Workbench {
             queue: vec![],
             queue_paused: false,
             decisions: vec![],
-            profile: None,
+            profile,
         };
         let record = SavedSession {
             id: id.clone(),
@@ -458,7 +483,7 @@ mod tests {
             .unwrap();
         workbench.store.close().await;
         let error = workbench
-            .create("test", directory.path().to_str().unwrap())
+            .create("test", directory.path().to_str().unwrap(), None)
             .await
             .unwrap_err();
         assert!(error.contains("存储失败"));
@@ -466,7 +491,7 @@ mod tests {
         assert!(workbench.snapshot()["storageError"].is_string());
         assert!(
             workbench
-                .create("test", directory.path().to_str().unwrap())
+                .create("test", directory.path().to_str().unwrap(), None)
                 .await
                 .is_err()
         );

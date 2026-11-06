@@ -132,6 +132,70 @@ impl Store {
             })
             .collect()
     }
+    pub async fn import_workspace(&self, path: &str) -> Result<u64> {
+        let mut tx = self.pool.begin().await?;
+        let name = Path::new(path)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+        sqlx::query(
+            "INSERT INTO workspaces(id,path,name) VALUES(?,?,?) ON CONFLICT(path) DO NOTHING",
+        )
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(path)
+        .bind(name.as_ref())
+        .execute(&mut *tx)
+        .await?;
+        let cursor =
+            sqlx::query("INSERT INTO event_log(kind,payload) VALUES('workspace.imported','{}')")
+                .execute(&mut *tx)
+                .await?
+                .last_insert_rowid();
+        tx.commit().await?;
+        Ok(cursor as u64)
+    }
+    pub async fn catalog(&self) -> Result<Vec<(String, String, Value)>> {
+        sqlx::query("SELECT kind,id,value FROM catalog")
+            .fetch_all(&self.pool)
+            .await?
+            .into_iter()
+            .map(|row| {
+                Ok((
+                    row.try_get("kind")?,
+                    row.try_get("id")?,
+                    serde_json::from_str(row.try_get("value")?)?,
+                ))
+            })
+            .collect()
+    }
+    pub async fn put_catalog(&self, kind: &str, id: &str, value: &Value) -> Result<u64> {
+        let mut tx = self.pool.begin().await?;
+        if value.is_null() {
+            sqlx::query("DELETE FROM catalog WHERE kind=? AND id=?")
+                .bind(kind)
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+        } else {
+            sqlx::query("INSERT INTO catalog(kind,id,value) VALUES(?,?,?) ON CONFLICT(kind,id) DO UPDATE SET value=excluded.value,updated_at=unixepoch()")
+            .bind(kind).bind(id).bind(serde_json::to_string(value)?).execute(&mut *tx).await?;
+        }
+        let cursor = sqlx::query("INSERT INTO event_log(kind,payload) VALUES(?,?)")
+            .bind(format!("{kind}.updated"))
+            .bind(serde_json::to_string(&json!({"id":id}))?)
+            .execute(&mut *tx)
+            .await?
+            .last_insert_rowid();
+        tx.commit().await?;
+        Ok(cursor as u64)
+    }
+    pub async fn events(&self, after: u64, limit: u32) -> Result<Vec<Value>> {
+        sqlx::query("SELECT seq,session_id,kind,payload,created_at FROM event_log WHERE seq>? ORDER BY seq LIMIT ?")
+            .bind(after as i64).bind(limit.min(256)).fetch_all(&self.pool).await?.into_iter().map(|row|Ok(json!({
+                "id":format!("event-{}",row.try_get::<i64,_>("seq")?),"cursor":row.try_get::<i64,_>("seq")?,"sessionId":row.try_get::<Option<String>,_>("session_id")?,
+                "kind":row.try_get::<String,_>("kind")?,"payload":serde_json::from_str::<Value>(row.try_get("payload")?)?,"createdAt":row.try_get::<i64,_>("created_at")?
+            }))).collect()
+    }
     pub async fn cursor(&self) -> Result<u64> {
         Ok(
             sqlx::query_scalar::<_, i64>("SELECT COALESCE(MAX(seq),0) FROM event_log")

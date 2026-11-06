@@ -245,16 +245,35 @@ impl Workbench {
         let connection = if let Some(connection) = existing {
             connection
         } else {
-            let (provider, workspace) = {
+            let (provider, workspace, profile) = {
                 let view = entry.view.lock().expect("view poisoned");
-                (view.provider.clone(), view.workspace.clone())
+                (
+                    view.provider.clone(),
+                    view.workspace.clone(),
+                    view.profile.clone(),
+                )
             };
-            let descriptor = self
+            let mut descriptor = self
                 .providers
                 .iter()
                 .find(|item| item.id == provider)
                 .cloned()
                 .ok_or("Agent Provider 不可用")?;
+            if let Some(profile) = profile {
+                if let Some(command) = profile["command"]
+                    .as_str()
+                    .filter(|command| !command.is_empty())
+                {
+                    descriptor.command = PathBuf::from(command);
+                    descriptor.args = vec![];
+                }
+                if let Some(args) = profile["args"].as_array() {
+                    descriptor.args = args
+                        .iter()
+                        .filter_map(|arg| arg.as_str().map(str::to_owned))
+                        .collect();
+                }
+            }
             let generation = entry.generation.fetch_add(1, Ordering::SeqCst) + 1;
             let weak = Arc::downgrade(entry);
             let parent = Arc::downgrade(self);

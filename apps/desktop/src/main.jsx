@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { chooseWorkspace } from "./api.js";
 import { useWorkbench } from "./use-workbench.js";
+import { SessionTools, Queue } from "./SessionTools.jsx";
+import { Management } from "./Management.jsx";
 import mark from "../../../assets/brand/vibeone-logo-mark.svg";
 import "../../../prototype/src/theme.css";
 import "./workbench.css";
@@ -281,12 +283,21 @@ function NewSession({ workbench, online, act, onCreated }) {
   const [workspace, setWorkspace] = useState("");
   const [provider, setProvider] = useState("demo");
   const [busy, setBusy] = useState(false);
-  const selected = workbench.providers.find((item) => item.id === provider);
+  const profile = (workbench.profiles ?? []).find(
+    (item) => item.id === provider,
+  );
+  const selected = workbench.providers.find(
+    (item) => item.id === (profile?.provider ?? provider),
+  );
   const create = async (event) => {
     event.preventDefault();
     setBusy(true);
     const result = await act(() =>
-      workbench.call("/sessions", { provider, workspace }),
+      workbench.call("/sessions", {
+        provider: profile?.provider ?? provider,
+        workspace,
+        ...(profile ? { profileId: profile.id } : {}),
+      }),
     );
     setBusy(false);
     if (result) onCreated(result.id);
@@ -343,6 +354,11 @@ function NewSession({ workbench, online, act, onCreated }) {
           ) : (
             <option>正在读取工具</option>
           )}
+          {(workbench.profiles ?? []).map((item) => (
+            <option key={item.id} value={item.id}>
+              配置 · {item.name}
+            </option>
+          ))}
         </select>
         <p className="desktop-field-help">
           {selected?.description ?? "正在检查本机工具。"}
@@ -372,6 +388,8 @@ function NewSession({ workbench, online, act, onCreated }) {
 function Conversation({ session, workbench, online, act }) {
   const [draft, setDraft] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
+  const [tab, setTab] = useState("chat");
+  const requestKey = useRef(null);
   const [title, setTitle] = useState(session.title);
   const readOnly = session.historyOnly || session.archived;
   const [sending, setSending] = useState(false);
@@ -410,12 +428,18 @@ function Conversation({ session, workbench, online, act }) {
     if (followLatest.current) bottom.current?.scrollIntoView({ block: "end" });
   }, [contentLength, session.approvals.length]);
   const send = async () => {
-    if (!draft.trim() || sending || !online || active || readOnly) return;
+    if (!draft.trim() || sending || !online || readOnly) return;
     setSending(true);
     const result = await act(() =>
-      workbench.call(`/sessions/${session.id}/messages`, { text: draft }),
+      workbench.call(`/sessions/${session.id}/messages`, {
+        text: draft,
+        key: (requestKey.current ??= crypto.randomUUID()),
+      }),
     );
-    if (result) setDraft("");
+    if (result) {
+      setDraft("");
+      requestKey.current = null;
+    }
     setSending(false);
   };
   return (
@@ -497,7 +521,28 @@ function Conversation({ session, workbench, online, act }) {
           {labels[session.status] ?? session.status}
         </span>
       </header>
+      <nav className="desktop-session-tabs" aria-label="会话视图">
+        {[
+          ["chat", "对话"],
+          ["changes", "变更"],
+          ["files", "文件"],
+          ["runs", "执行记录"],
+        ].map(([id, label]) => (
+          <button key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>
+            {label}
+          </button>
+        ))}
+      </nav>
+      {tab !== "chat" && (
+        <SessionTools
+          session={session}
+          workbench={workbench}
+          tab={tab}
+          act={act}
+        />
+      )}
       <div
+        hidden={tab !== "chat"}
         className="desktop-timeline"
         ref={timeline}
         onScroll={(event) => {
@@ -645,18 +690,27 @@ function Conversation({ session, workbench, online, act }) {
           </button>
         </div>
       )}
-      <div className="desktop-composer-wrap">
+      <div hidden={tab !== "chat"} className="desktop-composer-wrap">
         <div className="desktop-composer">
+          <Queue
+            session={session}
+            workbench={workbench}
+            online={online}
+            act={act}
+          />
           <textarea
             aria-label="发送任务"
             disabled={readOnly}
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              requestKey.current = null;
+            }}
             placeholder={
               readOnly
                 ? "历史或归档会话仅供查看，请新建会话开始执行"
                 : active
-                  ? "可以先编辑草稿，等当前轮次结束后发送…"
+                  ? "当前正在执行，发送后加入下一轮队列…"
                   : "描述任务，或发送新的指令…"
             }
             onKeyDown={(event) => {
@@ -685,7 +739,6 @@ function Conversation({ session, workbench, online, act }) {
                 !draft.trim() ||
                 sending ||
                 !online ||
-                active ||
                 session.status === "disconnected"
               }
               onClick={() => void send()}
@@ -799,6 +852,7 @@ function Settings({ workbench }) {
         入口可用不代表已认证。Codex 与 Claude Code
         使用本机已有的工具认证；认证失败会在会话中显示原因。
       </p>
+      <Management workbench={workbench} />
       <h2>协议</h2>
       <dl>
         <dt>Agent 通信</dt>

@@ -2,7 +2,7 @@ use crate::{providers::providers, state::Workbench};
 use axum::{
     Json, Router,
     extract::{
-        DefaultBodyLimit, Path, State, WebSocketUpgrade,
+        DefaultBodyLimit, Path, Query, State, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
     http::{HeaderMap, Method, StatusCode, header},
@@ -91,11 +91,19 @@ pub async fn serve(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error + 
     let app=Router::new()
         .route("/v1/health",get(||async{Json(json!({"name":"vibeone-host","protocolVersion":2,"persistent":true,"version":env!("CARGO_PKG_VERSION")}))}))
         .route("/v1/snapshot",get(snapshot))
+        .route("/v1/workspaces",post(import_workspace))
+        .route("/v1/profiles",post(profile))
+        .route("/v1/diagnostics",get(diagnostics))
+        .route("/v1/event-log",get(event_page))
         .route("/v1/events",get(events))
         .route("/v1/sessions",post(create))
         .route("/v1/sessions/{id}/messages",post(submit))
         .route("/v1/sessions/{id}/cancel",post(cancel))
         .route("/v1/sessions/{id}/queue",post(queue))
+        .route("/v1/sessions/{id}/changes",get(changes))
+        .route("/v1/sessions/{id}/diff",get(diff))
+        .route("/v1/sessions/{id}/file",get(read_file))
+        .route("/v1/sessions/{id}/tree",get(tree))
         .route("/v1/sessions/{id}/metadata",post(metadata))
         .route("/v1/sessions/{id}/approvals/{request}",post(decide))
         .route("/v1/host/stop",post(shutdown))
@@ -140,6 +148,106 @@ async fn authorize(
     }
     next.run(request).await
 }
+#[derive(Deserialize)]
+struct WorkspaceImport {
+    path: String,
+}
+async fn import_workspace(
+    State(state): State<Server>,
+    Json(body): Json<WorkspaceImport>,
+) -> ApiResult {
+    state
+        .workbench
+        .import_workspace(&body.path)
+        .await
+        .map(Json)
+        .map_err(fail)
+}
+async fn profile(State(state): State<Server>, Json(body): Json<Value>) -> ApiResult {
+    state
+        .workbench
+        .save_profile(body)
+        .await
+        .map(Json)
+        .map_err(fail)
+}
+async fn diagnostics(State(state): State<Server>) -> Json<Value> {
+    Json(state.workbench.diagnostics())
+}
+#[derive(Deserialize)]
+struct Cursor {
+    #[serde(default)]
+    after: u64,
+}
+async fn event_page(State(state): State<Server>, Query(query): Query<Cursor>) -> ApiResult {
+    state
+        .workbench
+        .event_page(query.after)
+        .await
+        .map(Json)
+        .map_err(fail)
+}
+fn workspace(state: &Server, id: &str) -> Result<String, (StatusCode, Json<Value>)> {
+    Ok(state
+        .workbench
+        .entry(id)
+        .map_err(fail)?
+        .view
+        .lock()
+        .expect("view poisoned")
+        .workspace
+        .clone())
+}
+#[derive(Deserialize)]
+struct FileQuery {
+    #[serde(default)]
+    path: String,
+    #[serde(default)]
+    staged: bool,
+}
+async fn changes(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
+    crate::files::changes(&workspace(&state, &id)?)
+        .await
+        .map(Json)
+        .map_err(fail)
+}
+async fn diff(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    Query(query): Query<FileQuery>,
+) -> ApiResult {
+    crate::files::diff(&workspace(&state, &id)?, &query.path, query.staged)
+        .await
+        .map(Json)
+        .map_err(fail)
+}
+async fn read_file(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    Query(query): Query<FileQuery>,
+) -> ApiResult {
+    crate::files::read(&workspace(&state, &id)?, &query.path)
+        .await
+        .map(Json)
+        .map_err(fail)
+}
+async fn tree(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    Query(query): Query<FileQuery>,
+) -> ApiResult {
+    crate::files::tree(
+        &workspace(&state, &id)?,
+        if query.path.is_empty() {
+            "."
+        } else {
+            &query.path
+        },
+    )
+    .await
+    .map(Json)
+    .map_err(fail)
+}
 async fn snapshot(State(state): State<Server>) -> Json<Value> {
     Json(state.workbench.snapshot())
 }
@@ -147,11 +255,13 @@ async fn snapshot(State(state): State<Server>) -> Json<Value> {
 struct Create {
     provider: String,
     workspace: String,
+    #[serde(rename = "profileId")]
+    profile_id: Option<String>,
 }
 async fn create(State(state): State<Server>, Json(body): Json<Create>) -> ApiResult {
     state
         .workbench
-        .create(&body.provider, &body.workspace)
+        .create(&body.provider, &body.workspace, body.profile_id.as_deref())
         .await
         .map(|id| Json(json!({"id":id})))
         .map_err(fail)
@@ -278,7 +388,7 @@ async fn socket_loop(mut socket: WebSocket, state: Server) {
             result=input.next()=>match result {Some(Ok(Message::Close(_)))|None|Some(Err(_))=>break,_=>{}},
             event=updates.recv()=>{
                 if matches!(event,Err(tokio::sync::broadcast::error::RecvError::Closed)){break}
-                let message=json!({"type":"changed"});
+                let message=json!({"type":"changed","cursor":state.workbench.revision.load(std::sync::atomic::Ordering::SeqCst)});
                 if !matches!(tokio::time::timeout(Duration::from_secs(3),output.send(Message::Text(message.to_string().into()))).await,Ok(Ok(()))){break}
             }
         }
