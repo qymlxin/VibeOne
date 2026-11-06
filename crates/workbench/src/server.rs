@@ -95,6 +95,7 @@ pub async fn serve(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error + 
         .route("/v1/sessions",post(create))
         .route("/v1/sessions/{id}/messages",post(submit))
         .route("/v1/sessions/{id}/cancel",post(cancel))
+        .route("/v1/sessions/{id}/queue",post(queue))
         .route("/v1/sessions/{id}/metadata",post(metadata))
         .route("/v1/sessions/{id}/approvals/{request}",post(decide))
         .route("/v1/host/stop",post(shutdown))
@@ -158,6 +159,7 @@ async fn create(State(state): State<Server>, Json(body): Json<Create>) -> ApiRes
 #[derive(Deserialize)]
 struct Submit {
     text: String,
+    key: Option<String>,
 }
 async fn submit(
     State(state): State<Server>,
@@ -166,9 +168,9 @@ async fn submit(
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
     state
         .workbench
-        .submit(&id, body.text)
+        .submit(&id, body.text, body.key)
         .await
-        .map(|id| (StatusCode::ACCEPTED, Json(json!({"operationId":id}))))
+        .map(|result| (StatusCode::ACCEPTED, Json(result)))
         .map_err(fail)
 }
 async fn cancel(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
@@ -177,6 +179,27 @@ async fn cancel(State(state): State<Server>, Path(id): Path<String>) -> ApiResul
         .cancel(&id)
         .await
         .map(|_| Json(json!({"cancelRequested":true})))
+        .map_err(fail)
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Queue {
+    withdraw: Option<String>,
+    #[serde(default)]
+    resume: bool,
+    #[serde(default)]
+    fresh_context: bool,
+}
+async fn queue(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    Json(body): Json<Queue>,
+) -> ApiResult {
+    state
+        .workbench
+        .queue_action(&id, body.withdraw, body.resume, body.fresh_context)
+        .await
+        .map(|_| Json(json!({"updated":true})))
         .map_err(fail)
 }
 #[derive(Deserialize)]

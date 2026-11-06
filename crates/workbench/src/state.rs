@@ -9,7 +9,8 @@ use std::{
     },
 };
 use tokio::sync::{broadcast, watch};
-use vibeone_agent_client::{AgentSession, event_sink};
+use vibeone_agent_client::AgentSession;
+mod execution;
 use vibeone_storage::{SavedSession, Store, Workspace};
 
 pub struct Entry {
@@ -18,6 +19,9 @@ pub struct Entry {
     revision: AtomicI64,
     connection: Mutex<Option<Arc<AgentSession>>>,
     cancel: Mutex<Option<watch::Sender<bool>>>,
+    wake: tokio::sync::Notify,
+    driver: AtomicBool,
+    generation: AtomicU64,
 }
 impl Entry {
     fn new(view: SessionView, revision: i64) -> Arc<Self> {
@@ -27,6 +31,9 @@ impl Entry {
             revision: AtomicI64::new(revision),
             connection: Mutex::default(),
             cancel: Mutex::default(),
+            wake: tokio::sync::Notify::new(),
+            driver: AtomicBool::new(false),
+            generation: AtomicU64::new(0),
         })
     }
 }
@@ -40,6 +47,7 @@ pub struct Workbench {
     workspaces: Mutex<Vec<Workspace>>,
     catalog_gate: tokio::sync::Mutex<()>,
     publication: Mutex<()>,
+    leases: Mutex<HashMap<String, String>>,
     stopping: AtomicBool,
     storage_error: Mutex<Option<String>>,
 }
@@ -119,6 +127,7 @@ impl Workbench {
             workspaces: Mutex::new(workspaces),
             catalog_gate: tokio::sync::Mutex::new(()),
             publication: Mutex::new(()),
+            leases: Mutex::default(),
             stopping: AtomicBool::new(false),
             storage_error: Mutex::default(),
         }))
@@ -268,6 +277,11 @@ impl Workbench {
             observed_active: false,
             history_only: false,
             archived: false,
+            runs: vec![],
+            queue: vec![],
+            queue_paused: false,
+            decisions: vec![],
+            profile: None,
         };
         let record = SavedSession {
             id: id.clone(),
@@ -294,155 +308,22 @@ impl Workbench {
         self.changed(cursor);
         Ok(id)
     }
-    async fn apply_event(&self, entry: &Entry, event: Value) -> Result<(), String> {
-        let _gate = entry.gate.lock().await;
-        if self.stopping.load(Ordering::SeqCst) {
-            return Ok(());
-        }
-        let mut view = entry.view.lock().expect("view poisoned").clone();
-        view.apply(&event);
-        self.commit(entry, view, "agent.update", &event).await
-    }
-    pub async fn submit(self: &Arc<Self>, id: &str, text: String) -> Result<String, String> {
-        self.available()?;
-        if text.trim().is_empty() || text.len() > 32_768 {
-            return Err("输入不能为空且不能超过 32 KiB".into());
-        }
-        let entry = self.entry(id)?;
-        let gate = entry.gate.lock().await;
-        let mut view = entry.view.lock().expect("view poisoned").clone();
-        if view.active {
-            return Err("当前轮次尚未结束，请等待或先停止".into());
-        }
-        if view.archived {
-            return Err("请先取消归档再操作此会话".into());
-        }
-        if view.history_only {
-            return Err("这是重启后恢复的历史会话，请新建会话开始新的执行".into());
-        }
-        if view.status == "disconnected" {
-            return Err("Agent 已断开，请新建会话重试".into());
-        }
-        view.active = true;
-        view.observed_active = false;
-        view.status = "starting".into();
-        view.error = None;
-        view.stop_reason = None;
-        if view.title == "新会话" {
-            view.title = text.chars().take(28).collect()
-        }
-        view.messages.push(
-            json!({"id":uuid::Uuid::new_v4().to_string(),"role":"user","text":text,"pending":true}),
-        );
-        let (cancel, mut cancelled) = watch::channel(false);
-        self.commit(&entry, view, "message.submitted", &json!({}))
-            .await?;
-        *entry.cancel.lock().expect("cancel poisoned") = Some(cancel);
-        drop(gate);
-        let workbench = self.clone();
-        let weak = Arc::downgrade(&entry);
-        let operation = uuid::Uuid::new_v4().to_string();
-        tokio::spawn(async move {
-            let existing = entry
-                .connection
-                .lock()
-                .expect("connection poisoned")
-                .clone();
-            let connected = if let Some(connection) = existing {
-                Ok(connection)
-            } else {
-                let (provider, workspace) = {
-                    let view = entry.view.lock().expect("view poisoned");
-                    (view.provider.clone(), view.workspace.clone())
-                };
-                let descriptor = workbench
-                    .providers
-                    .iter()
-                    .find(|value| value.id == provider)
-                    .cloned()
-                    .expect("validated provider");
-                let sink_workbench = Arc::downgrade(&workbench);
-                let sink = event_sink(move |event| {
-                    let weak = weak.clone();
-                    let parent = sink_workbench.clone();
-                    async move {
-                        if let (Some(entry), Some(workbench)) = (weak.upgrade(), parent.upgrade()) {
-                            workbench.apply_event(&entry, event).await
-                        } else {
-                            Ok(())
-                        }
-                    }
-                });
-                tokio::select! {
-                    result=AgentSession::connect(descriptor.command,descriptor.args,PathBuf::from(workspace),sink)=>result.map(Arc::new),
-                    _=cancelled.changed()=>Err("启动已取消".into()),
-                }
-            };
-            let result = match connected {
-                Ok(connection) => {
-                    *entry.connection.lock().expect("connection poisoned") =
-                        Some(connection.clone());
-                    if *cancelled.borrow() || workbench.available().is_err() {
-                        let _ = connection.cancel();
-                        Err("执行已取消".into())
-                    } else {
-                        connection.prompt(&text).await.map(|_| ())
-                    }
-                }
-                Err(error) => Err(error),
-            };
-            if let Err(error) = result {
-                let _gate = entry.gate.lock().await;
-                if workbench.stopping.load(Ordering::SeqCst) {
-                    return;
-                }
-                entry.connection.lock().expect("connection poisoned").take();
-                let mut view = entry.view.lock().expect("view poisoned").clone();
-                view.active = false;
-                view.approvals.clear();
-                if *cancelled.borrow() {
-                    view.status = "idle".into();
-                    view.stop_reason = Some("cancelled".into())
-                } else {
-                    view.status = "disconnected".into();
-                    view.error = Some(error.chars().take(4000).collect())
-                }
-                let _ = workbench
-                    .commit(&entry, view, "run.failed", &json!({}))
-                    .await;
-            }
-        });
-        Ok(operation)
-    }
-    pub async fn cancel(&self, id: &str) -> Result<(), String> {
-        self.available()?;
-        let entry = self.entry(id)?;
-        let _gate = entry.gate.lock().await;
-        let mut view = entry.view.lock().expect("view poisoned").clone();
-        if !view.active {
-            return Ok(());
-        }
-        view.status = "cancelling".into();
-        self.commit(&entry, view, "run.cancel_requested", &json!({}))
-            .await?;
-        if let Some(cancel) = entry.cancel.lock().expect("cancel poisoned").as_ref() {
-            let _ = cancel.send(true);
-        }
-        if let Some(connection) = entry
-            .connection
-            .lock()
-            .expect("connection poisoned")
-            .as_ref()
-        {
-            connection.cancel()?
-        }
-        Ok(())
-    }
     pub async fn decide(&self, id: &str, request: &str, option: &str) -> Result<(), String> {
         self.available()?;
         let entry = self.entry(id)?;
         let _gate = entry.gate.lock().await;
         let mut view = entry.view.lock().expect("view poisoned").clone();
+        if let Some(decision) = view
+            .decisions
+            .iter()
+            .find(|item| item["requestId"] == request)
+        {
+            return if decision["option"] == option {
+                Ok(())
+            } else {
+                Err("该请求已选择其他选项".into())
+            };
+        }
         let approval = view
             .approvals
             .iter()
@@ -461,7 +342,8 @@ impl Workbench {
             .expect("connection poisoned")
             .clone()
             .ok_or("Agent 未连接")?;
-        // Durable submission audit is not a durable delivery/outbox implementation.
+        view.decisions.push(json!({"id":uuid::Uuid::new_v4().to_string(),"requestId":request,"option":option,"delivery":"pending","createdAt":execution::now()}));
+        // Persist the unique decision before delivery. Approvals are never replayed after restart.
         self.commit(
             &entry,
             view,
@@ -469,7 +351,24 @@ impl Workbench {
             &json!({"requestId":request,"option":option}),
         )
         .await?;
-        connection.decide(request, option)?;
+        if let Err(error) = connection.decide(request, option) {
+            let mut view = entry.view.lock().expect("view poisoned").clone();
+            if let Some(decision) = view
+                .decisions
+                .iter_mut()
+                .find(|item| item["requestId"] == request)
+            {
+                decision["delivery"] = json!("uncertain");
+            }
+            self.commit(
+                &entry,
+                view,
+                "approval.delivery_uncertain",
+                &json!({"requestId":request}),
+            )
+            .await?;
+            return Err(error);
+        }
         Ok(())
     }
     pub async fn metadata(
@@ -490,8 +389,8 @@ impl Workbench {
             view.title = title.into();
         }
         if let Some(archived) = archived {
-            if view.active {
-                return Err("请先完成或停止运行中的会话".into());
+            if view.active || !view.queue.is_empty() {
+                return Err("请先完成或停止运行并清空队列".into());
             }
             view.archived = archived;
         }
@@ -510,6 +409,7 @@ impl Workbench {
             .cloned()
             .collect();
         for entry in entries {
+            entry.wake.notify_one();
             let _gate = entry.gate.lock().await;
             let mut view = entry.view.lock().expect("view poisoned").clone();
             if view.active {

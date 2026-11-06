@@ -149,6 +149,28 @@ impl Store {
                 Some("starting" | "running" | "requires_action" | "cancelling")
             );
             session.snapshot["approvals"] = json!([]);
+            session.snapshot["queuePaused"] = json!(
+                session.snapshot["queue"]
+                    .as_array()
+                    .is_some_and(|items| !items.is_empty())
+            );
+            if let Some(runs) = session.snapshot["runs"].as_array_mut() {
+                for run in runs {
+                    if matches!(
+                        run["status"].as_str(),
+                        Some("starting" | "running" | "requires_action" | "cancelling")
+                    ) {
+                        run["status"] = json!("interrupted");
+                    }
+                }
+            }
+            if let Some(decisions) = session.snapshot["decisions"].as_array_mut() {
+                for decision in decisions {
+                    if decision["delivery"] == "pending" {
+                        decision["delivery"] = json!("uncertain");
+                    }
+                }
+            }
             session.snapshot["historyOnly"] = json!(
                 session.snapshot["messages"]
                     .as_array()

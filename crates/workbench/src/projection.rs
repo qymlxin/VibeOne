@@ -18,6 +18,16 @@ pub struct SessionView {
     pub history_only: bool,
     #[serde(default)]
     pub archived: bool,
+    #[serde(default)]
+    pub runs: Vec<Value>,
+    #[serde(default)]
+    pub queue: Vec<Value>,
+    #[serde(default)]
+    pub queue_paused: bool,
+    #[serde(default)]
+    pub decisions: Vec<Value>,
+    #[serde(default)]
+    pub profile: Option<Value>,
     #[serde(skip)]
     pub active: bool,
     #[serde(skip)]
@@ -189,6 +199,11 @@ mod tests {
             stop_reason: None,
             history_only: false,
             archived: false,
+            runs: vec![],
+            queue: vec![],
+            queue_paused: false,
+            decisions: vec![],
+            profile: None,
             active: true,
             observed_active: false,
         }
