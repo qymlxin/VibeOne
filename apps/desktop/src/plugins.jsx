@@ -434,7 +434,7 @@ export function PluginManager({ workbench, plugins }) {
             {[...app.panels, ...app.settings].map(([id, Component]) => (
               <Component
                 key={id}
-                workspaceId={(workbench.workspaces ?? [])[0]?.id}
+                workspaceId={(workbench.plugins ?? []).find(plugin=>plugin.id===app.identity.pluginId && plugin.enabled)?.workspaces?.find(id=>(workbench.workspaces ?? []).some(workspace=>workspace.id===id))}
               />
             ))}
             {[...app.commands].map(([id, command]) => (
