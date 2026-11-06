@@ -465,13 +465,29 @@ impl Workbench {
                 request["expiresAt"] = json!(now() + 600_000);
             }
         }
-        if event["type"] == "update"
-            && let Some(message) = view
-                .messages
-                .iter_mut()
-                .find(|message| message["id"] == event["notification"]["update"]["messageId"])
-        {
-            message["runId"] = json!(current_run);
+        if event["type"] == "update" {
+            let update = &event["notification"]["update"];
+            let order = entry.revision.load(Ordering::SeqCst) + 1;
+            let item = if update["messageId"].is_string() {
+                view.messages
+                    .iter_mut()
+                    .find(|item| item["id"] == update["messageId"])
+            } else if update["toolCallId"].is_string() {
+                view.tools
+                    .iter_mut()
+                    .find(|item| item["toolCallId"] == update["toolCallId"])
+            } else {
+                None
+            };
+            if let Some(item) = item {
+                if item["runId"].is_null() {
+                    item["runId"] = json!(current_run);
+                }
+                if item["activityOrder"].is_null() {
+                    item["activityOrder"] = json!(order);
+                }
+                item["updatedOrder"] = json!(order);
+            }
         }
         if event["type"] == "disconnected" {
             for decision in &mut view.decisions {

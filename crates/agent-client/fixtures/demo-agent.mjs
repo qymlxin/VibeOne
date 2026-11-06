@@ -25,6 +25,19 @@ async function run(sessionId, prompt, userId, epoch) {
       if (!active()) return;
       update(sessionId, { sessionUpdate: 'agent_thought', messageId, content: [{ type: 'text', text }] });
     }
+    if (prompt.includes('/activity')) {
+      const stages=['梳理任务范围','检查目录结构','核对变更影响','整理执行结果'];
+      for (let index=0;index<stages.length;index++) {
+        if (!active()) return;
+        update(sessionId,{sessionUpdate:'agent_thought_chunk',messageId:`activity:${userId}`,content:{type:'text',text:`演示思考摘要：${stages[index]}。\n`}});
+        const toolCallId=`activity-tool:${userId}:${index}`;
+        update(sessionId,{sessionUpdate:'tool_call_update',toolCallId,title:`演示：${stages[index]}`,status:'in_progress',rawInput:{demo:true,step:index+1}});
+        await sleep(700);if(!active())return;
+        update(sessionId,{sessionUpdate:'tool_call_update',toolCallId,status:'completed',rawOutput:{demo:true,result:'模拟步骤完成，没有执行实际工具'}});
+      }
+      await sleep(3200);if(!active())return;
+      response='演示处理已完成。以上思考摘要与工具事件用于验证实时活动视图，没有读取文件或执行命令。';
+    }
     if (prompt.includes('/wait')) {
       if(process.argv.includes('--stubborn')) {
         const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});
