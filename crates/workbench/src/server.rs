@@ -37,6 +37,24 @@ async fn command<T: Send + 'static>(
         .await
         .map_err(|error| format!("主机命令执行失败：{error}"))?
 }
+async fn domain_command<T: Send + 'static>(
+    future: impl std::future::Future<Output = Result<T, crate::domain_error::DomainError>>
+    + Send
+    + 'static,
+) -> Result<T, crate::domain_error::DomainError> {
+    tokio::spawn(future).await.map_err(|_| {
+        crate::domain_error::DomainError::new(
+            crate::domain_error::ErrorKind::Internal,
+            "主机命令执行失败，请查看诊断",
+        )
+    })?
+}
+fn domain_fail(error: crate::domain_error::DomainError) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::from_u16(error.kind.status()).expect("domain status"),
+        Json(json!({"code":error.kind.code(),"error":error.message})),
+    )
+}
 fn fail(message: impl Into<String>) -> (StatusCode, Json<Value>) {
     let message = message.into();
     let conflict = [
@@ -301,19 +319,19 @@ async fn import_workspace(
     State(state): State<Server>,
     Json(body): Json<WorkspaceImportRequest>,
 ) -> ApiResult {
-    command(async move { state.workbench.import_workspace(&body.path).await })
+    domain_command(async move { state.workbench.import_workspace(&body.path).await })
         .await
         .map(Json)
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn profile(
     State(state): State<Server>,
     Json(body): Json<ProfileRequest>,
 ) -> ApiResult<ProfileResponse> {
-    command(async move { state.workbench.save_profile(body).await })
+    domain_command(async move { state.workbench.save_profile(body).await })
         .await
         .map(Json)
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn diagnostics(State(state): State<Server>) -> Json<Value> {
     Json(state.workbench.diagnostics().await)

@@ -107,6 +107,8 @@
 
 - [73-composer-reference-menu](issues/73-composer-reference-menu.md)：`/` 分类和目录重试、`@` 文件夹清单及纯引用发送接正式输入框；桌面/手机、Host和包外验证通过，旧Host按能力标识兼容。
 
+- [74-catalog-domain-errors](issues/74-catalog-domain-errors.md)：工作区/Profile类型化领域错误及稳定HTTP码；真实SQLite失败、22项Workbench、18项Host、Clippy和包外验证通过，其他业务错误仍由14继续。
+
 ## Fog
 
 

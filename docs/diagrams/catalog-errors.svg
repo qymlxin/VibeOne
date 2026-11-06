@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="330" viewBox="0 0 1000 330">
+<rect width="1000" height="330" fill="#fafafa" rx="12"/>
+<g font-family="system-ui,sans-serif" fill="#222" font-size="14">
+<text x="28" y="35" font-size="19" font-weight="600">工作区 / Profile：类型决定错误身份</text>
+<g fill="#fff" stroke="#aaa"><rect x="28" y="80" width="200" height="82" rx="8"/><rect x="300" y="80" width="330" height="82" rx="8"/><rect x="710" y="80" width="260" height="82" rx="8"/><rect x="300" y="220" width="670" height="68" rx="8"/></g>
+<text x="44" y="108">桌面 / 手机设置</text><text x="44" y="137">HTTP 异步请求</text>
+<text x="316" y="108">Host 独立任务：校验与写入</text><text x="316" y="137">ErrorKind + 中文说明（互相独立）</text>
+<text x="726" y="108">SQLite 事务</text><text x="726" y="137">成功提交后发布目录状态</text>
+<text x="316" y="247">HTTP 状态 + 稳定 code + error + requestId</text><text x="316" y="272">404 不存在 · 409 冲突 · 503 暂不可写；客户端保留草稿供处理</text>
+<path d="M228 120H296M630 120H706M465 162V216M300 254H128V166" stroke="#666" stroke-width="2" fill="none"/>
+<text x="28" y="315" font-size="12" fill="#666">失败不发布成功状态；存储原始异常留在 Host，公开说明不回显内部路径。其余业务错误继续逐步迁移。</text>
+</g></svg>

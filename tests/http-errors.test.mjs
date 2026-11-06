@@ -33,3 +33,26 @@ test('HTTP failures share a typed JSON envelope without changing successful payl
  const snapshot=await success.json();assert.equal(success.status,200);assert.equal(snapshot.apiVersion,3);assert.equal(snapshot.error,undefined);
  assert.equal(snapshot.sessions[0].id,session.id);assert.ok(success.headers.get('x-vibeone-request-id'));
 });
+
+test('catalog domain failures expose stable identities and preserve stale-update protection',{timeout:18000},async t=>{
+ const {connection,call,directory}=await host(t);
+ const failure=async(path,body,status,code)=>{
+  const response=await fetch(`${connection.url}/v1${path}`,{method:'POST',headers:{Authorization:`Bearer ${connection.token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const result=await response.json();assert.equal(response.status,status,JSON.stringify(result));assert.equal(result.code,code);assert.equal(result.status,status);
+  assert.equal(response.headers.get('x-vibeone-request-id'),result.requestId);
+  return result;
+ };
+ await failure('/profiles',{id:'missing',remove:true},404,'PROFILE_NOT_FOUND');
+ await failure('/profiles',{name:'',provider:'demo'},400,'INVALID_INPUT');
+ await failure('/workspaces',{path:directory+'/does-not-exist'},404,'WORKSPACE_NOT_FOUND');
+ await failure('/workspaces',{path:directory+'/host.json'},400,'INVALID_INPUT');
+ const profile=await call('/profiles',{name:'first',provider:'demo'});
+ const next=await call('/profiles',{id:profile.id,revision:1,name:'next',provider:'demo'});
+ await failure('/profiles',{id:profile.id,revision:1,name:'stale',provider:'demo'},409,'PROFILE_CONFLICT');
+ await failure('/profiles',{id:profile.id,revision:next.revision,recordHash:'incorrect',remove:true},409,'PROFILE_CONFLICT');
+ assert.equal((await call('/snapshot')).profiles.find(item=>item.id===profile.id).name,'next');
+ await call('/profiles',{id:profile.id,revision:next.revision,remove:true});
+ await failure('/profiles',{id:profile.id,remove:true},404,'PROFILE_NOT_FOUND');
+ for(let index=0;index<64;index++)await call('/profiles',{name:`limit ${index}`,provider:'demo'});
+ await failure('/profiles',{name:'overflow',provider:'demo'},409,'PROFILE_LIMIT_REACHED');
+});

@@ -1,4 +1,5 @@
 use super::*;
+use crate::domain_error::{DomainError, ErrorKind};
 
 impl Workbench {
     pub(crate) fn provider_descriptors(&self) -> Vec<Provider> {
@@ -85,16 +86,27 @@ impl Workbench {
     ) -> Result<(), String> {
         self.available()?;
         let _gate = self.catalog_gate.lock().await;
-        self.put_catalog_locked(kind, id, value).await
+        self.put_catalog_locked(kind, id, value)
+            .await
+            .map_err(|error| error.to_string())
     }
-    async fn put_catalog_locked(&self, kind: &str, id: &str, value: Value) -> Result<(), String> {
-        self.available()?;
+    async fn put_catalog_locked(
+        &self,
+        kind: &str,
+        id: &str,
+        value: Value,
+    ) -> Result<(), DomainError> {
+        self.available()
+            .map_err(|_| DomainError::new(ErrorKind::HostUnavailable, "工作主机当前不可写入"))?;
         let _sync = self.sync_gate.lock().await;
         let cursor = self
             .store
             .put_catalog(kind, id, &value)
             .await
-            .map_err(|error| self.fail_storage(error))?;
+            .map_err(|error| {
+                self.fail_storage(error);
+                DomainError::storage()
+            })?;
         let _publication = self.publication.lock().expect("publication poisoned");
         let mut catalog = self.catalog.lock().expect("catalog poisoned");
         let items = catalog.entry(kind.into()).or_default();
@@ -106,35 +118,49 @@ impl Workbench {
         self.changed(cursor);
         Ok(())
     }
-    pub(crate) async fn import_workspace(&self, path: &str) -> Result<Value, String> {
-        self.available()?;
-        let path = PathBuf::from(path)
-            .canonicalize()
-            .map_err(|_| "目录不存在")?;
+    pub(crate) async fn import_workspace(&self, path: &str) -> Result<Value, DomainError> {
+        self.available()
+            .map_err(|_| DomainError::new(ErrorKind::HostUnavailable, "工作主机当前不可写入"))?;
+        let path = PathBuf::from(path).canonicalize().map_err(|error| {
+            DomainError::new(
+                match error.kind() {
+                    std::io::ErrorKind::NotFound => ErrorKind::WorkspaceNotFound,
+                    std::io::ErrorKind::PermissionDenied => ErrorKind::WorkspaceForbidden,
+                    _ => ErrorKind::InvalidInput,
+                },
+                "无法访问工作目录，请检查目录是否存在及访问权限",
+            )
+        })?;
         if !path.is_dir() {
-            return Err("请选择工作目录".into());
+            return Err(DomainError::new(ErrorKind::InvalidInput, "请选择工作目录"));
         }
         let _gate = self.catalog_gate.lock().await;
         let _sync = self.sync_gate.lock().await;
         let cursor = self
             .store
-            .import_workspace(path.to_str().ok_or("目录名称无效")?)
+            .import_workspace(
+                path.to_str()
+                    .ok_or_else(|| DomainError::new(ErrorKind::InvalidInput, "目录名称无效"))?,
+            )
             .await
-            .map_err(|error| self.fail_storage(error))?;
-        let workspaces = self
-            .store
-            .workspaces()
-            .await
-            .map_err(|error| self.fail_storage(error))?;
+            .map_err(|error| {
+                self.fail_storage(error);
+                DomainError::storage()
+            })?;
+        let workspaces = self.store.workspaces().await.map_err(|error| {
+            self.fail_storage(error);
+            DomainError::storage()
+        })?;
         let workspace = workspaces
             .iter()
             .find(|item| Path::new(&item.path) == path)
             .cloned()
-            .ok_or("工作区未保存")?;
+            .ok_or_else(|| DomainError::new(ErrorKind::Internal, "工作区未保存"))?;
         let _publication = self.publication.lock().expect("publication poisoned");
         *self.workspaces.lock().expect("workspaces poisoned") = workspaces;
         self.changed(cursor);
-        serde_json::to_value(workspace).map_err(|error| error.to_string())
+        serde_json::to_value(workspace)
+            .map_err(|_| DomainError::new(ErrorKind::Internal, "工作区响应编码失败"))
     }
     fn profile_value(&self, id: &str) -> Result<Value, String> {
         self.catalog
@@ -191,12 +217,18 @@ impl Workbench {
     pub(crate) async fn save_profile(
         &self,
         request: crate::contracts::ProfileRequest,
-    ) -> Result<crate::contracts::ProfileResponse, String> {
+    ) -> Result<crate::contracts::ProfileResponse, DomainError> {
+        self.available()
+            .map_err(|_| DomainError::new(ErrorKind::HostUnavailable, "工作主机当前不可写入"))?;
         let _gate = self.catalog_gate.lock().await;
         let existing = request
             .id
             .as_deref()
-            .map(|id| self.profile_value(id))
+            .map(|id| {
+                self.profile_value(id).map_err(|_| {
+                    DomainError::new(ErrorKind::ProfileNotFound, "配置不存在，请新建配置")
+                })
+            })
             .transpose()?;
         if let Some(existing) = &existing
             && (request
@@ -207,29 +239,51 @@ impl Workbench {
                     .as_ref()
                     .is_some_and(|hash| *hash != Self::profile_hash(existing)))
         {
-            return Err("配置已更新，请重新加载后修改".into());
+            return Err(DomainError::new(
+                ErrorKind::ProfileConflict,
+                "配置已更新，请重新加载后修改",
+            ));
         }
         if request.remove {
-            let id = request.id.as_deref().ok_or("请选择配置")?;
+            let id = request
+                .id
+                .as_deref()
+                .ok_or_else(|| DomainError::new(ErrorKind::InvalidInput, "请选择配置"))?;
             self.put_catalog_locked("profile", id, Value::Null).await?;
             return Ok(crate::contracts::ProfileResponse::Removed { removed: true });
         }
-        let name = request.name.as_deref().ok_or("请输入配置名称")?.trim();
+        let name = request
+            .name
+            .as_deref()
+            .ok_or_else(|| DomainError::new(ErrorKind::InvalidInput, "请输入配置名称"))?
+            .trim();
         if name.is_empty() || name.chars().count() > 80 {
-            return Err("配置名称须为 1–80 个字符".into());
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "配置名称须为 1–80 个字符",
+            ));
         }
-        let provider = request.provider.as_deref().ok_or("请选择 Agent Provider")?;
+        let provider = request
+            .provider
+            .as_deref()
+            .ok_or_else(|| DomainError::new(ErrorKind::InvalidInput, "请选择 Agent Provider"))?;
         if !self
             .provider_descriptors()
             .iter()
             .any(|item| item.id == provider)
         {
-            return Err("未知 Agent Provider".into());
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "未知 Agent Provider",
+            ));
         }
         if let Some(command) = request.command.as_deref().filter(|text| !text.is_empty()) {
             let path = Path::new(command);
             if !path.is_absolute() || !path.is_file() {
-                return Err("自定义启动程序须为存在的绝对路径".into());
+                return Err(DomainError::new(
+                    ErrorKind::InvalidInput,
+                    "自定义启动程序须为存在的绝对路径",
+                ));
             }
         }
         if request
@@ -237,20 +291,26 @@ impl Workbench {
             .as_ref()
             .is_some_and(|args| args.len() > 64 || args.iter().any(|arg| arg.len() > 4096))
         {
-            return Err("启动参数须为字符串数组，最多 64 项".into());
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "启动参数须为字符串数组，最多 64 项",
+            ));
         }
         let id = request
             .id
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         if self.catalog("profile").len() >= 64 && existing.is_none() {
-            return Err("配置数量已达到上限".into());
+            return Err(DomainError::new(
+                ErrorKind::ProfileLimit,
+                "配置数量已达到上限",
+            ));
         }
         let revision = existing
             .as_ref()
             .and_then(|record| record["revision"].as_u64())
             .unwrap_or(0)
             .checked_add(1)
-            .ok_or("配置修订已达到上限")?;
+            .ok_or_else(|| DomainError::new(ErrorKind::ProfileLimit, "配置修订已达到上限"))?;
         let profile = crate::contracts::ProfileRecord {
             id: id.clone(),
             revision,
@@ -262,7 +322,8 @@ impl Workbench {
         self.put_catalog_locked(
             "profile",
             &id,
-            serde_json::to_value(&profile).map_err(|error| error.to_string())?,
+            serde_json::to_value(&profile)
+                .map_err(|_| DomainError::new(ErrorKind::Internal, "配置编码失败"))?,
         )
         .await?;
         Ok(crate::contracts::ProfileResponse::Saved(profile))
@@ -291,6 +352,32 @@ impl Workbench {
 #[cfg(test)]
 mod profile_view_tests {
     use super::*;
+    #[tokio::test]
+    async fn storage_failure_is_typed_and_never_exposes_internal_paths() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(directory.path(), vec![]).await.unwrap();
+        workbench.store.close().await;
+        let failure = workbench
+            .import_workspace(directory.path().to_str().unwrap())
+            .await
+            .unwrap_err();
+        assert_eq!(failure.kind, ErrorKind::StorageUnavailable);
+        assert!(!failure.message.contains(directory.path().to_str().unwrap()));
+        assert!(workbench.snapshot_view().metadata.workspaces.is_empty());
+        let next = workbench
+            .save_profile(
+                serde_json::from_value(json!({"name":"blocked", "provider":"demo"})).unwrap(),
+            )
+            .await
+            .err()
+            .expect("host must reject writes");
+        assert_eq!(next.kind, ErrorKind::HostUnavailable);
+        let commit = workbench
+            .put_catalog_locked("profile", "blocked", json!({}))
+            .await
+            .unwrap_err();
+        assert_eq!(commit.kind, ErrorKind::HostUnavailable);
+    }
     #[tokio::test]
     async fn legacy_profiles_and_corrupt_records_preserve_history_and_guard_removal() {
         let directory = tempfile::tempdir().unwrap();

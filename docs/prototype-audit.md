@@ -83,13 +83,13 @@
 | `npm run remote:test` | 23.7秒通过（含文件夹引用入口和触控尺寸）：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
 | `cargo clippy --workspace --all-targets -- -D warnings` | 通过 |
 | 原生Cargo测试 / Clippy | 5项测试通过；原生Clippy通过；系统回调的实际窗口观察仍未完成 |
-| `npm run desktop:bundle` | 通过，当前macOS调试包829.50MiB；包标识dev.vibeone.desktop，最低系统10.15 |
+| `npm run desktop:bundle` | 通过，当前macOS调试包829.54MiB；包标识dev.vibeone.desktop，最低系统10.15 |
 | `npm run bundle:smoke` | 通过：复制全部资源到仓库外，两个桥接器v2握手和原生CLI启动、可信HTTPS网页、Worker反向调用、插件Provider及历史 |
 | `npm run agent:smoke -- codex claude` | Codex目标文本/end_turn通过；Claude失败，Authentication required，未冒充双工具完成 |
 | `npm run agent:controls` / `-- --input-only` | 真实Codex批准/拒绝、取消待审批、旧请求失效、进程退出、只读恢复及结构化输入通过 |
 | `cargo test -p vibeone-agent-client` | 全13项通过，覆盖初始化45秒人工等待、独立600秒时限、工作预算恢复、迟到答案拒绝和父子进程清理；客户端Clippy通过 |
 
-包内Host SHA-256：`898fcef18cb75b04f245b01d5f7ad1f0e2d614cd1e17aa43cb808dc80709e2cf`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
+包内Host SHA-256：`0f55b756bc291ea9f705ef8b0e03ad1bac33e91233a813011603873c0c436dd5`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
 
 ## 解锁后的原生核对顺序
 
@@ -118,3 +118,5 @@
 2026-11-07：71完成目录和会话固定 Profile 类型、异常记录保留及摘要保护移除，72完成受理/driver 交接边界的停止与租约释放。73继续完善 `/` 分类、技能读取重试、`@` 文件夹清单引用及仅引用发送；真实 Host 验证正文隔离和路径拒绝，桌面回归通过。图片附件仍按可见区域延迟加载，回归在滚回附件后验证，候选菜单随成功清空关闭。物理手机键盘和原生系统界面仍保留实机验收。
 
 73最终：51项 Node/SDK、21项 Workbench、工作区 Host 集成3项、Clippy、桌面61.7秒、手机23.7秒通过，829.50MiB桌面包及仓库外 smoke 通过。手机文件夹入口有44px实际尺寸断言和截图，SVG已重新渲染查看。本切片未重新运行全部16项Host集成或崩溃恢复，表中 `check` 保留71/72全量证据。
+
+74：工作区导入和Profile保存/移除采用显式领域错误，含SQLite故障、稳定错误码、容量及修订/摘要保护验证。最终22项Workbench、18项Host、Clippy和生成契约检查通过；桌面61.8秒/HTTPS手机23.6秒在同功能迁移期间通过，最终底层类型保留改动由完整Host套件另行覆盖。829.54MiB包及仓库外smoke通过，错误链路SVG已渲染查看。CUA再次返回Mac locked，原生和物理设备验收继续保留；其他领域错误及02环境探测未宣称完成。
