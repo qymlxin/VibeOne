@@ -219,7 +219,7 @@ impl Workbench {
     async fn commit(
         &self,
         entry: &Entry,
-        view: SessionView,
+        mut view: SessionView,
         kind: &str,
         event: &Value,
     ) -> Result<(), String> {
@@ -231,6 +231,7 @@ impl Workbench {
         {
             return Err(error.clone());
         }
+        view.last_activity_at = execution::now();
         let revision = entry.revision.load(Ordering::SeqCst) + 1;
         let record = SavedSession {
             id: view.id.clone(),
@@ -386,6 +387,7 @@ impl Workbench {
         }
         let id = uuid::Uuid::new_v4().to_string();
         let view = SessionView {
+            last_activity_at: execution::now(),
             id: id.clone(),
             title: "新会话".into(),
             workspace: workspace.to_string_lossy().into_owned(),

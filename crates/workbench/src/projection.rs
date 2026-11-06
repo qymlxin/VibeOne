@@ -10,6 +10,8 @@ fn legacy_list<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Vec<
 pub struct SessionView {
     pub id: String,
     pub title: String,
+    #[serde(default)]
+    pub last_activity_at: u64,
     pub workspace: String,
     pub provider: String,
     pub status: String,
@@ -249,6 +251,7 @@ mod tests {
         SessionView {
             id: "a".into(),
             title: "a".into(),
+            last_activity_at: 0,
             workspace: "/".into(),
             provider: "demo".into(),
             status: "starting".into(),

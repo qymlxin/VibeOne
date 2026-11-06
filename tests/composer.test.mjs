@@ -36,3 +36,17 @@ test('ACP config supports grouped values and enforces UI execution/device states
  assert.equal(canConfigure({status:'idle',queue:[]},{phase:'online',device:{role:'operator'}}),true);
  assert.equal(canConfigure({status:'idle',historyOnly:true},{phase:'online'}),false);
 });
+
+import {recentSessions,sessionGroups} from '../apps/desktop/src/session-groups.js';
+test('project grouping uses authorized workspace paths and keeps every session exactly once',()=>{
+ const sessions=[{id:'a',workspace:'/one'},{id:'b',workspace:'/two'},{id:'c',workspace:'/one'}];
+ const groups=sessionGroups(sessions,[{path:'/one',name:'Project One'}]);
+ assert.deepEqual(groups.map(group=>[group.name,group.sessions.map(session=>session.id)]),[['Project One',['a','c']],['two',['b']]]);
+ assert.equal(sessionGroups([],[]).length,0);
+});
+
+test('recent sessions sort by persisted activity and fall back to legacy Run times without mutating the source',()=>{
+ const sessions=[{id:'a',lastActivityAt:10},{id:'b',runs:[{createdAt:30}]},{id:'c',lastActivityAt:20}];
+ assert.deepEqual(recentSessions(sessions).map(session=>session.id),['b','c','a']);
+ assert.deepEqual(sessions.map(session=>session.id),['a','b','c']);
+});

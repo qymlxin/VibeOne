@@ -8,8 +8,8 @@ import {RemoteSettings} from './Remote.jsx';
 import {enableNotifications} from './notifications.js';
 const pages=[['general','常规',Settings2,'主机 历史 会话'],['appearance','外观',Sun,'主题 颜色'],['notifications','通知',Bell,'审批 提醒'],['agents','Agent',Terminal,'配置 启动'],['workspaces','工作区',Folder,'项目 目录'],['plugins','插件',Plug,'安装 更新 权限'],['remote','远程连接',Globe,'手机 配对 证书 设备'],['data','数据与诊断',Database,'存储 重启 导出']];
 function NotificationSettings(){const [enabled,setEnabled]=useState(()=>{try{return localStorage.getItem('vibeone-notifications')==='enabled';}catch{return false;}}),[busy,setBusy]=useState(false),[error,setError]=useState('');async function toggle(){setBusy(true);setError('');try{if(enabled){localStorage.removeItem('vibeone-notifications');setEnabled(false);}else{await enableNotifications();setEnabled(true);}}catch(error){setError(error.message);}finally{setBusy(false);}}return <section className="desktop-settings-group"><h2>桌面通知</h2><div className="desktop-settings-row"><div><strong>审批与执行结束提醒</strong><p>开启时请求系统权限。关闭只停止本设备发送提醒。</p></div><button role="switch" aria-label="桌面通知" aria-checked={enabled} disabled={busy} onClick={()=>void toggle()}>{enabled?'已开启':'开启通知'}</button></div><p>待处理的审批、补充输入和执行结束会触发提醒，通知仍受系统权限控制。</p>{error&&<p role="alert">{error}</p>}</section>;}
-export function SettingsCenter({workbench,plugins,theme,setTheme,onBack,appearance}){
- const [page,setPage]=useState('general'),[query,setQuery]=useState('');
+export function SettingsCenter({workbench,plugins,theme,setTheme,onBack,appearance,initialPage='general'}){
+ const [page,setPage]=useState(initialPage),[query,setQuery]=useState('');
  const admin=!workbench.device;const available=pages.filter(([id])=>admin||['general','appearance','notifications'].includes(id));const visible=available.filter(([,title,,keywords])=>`${title} ${keywords}`.toLowerCase().includes(query.toLowerCase()));
  const [error,setError]=useState('');const run=async action=>{setError('');try{await action();}catch(error){setError(error.message);}};
  const title=available.find(([id])=>id===page)?.[1]??'常规';

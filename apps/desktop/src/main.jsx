@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import {
   ArrowUp,
   Maximize2,
+  PanelLeft,
+  ChevronRight,
   Minimize2,
   Check,
   FolderOpen,
@@ -19,6 +21,7 @@ import {
   Sun,
   X,
 } from "lucide-react";
+import { recentSessions, sessionGroups } from "./session-groups.js";
 import { AgentConfigControls } from "./AgentConfigControls.jsx";
 import { ComposerInput } from "./ComposerInput.jsx";
 import { useNotifications } from "./notifications.js";
@@ -82,6 +85,14 @@ function App() {
   const [creating, setCreating] = useState(true);
   const [settings, setSettings] = useState(false);
   const [query, setQuery] = useState("");
+  const searchInput=useRef(null);
+  const [sidebarOpen,setSidebarOpen]=useState(()=>{try{return localStorage.getItem('vibeone-sidebar-open')!=='false';}catch{return true;}});
+  const [sessionView,setSessionView]=useState(()=>{try{return localStorage.getItem('vibeone-session-view')==='projects'?'projects':'recent';}catch{return 'recent';}});
+  const [collapsedProjects,setCollapsedProjects]=useState(new Set());
+  const [settingsTarget,setSettingsTarget]=useState('general');
+  useEffect(()=>{try{localStorage.setItem('vibeone-sidebar-open',String(sidebarOpen));localStorage.setItem('vibeone-session-view',sessionView);}catch{}},[sidebarOpen,sessionView]);
+  useEffect(()=>{const search=event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();setSidebarOpen(true);setShowList(true);setSettings(false);requestAnimationFrame(()=>{searchInput.current?.focus();searchInput.current?.select();});}};document.addEventListener('keydown',search);return()=>document.removeEventListener('keydown',search);},[]);
+
   const [archived, setArchived] = useState(false);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(savedTheme);
@@ -101,13 +112,13 @@ function App() {
   }, [theme]);
   const online = workbench.phase === "online" && !workbench.storageError;
   const session = workbench.sessions.find((session) => session.id === selected);
-  const sessions = workbench.sessions.filter(
+  const sessions = recentSessions(workbench.sessions.filter(
     (session) =>
       !!session.archived === archived &&
       `${session.title} ${session.workspace}`
         .toLowerCase()
         .includes(query.toLowerCase()),
-  );
+  ));
   const pending = workbench.sessions.reduce(
     (count, session) =>
       count + session.approvals.length + (session.inputs?.length ?? 0),
@@ -122,8 +133,9 @@ function App() {
       return null;
     }
   };
+  const renderSession=item=><SessionRow key={item.id} item={item} selected={!creating&&item.id===selected} provider={workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={labels[item.status]??item.status} onSelect={()=>{setSelected(item.id);setCreating(false);setShowList(false);setSettings(false);}}/>;
   return (
-    <div className={`desktop-app ${showList ? "mobile-list" : ""} ${settings?"settings-open":""}`}>
+    <div className={`desktop-app ${showList ? "mobile-list" : ""} ${settings?"settings-open":""} ${sidebarOpen?"":"sidebar-closed"}`}>
       <aside className="desktop-sidebar">
         <div className="desktop-brand">
           <Brand/>
@@ -177,21 +189,15 @@ function App() {
           <Search size={14} />
           <input
             aria-label="搜索会话"
+            ref={searchInput}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="搜索会话或工作区"
           />
         </label>
+        <div className="desktop-session-view" aria-label="会话分组方式"><button aria-pressed={sessionView==='recent'} onClick={()=>setSessionView('recent')}>最近</button><button aria-pressed={sessionView==='projects'} onClick={()=>setSessionView('projects')}>按项目</button>{!workbench.device&&<button aria-label="添加项目" onClick={()=>{setSettingsTarget('workspaces');setSettings(true);setShowList(false);}}><Plus size={13}/></button>}</div>
         <div className="desktop-session-list">
-          {sessions.length ? (
-            sessions.map((item) => (
-              <SessionRow key={item.id} item={item} selected={!creating&&item.id===selected} provider={workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={labels[item.status]??item.status} onSelect={()=>{setSelected(item.id);setCreating(false);setShowList(false);setSettings(false);}}/>
-            ))
-          ) : (
-            <p className="desktop-list-empty">
-              {query ? "没有匹配的会话" : "从一个新会话开始"}
-            </p>
-          )}
+          {!sessions.length?<p className="desktop-list-empty">{query?'没有匹配的会话':'从一个新会话开始'}</p>:sessionView==='recent'?sessions.map(renderSession):sessionGroups(sessions,workbench.workspaces).map(group=><section className="desktop-project-group" key={group.path}><button className="desktop-project-heading" title={group.path} aria-expanded={!!query.trim()||!collapsedProjects.has(group.path)} onClick={()=>setCollapsedProjects(previous=>{const next=new Set(previous);if(next.has(group.path))next.delete(group.path);else next.add(group.path);return next;})}><ChevronRight size={12}/><FolderOpen size={13}/><span>{group.name}</span><small>{group.sessions.length}</small></button>{(!!query.trim()||!collapsedProjects.has(group.path))&&group.sessions.map(renderSession)}</section>)}
         </div>
         <div className="desktop-sidebar-bottom">
           <div className="desktop-host">
@@ -214,7 +220,7 @@ function App() {
             <button
               className="desktop-icon"
               aria-label="连接与设置"
-              onClick={() => (setSettings(!settings), setShowList(false))}
+              onClick={() => {setSettingsTarget('general');setSettings(!settings);setShowList(false);}}
             >
               <Settings2 size={16} />
             </button>
@@ -235,6 +241,7 @@ function App() {
       </aside>
       <main className="desktop-main">
         <div className="desktop-connection">
+          {!settings&&<button className="desktop-sidebar-toggle" aria-label={sidebarOpen?'收起会话栏':'展开会话栏'} onClick={()=>setSidebarOpen(!sidebarOpen)}><PanelLeft size={14}/></button>}
           <button
             className="mobile-open-list"
             onClick={() => setShowList(true)}
@@ -279,7 +286,7 @@ function App() {
           </div>
         )}
         {settings ? (
-          <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance}/>}/></Suspense>
+          <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter key={settingsTarget} initialPage={settingsTarget} workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance}/>}/></Suspense>
         ) : creating || !session ? (
           <NewSession
             workbench={workbench}

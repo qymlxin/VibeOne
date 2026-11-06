@@ -97,6 +97,8 @@ test(
       1,
     );
     const queued=await request(`/sessions/${id}/messages`,{text:"queued survives restart",key:"durable-queue"});
+    const activityBeforeRestart=(await request("/snapshot")).sessions.find(session=>session.id===id).lastActivityAt;
+    assert.ok(activityBeforeRestart>0);
     const oldToken = connection.token;
     child.kill("SIGKILL");
     await exited;
@@ -110,6 +112,7 @@ test(
     assert.equal(snapshot.workspaces.length, 1);
     const restored = snapshot.sessions.find((item) => item.id === id);
     assert.equal(restored.title, "保留的会话");
+    assert.equal(restored.lastActivityAt,activityBeforeRestart);
     assert.equal(restored.status, "interrupted");
     assert.equal(restored.historyOnly, true);
     assert.equal(restored.approvals.length, 0);

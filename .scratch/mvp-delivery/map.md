@@ -57,6 +57,8 @@
 
 - [48-manual-queue-pause](issues/48-manual-queue-pause.md)：补齐显式暂停/恢复队列、Host能力标记及冲突校验，4项执行集成与桌面回归通过；SVG链路已更新。
 
+- [49-project-session-sidebar](issues/49-project-session-sidebar.md)：补齐项目分组/折叠、真实最近排序、搜索快捷键与侧栏开合，新增活动时间持久化；单元、桌面、崩溃恢复与Clippy通过。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。
