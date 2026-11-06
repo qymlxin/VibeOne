@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
@@ -16,6 +16,12 @@ test(
     await writeFile(join(directory,'preview.txt'),'workspace preview text\n');
     await mkdir(join(directory,'folder name'));
     await writeFile(join(directory,'folder name','child.txt'),'nested text');
+    const git=(...args)=>execFileSync('git',['-C',directory,...args],{stdio:'ignore'});
+    git('init');
+    await writeFile(join(directory,'tracked.txt'),'before\nkept\n');
+    git('add','tracked.txt');git('-c','user.name=Test','-c','user.email=test@example.com','commit','-m','fixture');
+    await writeFile(join(directory,'tracked.txt'),'staged\nkept\n');git('add','tracked.txt');
+    await writeFile(join(directory,'tracked.txt'),'unstaged\nkept\n');
     const child = spawn(
       resolve("target/debug/vibeone-host"),
       ["serve", "--data-dir", directory],
@@ -140,6 +146,25 @@ test(
     await page.waitForTimeout(150);
     await composer.press('Tab');
     await page.getByRole('button',{name:'移除引用 preview.txt'}).waitFor();
+
+    const explorer=page.getByRole('region',{name:'文件浏览器',exact:true});
+    await explorer.getByRole('button',{name:'folder name',exact:true}).click();
+    await explorer.getByRole('button',{name:'child.txt',exact:true}).click();
+    await explorer.locator('.explorer-code code').getByText('nested text',{exact:true}).waitFor();
+    assert.equal(await explorer.locator('.explorer-line-number').first().innerText(),'1');
+    await explorer.getByRole('textbox',{name:'筛选文件'}).fill('child');
+    assert.equal(await explorer.getByRole('button',{name:'preview.txt',exact:true}).count(),0);
+    await explorer.getByRole('button',{name:'收起文件列表'}).click();
+    assert.equal(await explorer.getByRole('complementary',{name:'文件列表'}).count(),0);
+    await explorer.getByRole('button',{name:'显示文件列表',exact:true}).click();
+    await page.getByRole('button',{name:'变更',exact:true}).click();
+    const changes=page.getByRole('region',{name:'变更浏览器',exact:true});
+    await changes.getByRole('textbox',{name:'筛选文件'}).fill('tracked.txt');
+    await changes.getByRole('button',{name:/tracked.txt/}).click();
+    await changes.locator('.explorer-code-line.added code').getByText('+unstaged',{exact:true}).waitFor();
+    await changes.getByRole('button',{name:'已暂存差异',exact:true}).click();
+    await changes.locator('.explorer-code-line.added code').getByText('+staged',{exact:true}).waitFor();
+    await page.screenshot({path:join(tmpdir(),'vibeone-explorer-diff.png')});
     await composer.fill('桌面集成测试 /thought');
     await page.getByRole("button", { name: "发送消息" }).click();
     await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000}).catch(async error=>{throw new Error(`${error.message}\nReact errors: ${JSON.stringify(errors)}\n${(await page.locator("body").innerText()).slice(-6000)}`);});

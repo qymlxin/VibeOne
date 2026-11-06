@@ -49,6 +49,8 @@
 
 - [44-composer-menus](issues/44-composer-menus.md)：正式输入框接入 ACP 指令与工作台快捷入口、`@` 目录浏览和多文件引用标签；复用 Host 校验和队列，补充键盘、输入法与手机适配以及中文文档、SVG。
 
+- [45-prototype-file-explorer](issues/45-prototype-file-explorer.md)：补齐真实目录树/筛选/行号、Git差异着色统计与暂存切换，Host端到端验证通过；完整原型缺口列入 docs/prototype-completion.md。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。

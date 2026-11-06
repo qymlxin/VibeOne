@@ -1,44 +1,20 @@
-import {FileText,Folder} from "lucide-react";
+import {FileExplorer} from "./FileExplorer.jsx";
 import {describeTool} from "./tool-presentation.js";
 import {ToolDetails} from "./ToolDetails.jsx";
 import React, { useEffect, useRef, useState } from "react";
 
-export function SessionTools({ session, workbench, tab, act, fileTarget }) {
-  const [result, setResult] = useState(null),
-    [preview, setPreview] = useState(null),
-    [path, setPath] = useState("."),
-    [busy, setBusy] = useState(false);
-  const requestId=useRef(0),listRequest=useRef(0);
-  async function load(nextPath = path) {
+export function SessionTools(props) {
+  return ['files','changes'].includes(props.tab)?<FileExplorer {...props}/>:<SessionToolsDetail {...props}/>;
+}
+function SessionToolsDetail({ session, workbench, tab, act }) {
+  const [result,setResult]=useState(null);
+  const listRequest=useRef(0);
+  async function load(){
     const id=++listRequest.current;
-    setBusy(true);
-    const result = await act(() =>
-      workbench.call(
-        `/sessions/${session.id}/${tab === "changes" ? "changes" : tab === "artifacts" ? "artifacts" : "tree"}?path=${encodeURIComponent(nextPath)}`,
-      ),
-    );
-    if (id===listRequest.current){if(result)setResult(result);setBusy(false);}
+    const value=await act(()=>workbench.call(`/sessions/${session.id}/artifacts`));
+    if(id===listRequest.current&&value)setResult(value);
   }
-  useEffect(() => {
-    setPreview(null);
-    setResult(null);
-    if (!["runs", "agent", "terminal"].includes(tab)) void load(".");
-  }, [session.id, tab]);
-  useEffect(()=>{if(tab==='files' && fileTarget?.path)void inspect({path:fileTarget.path});},[fileTarget,tab]);
-  async function inspect(file, staged = false) {
-    const id=++requestId.current;
-    if (file.kind === "directory") {
-      setPath(file.path);
-      await load(file.path);
-      return;
-    }
-    const value = await act(() =>
-      workbench.call(
-        `/sessions/${session.id}/${tab === "changes" && !file.untracked ? "diff" : "file"}?path=${encodeURIComponent(file.path)}&staged=${staged}`,
-      ),
-    );
-    if (value && id===requestId.current) setPreview(value);
-  }
+  useEffect(()=>{setResult(null);if(tab==='artifacts')void load();return()=>{listRequest.current++;};},[session.id,tab]);
   if(tab==='terminal'){
     const tools=session.tools.filter(tool=>tool.kind==='execute'||describeTool(tool).kind==='command');
     const terminals=session.agentState?.terminals ?? [];
@@ -116,83 +92,7 @@ export function SessionTools({ session, workbench, tab, act, fileTarget }) {
         ))}
       </section>
     );
-  return (
-    <section className="desktop-inspector">
-      <header>
-        <h2>{tab === "changes" ? "工作区变更" : "工作区文件"}</h2>
-        <button onClick={() => void load()} disabled={busy}>
-          刷新
-        </button>
-      </header>
-      {tab === "files" && (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void load();
-          }}
-        >
-          <input
-            aria-label="浏览目录"
-            value={path}
-            onChange={(event) => setPath(event.target.value)}
-          />
-          <button>打开目录</button>
-        </form>
-      )}
-      {tab === "changes" && (
-        <p>
-          {result?.branch} {result?.notice}
-        </p>
-      )}
-      {busy && <p role="status">正在读取…</p>}
-      {result?.truncated && <p>列表已截断，请缩小目录范围。</p>}
-      <div className="desktop-file-browser"><div className="desktop-file-list">
-      {(result?.files ?? result?.entries ?? []).map((file) => (
-        <div className="desktop-file-row" key={file.path}>
-          <button onClick={() => void inspect(file)}>
-            {file.kind==='directory'?<Folder size={12}/>:<FileText size={12}/>}<span title={file.path}>{file.path.split('/').at(-1) || file.path}</span>{file.status&&<small>{file.status}</small>}
-          </button>
-          {file.staged && (
-            <button onClick={() => void inspect(file, true)}>已暂存差异</button>
-          )}
-        </div>
-      ))}
-      {result && !(result.files ?? result.entries ?? []).length && (
-        <p>没有可显示的内容</p>
-      )}
-      </div>
-      {preview && (
-        <article className="desktop-file-preview">
-          <header>
-            <strong>{preview.path}</strong>
-            <button onClick={() => setPreview(null)}>关闭预览</button>
-          </header>
-          {!preview.binary && tab === "files" && (
-            <button
-              onClick={() =>
-                void act(() =>
-                  workbench.call(`/sessions/${session.id}/artifacts`, {
-                    path: preview.path,
-                  }),
-                )
-              }
-            >
-              保存为文本产物
-            </button>
-          )}
-          {preview.binary ? (
-            <p>二进制文件 · {preview.size} 字节</p>
-          ) : (
-            <pre>
-              {preview.text || "没有文本差异；未跟踪文件请在文件页查看。"}
-            </pre>
-          )}
-          {preview.truncated && <p>内容超过显示上限，已截断。</p>}
-        </article>
-      )}
-      </div>
-    </section>
-  );
+  return null;
 }
 
 export function Queue({ session, workbench, online, act }) {

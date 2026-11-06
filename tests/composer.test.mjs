@@ -17,3 +17,12 @@ test('commands use current ACP advertisements and never shadow Agent commands',(
   assert.equal(commandOptions(null,'终端')[0].panel,'terminal');
   assert.equal(commandOptions([], 'does-not-exist').length,0);
 });
+
+import {codeLines} from '../apps/desktop/src/code-lines.js';
+test('unified diff line numbers and counts exclude headers and follow hunk ranges',()=>{
+  const parsed=codeLines('--- a/main.js\n+++ b/main.js\n@@ -3,2 +3,3 @@\n kept\n-old\n+new\n+extra\n',true);
+  assert.equal(parsed.added,2);assert.equal(parsed.removed,1);
+  assert.deepEqual(parsed.rows.slice(3).map(row=>[row.line,row.kind]),[[3,'plain'],[4,'removed'],[4,'added'],[5,'added']]);
+  assert.deepEqual(codeLines('').rows,[]);
+  assert.equal(codeLines('x\n'.repeat(5001)).clipped,true);
+});
