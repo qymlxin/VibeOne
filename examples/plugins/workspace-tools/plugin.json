@@ -1,0 +1,12 @@
+{
+  "manifestVersion": 1,
+  "id": "dev.vibeone.workspace-tools",
+  "name": "工作区工具",
+  "version": "0.1.0",
+  "engines": { "pluginApi": ">=0.1 <0.2" },
+  "entrypoints": { "worker": { "path": "dist/worker.js", "runtime": "node", "protocolVersion": 1 } },
+  "contributions": [
+    { "id": "scan", "kind": "app.command", "kindVersion": 1, "binding": { "type": "worker", "handler": "workspace.scan" } }
+  ],
+  "hostRequirements": ["workspace.read"]
+}

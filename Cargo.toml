@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/plugin-host"]
+members = ["crates/plugin-host", "crates/host"]
 resolver = "2"
 
 [workspace.package]

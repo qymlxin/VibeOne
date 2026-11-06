@@ -11,9 +11,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "npm run build -w @vibeone/plugin-sdk && npm run build -w @vibeone/plugin-runtime",
+    "build": "npm run build -w @vibeone/plugin-sdk && npm run build -w @vibeone/plugin-runtime && npm run build -w @vibeone/example-workspace-tools",
     "test": "npm run build && node --test packages/*/test/*.test.mjs",
     "check": "npm test && cargo test --workspace",
+    "plugin:scan": "npm run build && cargo run -p vibeone-host -- plugin scan --workspace .",
     "prototype": "vite prototype --host 127.0.0.1 --port 4173",
     "prototype:build": "vite build prototype --outDir ../prototype-dist"
   },
