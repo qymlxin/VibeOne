@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420">
+  <rect width="1000" height="420" rx="12" fill="#fafafa"/>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#666"/></marker></defs>
+  <g font-family="system-ui,sans-serif" fill="#222">
+    <text x="30" y="36" font-size="21" font-weight="600">文件查询与文本产物保存</text>
+    <text x="30" y="62" font-size="13" fill="#666">桌面 / 手机共用 Host；HTTP 等待结果，实际文件、Git 和数据库访问异步完成。</text>
+    <g fill="white" stroke="#aaa">
+      <rect x="30" y="125" width="160" height="80" rx="8"/>
+      <rect x="245" y="125" width="205" height="80" rx="8"/>
+      <rect x="515" y="100" width="205" height="65" rx="8"/>
+      <rect x="515" y="205" width="205" height="65" rx="8"/>
+      <rect x="780" y="100" width="190" height="65" rx="8"/>
+      <rect x="780" y="205" width="190" height="65" rx="8"/>
+      <rect x="245" y="320" width="725" height="65" rx="8"/>
+    </g>
+    <g font-size="14">
+      <text x="48" y="156">工作台 / 右侧面板</text><text x="48" y="182">查询或保存文本产物</text>
+      <text x="263" y="156">Host：鉴权与会话查找</text><text x="263" y="182">校验工作区和目标范围</text>
+      <text x="533" y="127">文件 / 目录 / Git 查询</text><text x="533" y="149">普通文件、有界输出与超时</text>
+      <text x="533" y="232">读取文本产物快照</text><text x="533" y="254">目录锁内检查剩余容量</text>
+      <text x="798" y="127">HTTP 200 返回视图</text><text x="798" y="149">无 Git 单独显示说明</text>
+      <text x="798" y="232">SQLite 持久保存</text><text x="798" y="254">成功后发布缓存与结果</text>
+      <text x="263" y="347">失败 → 稳定 code / status / requestId；前端保留错误与可重试入口</text>
+      <text x="263" y="371">Git 失败不等于空变更；数据库失败不发布成功；客户端断线不撤销已开始的保存。</text>
+    </g>
+    <g fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)">
+      <path d="M190 165H242"/>
+      <path d="M450 150H480V132H512"/>
+      <path d="M450 183H480V237H512"/>
+      <path d="M720 132H777"/>
+      <path d="M720 237H777"/>
+      <path d="M348 205V317"/>
+      <path d="M618 165V187H748V302H618V317"/>
+    </g>
+  </g>
+</svg>

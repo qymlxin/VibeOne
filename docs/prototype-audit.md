@@ -42,7 +42,7 @@
 | P07 | 点击文件链接在侧边打开 | `PreviewLinks.jsx`、FileExplorer | 路径范围、文件名与完整路径、实际读取及恶意路径拒绝自动通过 |
 | P08 | 点击网址、输入地址、刷新、返回/前进 | `BrowserPreview.jsx` | 隔离测试页面真实加载，地址历史和刷新入口自动通过；站点禁止内嵌时有外部入口 |
 | P09 | 查看当前地址、外部打开 | 地址栏、外部打开入口、`open_external` | 地址栏显示真实完整目标，安全URL原生单元通过；默认浏览器实际打开仍待解锁核对 |
-| P10 | 产物、执行记录与配置等已有功能 | SessionTools、Host artifact/config | 文件产物哈希、执行状态与配置接口自动通过；既有能力继续保留 |
+| P10 | 产物、执行记录与配置等已有功能 | SessionTools、Host artifact/config | 文本产物快照、执行状态与配置接口自动通过；既有能力继续保留 |
 | P11 | 桌面包离开源码目录独立运行 | `package-bridges.mjs`、Tauri资源与Host路径 | 56补齐两桥接器与本平台CLI；仓库外副本两个v2握手、CLI启动、网页/Worker/Provider/历史通过 |
 
 ## 八类设置
@@ -134,3 +134,5 @@
 80：审批、补充输入、配置及元数据迁移具名错误；投递未确认保持持久状态，同内容不重放，公开回答错误不含填写值，配置实际收到RPC后断开HTTP仍完成且只投递一次。另复现并修复后到的取消事件误把uncertain变为sent，SDK接收标记及虚拟时钟有专门验证。最终完整check（53项Node、workspace Rust含28项Workbench、25项Host及恢复）、Clippy/格式、桌面62.3秒、HTTPS手机23.6秒和832.13MiB包/仓库外smoke通过。SVG已渲染查看，包内Host SHA256为`5267edc40b9464dc632f2bbe6db2f826b4b9866d7f8d458626297d9b7e865148`。未操作用户Host，不替代原生/认证/物理设备待验；14、52未完成。
 
 81：会话创建与附件入口采用具名错误，配置查询/探测区分无效与缺失记录；创建和取消归档共享容量检查，修复达到上限先建默认项目及取消归档绕过上限。真实HTTP及SQLite容量/故障验证通过；完整check含53项Node、31项Workbench及其他workspace Rust、26项Host和恢复，Clippy/格式通过。桌面62.3秒、HTTPS手机23.7秒、832.39MiB包及仓库外smoke通过；SVG已渲染查看。包内Host SHA256为`f9da24a28ade47cba3c1873232b5cc2e17d057fc1a4dbf23a532d49d0267bb14`。未重启用户Host，14其余业务入口与52原生/认证/物理设备验收仍未完成。
+
+82：资源与历史入口采用明确领域错误；四项真实Host/Git回归与两项状态测试覆盖环境隔离/独立仓库租约、损坏索引、嵌套删除差异、命名管道、UTF-8截断、产物并发上限及SQLite失败。完整check含53项Node、workspace Rust（Workbench33项）、30项Host和恢复通过，Clippy/格式、桌面62.6秒、HTTPS手机23.6秒通过。832.56MiB包及仓库外检查通过，Host SHA256为`3f402fbf02c6f63b89c80ccdcfabe82f467907a3f6541524e52b2ecd8e46682f`。SVG已渲染查看；用户Host未动，14/52继续未完成。

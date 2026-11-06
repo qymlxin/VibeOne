@@ -123,6 +123,8 @@
 
 - [81-creation-attachment-errors](issues/81-creation-attachment-errors.md)：创建/附件入口和配置查询错误已明确分类，创建与取消归档共享容量检查，修复多余默认项目和容量绕过；全量、桌面/手机及包外检查通过。14其余入口继续。
 
+- [82-resource-history-errors](issues/82-resource-history-errors.md)：资源/历史错误分类、Git隔离及删除差异、特殊文件与UTF-8预览、产物并发容量和存储一致性完成；全量、桌面/手机和包外检查通过。14其余入口及52继续。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

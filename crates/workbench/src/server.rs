@@ -382,15 +382,7 @@ async fn event_page(
 }
 
 fn workspace(state: &Server, id: &str) -> Result<String, (StatusCode, Json<Value>)> {
-    Ok(state
-        .workbench
-        .entry(id)
-        .map_err(fail)?
-        .view
-        .lock()
-        .expect("view poisoned")
-        .workspace
-        .clone())
+    state.workbench.session_workspace(id).map_err(domain_fail)
 }
 #[derive(Deserialize)]
 struct FileQuery {
@@ -423,29 +415,37 @@ async fn configure_agent(
     .map(|_| Json(json!({"updated":true})))
     .map_err(domain_fail)
 }
-async fn artifacts(State(state): State<Server>, Path(id): Path<String>) -> Json<Value> {
-    Json(state.workbench.artifacts(&id))
+async fn artifacts(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
+    state
+        .workbench
+        .artifacts(&id)
+        .map(Json)
+        .map_err(domain_fail)
 }
 async fn capture_artifact(
     State(state): State<Server>,
     Path(id): Path<String>,
     Json(body): Json<Value>,
 ) -> ApiResult {
-    state
-        .workbench
-        .capture_artifact(
-            &id,
-            body["path"].as_str().ok_or_else(|| fail("请选择文件"))?,
-        )
+    let path = body["path"]
+        .as_str()
+        .ok_or_else(|| {
+            domain_fail(crate::domain_error::DomainError::new(
+                crate::domain_error::ErrorKind::InvalidInput,
+                "请选择文件",
+            ))
+        })?
+        .to_owned();
+    domain_command(async move { state.workbench.capture_artifact(&id, &path).await })
         .await
         .map(Json)
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn changes(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
     crate::files::changes(&workspace(&state, &id)?)
         .await
         .map(Json)
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn diff(
     State(state): State<Server>,
@@ -455,7 +455,7 @@ async fn diff(
     crate::files::diff(&workspace(&state, &id)?, &query.path, query.staged)
         .await
         .map(Json)
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn read_file(
     State(state): State<Server>,
@@ -465,7 +465,7 @@ async fn read_file(
     crate::files::read(&workspace(&state, &id)?, &query.path)
         .await
         .map(Json)
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn tree(
     State(state): State<Server>,
@@ -482,7 +482,7 @@ async fn tree(
     )
     .await
     .map(Json)
-    .map_err(fail)
+    .map_err(domain_fail)
 }
 async fn plugin_inspect(Json(body): Json<Value>) -> ApiResult {
     crate::plugins::inspect(std::path::Path::new(
@@ -721,22 +721,12 @@ async fn history_page(
     Path(id): Path<String>,
     Query(query): Query<HistoryQuery>,
 ) -> ApiResult {
-    state.workbench.entry(&id).map_err(fail)?;
-    let limit = query.limit.unwrap_or(128);
-    if limit == 0
-        || limit > 256
-        || query
-            .before
-            .is_some_and(|value| value == 0 || value > i64::MAX as u64)
-    {
-        return Err(fail("无效的历史游标或分页大小"));
-    }
     state
         .workbench
-        .history_page(&id, query.before, limit)
+        .history_page(&id, query.before, query.limit.unwrap_or(128))
         .await
         .map(Json)
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn cancel(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
     domain_command(async move { state.workbench.cancel(&id).await })

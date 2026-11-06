@@ -34,6 +34,14 @@ pub(crate) enum ErrorKind {
     AttachmentTooLarge,
     AttachmentNotFound,
     AttachmentLimit,
+    ResourceForbidden,
+    ResourceNotFound,
+    ResourceUnavailable,
+    GitUnavailable,
+    GitQueryFailed,
+    GitTimeout,
+    ArtifactUnsupported,
+    ArtifactLimit,
     ProfileConflict,
     ProfileLimit,
     WorkspaceNotFound,
@@ -78,6 +86,14 @@ impl ErrorKind {
             Self::AttachmentTooLarge => "ATTACHMENT_TOO_LARGE",
             Self::AttachmentNotFound => "ATTACHMENT_NOT_FOUND",
             Self::AttachmentLimit => "ATTACHMENT_LIMIT_REACHED",
+            Self::ResourceForbidden => "RESOURCE_FORBIDDEN",
+            Self::ResourceNotFound => "RESOURCE_NOT_FOUND",
+            Self::ResourceUnavailable => "RESOURCE_UNAVAILABLE",
+            Self::GitUnavailable => "GIT_UNAVAILABLE",
+            Self::GitQueryFailed => "GIT_QUERY_FAILED",
+            Self::GitTimeout => "GIT_TIMEOUT",
+            Self::ArtifactUnsupported => "ARTIFACT_UNSUPPORTED",
+            Self::ArtifactLimit => "ARTIFACT_LIMIT_REACHED",
             Self::ProfileConflict => "PROFILE_CONFLICT",
             Self::ProfileLimit => "PROFILE_LIMIT_REACHED",
             Self::WorkspaceNotFound => "WORKSPACE_NOT_FOUND",
@@ -95,14 +111,16 @@ impl ErrorKind {
             | Self::InvalidDecision
             | Self::InvalidAnswer
             | Self::ConfigurationUnsupported
-            | Self::InvalidConfiguration => 400,
+            | Self::InvalidConfiguration
+            | Self::ArtifactUnsupported => 400,
             Self::ProfileNotFound
             | Self::WorkspaceNotFound
             | Self::SessionNotFound
             | Self::ProviderNotFound
-            | Self::AttachmentNotFound => 404,
+            | Self::AttachmentNotFound
+            | Self::ResourceNotFound => 404,
             Self::AttachmentTooLarge => 413,
-            Self::WorkspaceForbidden => 403,
+            Self::WorkspaceForbidden | Self::ResourceForbidden => 403,
             Self::ProfileConflict
             | Self::ProfileLimit
             | Self::ProbeBusy
@@ -114,7 +132,10 @@ impl ErrorKind {
             | Self::RunLimit
             | Self::WorkspaceBusy
             | Self::QueueConflict => 409,
-            Self::ProfileInvalid | Self::SessionLimit | Self::AttachmentLimit => 409,
+            Self::ProfileInvalid
+            | Self::SessionLimit
+            | Self::AttachmentLimit
+            | Self::ArtifactLimit => 409,
             Self::AttentionExpired
             | Self::DecisionConflict
             | Self::AgentDisconnected
@@ -122,8 +143,14 @@ impl ErrorKind {
             Self::StorageUnavailable
             | Self::HostUnavailable
             | Self::ProviderUnavailable
-            | Self::WorkspaceUnavailable => 503,
-            Self::DeliveryUncertain | Self::UpstreamInvalid | Self::ConfigurationFailed => 502,
+            | Self::WorkspaceUnavailable
+            | Self::ResourceUnavailable
+            | Self::GitUnavailable => 503,
+            Self::DeliveryUncertain
+            | Self::UpstreamInvalid
+            | Self::ConfigurationFailed
+            | Self::GitQueryFailed => 502,
+            Self::GitTimeout => 504,
             Self::Internal => 500,
         }
     }

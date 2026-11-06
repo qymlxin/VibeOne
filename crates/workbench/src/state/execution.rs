@@ -44,14 +44,8 @@ async fn lease_key(path: &str) -> Result<String, String> {
     let path = PathBuf::from(path)
         .canonicalize()
         .map_err(|_| "工作区已移动或删除")?;
-    let output = tokio::process::Command::new("git")
-        .args([
-            "-C",
-            path.to_str().ok_or("工作区路径无效")?,
-            "rev-parse",
-            "--show-toplevel",
-        ])
-        .kill_on_drop(true)
+    let output = crate::files::git_command(&path)
+        .args(["rev-parse", "--show-toplevel"])
         .output();
     let root = match tokio::time::timeout(Duration::from_secs(3), output).await {
         Ok(Ok(output)) if output.status.success() => {

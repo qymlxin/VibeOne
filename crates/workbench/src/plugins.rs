@@ -34,8 +34,12 @@ impl HostCapabilityBroker for Broker {
                 .ok_or_else(|| Error::Invalid("workspace missing".into()))?;
             let relative = call.input["path"].as_str().unwrap_or(".");
             let result = match (call.capability.as_str(), call.operation.as_str()) {
-                ("workspace.read", "scan") => files::tree(path, relative).await,
-                ("workspace.read", "read") => files::read(path, relative).await,
+                ("workspace.read", "scan") => files::tree(path, relative)
+                    .await
+                    .map_err(|error| error.to_string()),
+                ("workspace.read", "read") => files::read(path, relative)
+                    .await
+                    .map_err(|error| error.to_string()),
                 ("notifications.send", "show") => {
                     let message = call.input["message"]
                         .as_str()
@@ -131,7 +135,7 @@ fn copy_package(source: &Path, destination: &Path) -> Result<(), String> {
     walk(source, destination, &mut 0, &mut 0)
 }
 pub(crate) fn inspect(path: &Path) -> Result<Value, String> {
-    let file = files::resolve(path, "plugin.json", false)?;
+    let file = files::resolve(path, "plugin.json", false).map_err(|error| error.to_string())?;
     if std::fs::metadata(&file)
         .map_err(|error| error.to_string())?
         .len()
@@ -161,10 +165,12 @@ pub(crate) fn inspect(path: &Path) -> Result<Value, String> {
                 .as_str()
                 .ok_or("缺少 Worker 入口")?,
             false,
-        )?;
+        )
+        .map_err(|error| error.to_string())?;
     }
     if let Some(app) = manifest["entrypoints"].get("app") {
-        files::resolve(path, app["path"].as_str().ok_or("缺少 App 入口")?, false)?;
+        files::resolve(path, app["path"].as_str().ok_or("缺少 App 入口")?, false)
+            .map_err(|error| error.to_string())?;
     }
     let mut ids = std::collections::HashSet::new();
     for item in manifest["contributions"]
@@ -202,7 +208,9 @@ pub(crate) fn inspect(path: &Path) -> Result<Value, String> {
             if command.is_empty()
                 || command != "$node"
                     && !std::path::Path::new(command).is_absolute()
-                    && !files::resolve(path, command, false)?.is_file()
+                    && !files::resolve(path, command, false)
+                        .map_err(|error| error.to_string())?
+                        .is_file()
             {
                 return Err("Provider 启动程序不存在".into());
             }
@@ -474,7 +482,8 @@ impl Plugins {
             Path::new(record["path"].as_str().ok_or("插件路径无效")?),
             path,
             false,
-        )?;
+        )
+        .map_err(|error| error.to_string())?;
         if std::fs::metadata(&file)
             .map_err(|error| error.to_string())?
             .len()

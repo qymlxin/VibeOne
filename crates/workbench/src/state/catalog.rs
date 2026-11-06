@@ -90,7 +90,7 @@ impl Workbench {
             .await
             .map_err(|error| error.to_string())
     }
-    async fn put_catalog_locked(
+    pub(super) async fn put_catalog_locked(
         &self,
         kind: &str,
         id: &str,

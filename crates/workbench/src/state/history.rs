@@ -493,17 +493,30 @@ pub(super) async fn prepare(
 }
 
 impl Workbench {
-    pub async fn history_page(
+    pub(crate) async fn history_page(
         &self,
         id: &str,
         before: Option<u64>,
         limit: u16,
-    ) -> Result<Value, String> {
-        self.entry(id)?;
+    ) -> Result<Value, DomainError> {
+        self.command_available()?;
+        self.command_entry(id)?;
+        if limit == 0
+            || limit > 256
+            || before.is_some_and(|value| value == 0 || value > i64::MAX as u64)
+        {
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "无效的历史游标或分页大小",
+            ));
+        }
         self.store
             .history_page(id, before, limit)
             .await
-            .map_err(|error| error.to_string())
+            .map_err(|error| {
+                self.fail_storage(error);
+                DomainError::storage()
+            })
     }
 }
 

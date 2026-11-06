@@ -221,6 +221,15 @@ impl Workbench {
         self.entry(id)
             .map_err(|_| DomainError::new(ErrorKind::SessionNotFound, "会话不存在"))
     }
+    pub(crate) fn session_workspace(&self, id: &str) -> Result<String, DomainError> {
+        Ok(self
+            .command_entry(id)?
+            .view
+            .lock()
+            .expect("view poisoned")
+            .workspace
+            .clone())
+    }
     // Call while holding catalog_gate so creation and unarchive share one limit.
     fn check_session_capacity(&self) -> Result<(), DomainError> {
         let count = self
