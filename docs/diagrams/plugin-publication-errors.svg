@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="440" viewBox="0 0 1000 440">
+ <rect width="1000" height="440" rx="12" fill="#fafafa"/>
+ <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#666"/></marker></defs>
+ <g font-family="system-ui,sans-serif" fill="#222">
+  <text x="30" y="35" font-size="21" font-weight="600">插件准备、发布与后台执行</text>
+  <text x="30" y="61" font-size="13" fill="#666">桌面通过 Host HTTP 发起；独立任务持续处理，客户端断开不会撤销已开始的操作。</text>
+  <g fill="white" stroke="#aaa">
+   <rect x="30" y="90" width="200" height="70" rx="8"/><rect x="290" y="90" width="280" height="70" rx="8"/><rect x="630" y="90" width="340" height="70" rx="8"/>
+   <rect x="30" y="205" width="200" height="70" rx="8"/><rect x="290" y="205" width="280" height="70" rx="8"/><rect x="630" y="205" width="340" height="70" rx="8"/>
+   <rect x="30" y="320" width="200" height="70" rx="8"/><rect x="290" y="320" width="280" height="70" rx="8"/><rect x="630" y="320" width="340" height="70" rx="8"/>
+  </g>
+  <g font-size="14">
+   <text x="48" y="118">POST prepare</text><text x="48" y="143">HTTP 等待候选结果</text>
+   <text x="308" y="118">信任 / 配置 / 包复制及清单重查</text><text x="308" y="143">校验 App 后激活候选 Worker</text>
+   <text x="648" y="118">HTTP 200：ticket + 候选信息</text><text x="648" y="143">当前路由保持原代次；失败不发布</text>
+   <text x="48" y="233">POST commit</text><text x="48" y="258">HTTP 等待发布结果</text>
+   <text x="308" y="233">发布锁内重查：10 分钟 / 基础代次</text><text x="308" y="258">重新检查 64 条安装记录上限</text>
+   <text x="648" y="233">SQLite 保存 → 切换路由 → HTTP 200</text><text x="648" y="258">旧租约排空；失败不切换路由</text>
+   <text x="48" y="348">POST operations</text><text x="48" y="373">HTTP 只等待受理</text>
+   <text x="308" y="348">固定租约 / 幂等键 / 保存 accepted</text><text x="308" y="373">HTTP 202 + operationId</text>
+   <text x="648" y="348">异步 stdio Plugin RPC → Node Worker</text><text x="648" y="373">保存终态；HTTP 查询 / WS 通知对账</text>
+  </g>
+  <g fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)">
+   <path d="M230 125H287"/><path d="M570 125H627"/><path d="M230 240H287"/><path d="M570 240H627"/><path d="M230 355H287"/><path d="M570 355H627"/>
+  </g>
+  <text x="30" y="421" font-size="12" fill="#666">失败返回稳定身份与固定提示，不回显配置值或 Worker 原始异常；失败/超时不代表外部副作用已回滚。</text>
+ </g>
+</svg>

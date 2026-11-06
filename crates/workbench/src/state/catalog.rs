@@ -84,11 +84,19 @@ impl Workbench {
         id: &str,
         value: Value,
     ) -> Result<(), String> {
-        self.available()?;
-        let _gate = self.catalog_gate.lock().await;
-        self.put_catalog_locked(kind, id, value)
+        self.save_catalog(kind, id, value)
             .await
             .map_err(|error| error.to_string())
+    }
+    pub(crate) async fn save_catalog(
+        &self,
+        kind: &str,
+        id: &str,
+        value: Value,
+    ) -> Result<(), DomainError> {
+        self.command_available()?;
+        let _gate = self.catalog_gate.lock().await;
+        self.put_catalog_locked(kind, id, value).await
     }
     pub(super) async fn put_catalog_locked(
         &self,
@@ -96,8 +104,7 @@ impl Workbench {
         id: &str,
         value: Value,
     ) -> Result<(), DomainError> {
-        self.available()
-            .map_err(|_| DomainError::new(ErrorKind::HostUnavailable, "工作主机当前不可写入"))?;
+        self.command_available()?;
         let _sync = self.sync_gate.lock().await;
         let cursor = self
             .store
@@ -119,8 +126,7 @@ impl Workbench {
         Ok(())
     }
     pub(crate) async fn import_workspace(&self, path: &str) -> Result<Value, DomainError> {
-        self.available()
-            .map_err(|_| DomainError::new(ErrorKind::HostUnavailable, "工作主机当前不可写入"))?;
+        self.command_available()?;
         let path = PathBuf::from(path).canonicalize().map_err(|error| {
             DomainError::new(
                 match error.kind() {
@@ -244,8 +250,7 @@ impl Workbench {
         &self,
         request: crate::contracts::ProfileRequest,
     ) -> Result<crate::contracts::ProfileResponse, DomainError> {
-        self.available()
-            .map_err(|_| DomainError::new(ErrorKind::HostUnavailable, "工作主机当前不可写入"))?;
+        self.command_available()?;
         let _gate = self.catalog_gate.lock().await;
         let existing = request
             .id
@@ -397,12 +402,12 @@ mod profile_view_tests {
             .await
             .err()
             .expect("host must reject writes");
-        assert_eq!(next.kind, ErrorKind::HostUnavailable);
+        assert_eq!(next.kind, ErrorKind::StorageUnavailable);
         let commit = workbench
             .put_catalog_locked("profile", "blocked", json!({}))
             .await
             .unwrap_err();
-        assert_eq!(commit.kind, ErrorKind::HostUnavailable);
+        assert_eq!(commit.kind, ErrorKind::StorageUnavailable);
     }
     #[tokio::test]
     async fn legacy_profiles_and_corrupt_records_preserve_history_and_guard_removal() {

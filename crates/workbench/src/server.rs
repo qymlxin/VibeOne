@@ -30,13 +30,6 @@ struct Server {
 }
 type ApiResult<T = Value> = Result<Json<T>, (StatusCode, Json<Value>)>;
 // Keep accepted state mutations alive when a browser closes the request connection.
-async fn command<T: Send + 'static>(
-    future: impl std::future::Future<Output = Result<T, String>> + Send + 'static,
-) -> Result<T, String> {
-    tokio::spawn(future)
-        .await
-        .map_err(|error| format!("主机命令执行失败：{error}"))?
-}
 async fn domain_command<T: Send + 'static>(
     future: impl std::future::Future<Output = Result<T, crate::domain_error::DomainError>>
     + Send
@@ -497,19 +490,23 @@ async fn plugin_inspect(Json(body): Json<Value>) -> ApiResult {
         .map_err(domain_fail)
 }
 async fn plugin_prepare(State(state): State<Server>, Json(body): Json<Value>) -> ApiResult {
-    state
-        .workbench
-        .plugins
-        .prepare(&state.workbench, body)
-        .await
-        .map(Json)
-        .map_err(fail)
+    domain_command(async move {
+        state
+            .workbench
+            .plugins
+            .prepare(&state.workbench, body)
+            .await
+    })
+    .await
+    .map(Json)
+    .map_err(domain_fail)
 }
+
 async fn plugin_commit(
     State(state): State<Server>,
     Json(body): Json<PluginTicketRequest>,
 ) -> ApiResult {
-    command(async move {
+    domain_command(async move {
         state
             .workbench
             .plugins
@@ -518,7 +515,7 @@ async fn plugin_commit(
     })
     .await
     .map(Json)
-    .map_err(fail)
+    .map_err(domain_fail)
 }
 async fn plugin_discard(
     State(state): State<Server>,
@@ -528,41 +525,43 @@ async fn plugin_discard(
     Json(json!({"discarded":true}))
 }
 async fn plugin_disable(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
-    command(async move { state.workbench.plugins.disable(&state.workbench, &id).await })
+    domain_command(async move { state.workbench.plugins.disable(&state.workbench, &id).await })
         .await
         .map(|_| Json(json!({"disabled":true})))
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn plugin_invoke(
     State(state): State<Server>,
     Path(id): Path<String>,
     Json(body): Json<Value>,
 ) -> ApiResult {
-    state
-        .workbench
-        .plugins
-        .invoke(&state.workbench, &id, body)
-        .await
-        .map(Json)
-        .map_err(fail)
+    domain_command(async move {
+        state
+            .workbench
+            .plugins
+            .invoke(&state.workbench, &id, body)
+            .await
+    })
+    .await
+    .map(Json)
+    .map_err(domain_fail)
 }
 async fn plugin_operation(
     State(state): State<Server>,
     Path(id): Path<String>,
     Json(body): Json<Value>,
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
-    command(async move { state.workbench.submit_plugin_operation(&id, body).await })
+    domain_command(async move { state.workbench.submit_plugin_operation(&id, body).await })
         .await
         .map(|receipt| (StatusCode::ACCEPTED, Json(receipt)))
-        .map_err(fail)
+        .map_err(domain_fail)
 }
 async fn operation_status(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
-    state.workbench.operation(&id).map(Json).map_err(|message| {
-        (
-            StatusCode::NOT_FOUND,
-            Json(json!({"code":"OPERATION_NOT_FOUND","error":message})),
-        )
-    })
+    state
+        .workbench
+        .operation(&id)
+        .map(Json)
+        .map_err(domain_fail)
 }
 async fn operation_list(State(state): State<Server>) -> Json<Value> {
     Json(json!({"operations":state.workbench.operation_summaries()}))

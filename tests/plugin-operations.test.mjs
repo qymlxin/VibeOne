@@ -28,8 +28,8 @@ test('durable plugin receipts pin generations, deduplicate, survive lost replies
  assert.equal((await ended(receipts[0].operationId)).result.value,'one');
  assert.equal(await readFile(counter,'utf8'),'x');
  await submit({...body,input:{value:'different'}},409);
- await submit({key:'bad-generation',handler:'count',generation:plugin.generation+1,input:{}},400);
- await submit({key:'bad-handler',handler:'not-published',input:{}},400);
+ await submit({key:'bad-generation',handler:'count',generation:plugin.generation+1,input:{}},409);
+ await submit({key:'bad-handler',handler:'not-published',input:{}},403);
  const large=await submit({key:'within-plugin-limit',handler:'count',input:{value:'large',padding:'x'.repeat(300000)}});
  assert.equal((await ended(large.operationId)).result.value,'large');
  await submit({key:'outside-plugin-limit',handler:'count',input:{padding:'x'.repeat(550000)}},400);

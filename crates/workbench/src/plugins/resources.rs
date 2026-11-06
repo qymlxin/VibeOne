@@ -4,7 +4,7 @@ use crate::{
 };
 use std::{io::Read, path::Path};
 
-fn io_error(error: std::io::Error) -> DomainError {
+pub(super) fn io_error(error: std::io::Error) -> DomainError {
     let kind = match error.kind() {
         std::io::ErrorKind::NotFound => ErrorKind::PluginResourceNotFound,
         std::io::ErrorKind::PermissionDenied => ErrorKind::ResourceForbidden,

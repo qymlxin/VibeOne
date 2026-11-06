@@ -200,7 +200,7 @@ impl Workbench {
         }
         Ok(())
     }
-    fn command_available(&self) -> Result<(), DomainError> {
+    pub(crate) fn command_available(&self) -> Result<(), DomainError> {
         if self
             .storage_error
             .lock()

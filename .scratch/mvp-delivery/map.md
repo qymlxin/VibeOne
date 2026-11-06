@@ -129,6 +129,8 @@
 
 - [85-cli-timeout-close-test](issues/85-cli-timeout-close-test.md)：修正macOS超时关闭的RST/EOF断言，仍严格验证连接关闭和凭据不回显；真实TCP测试三次通过，生产CLI未改。
 
+- [84-plugin-lifecycle-errors](issues/84-plugin-lifecycle-errors.md)：插件公共生命周期/操作错误、错误隐私、候选容量/过期重查与有界复制完成；真实Worker/SQLite、全量、桌面/手机和包外验证通过。14剩余查询错误及动态响应继续。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

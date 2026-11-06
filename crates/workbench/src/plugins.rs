@@ -80,7 +80,7 @@ impl PreparedInvocation {
     pub(crate) fn generation(&self) -> u64 {
         self.lease.key().generation
     }
-    pub(crate) async fn execute(self) -> Result<Value, String> {
+    pub(crate) async fn execute(self) -> Result<Value, DomainError> {
         self.lease
             .invoke(
                 &self.handler,
@@ -89,7 +89,7 @@ impl PreparedInvocation {
                 Duration::from_secs(30),
             )
             .await
-            .map_err(|error| error.to_string())
+            .map_err(|error| worker_error(error, ErrorKind::PluginOperationFailed))
     }
 }
 pub(crate) struct Plugins {
@@ -99,42 +99,133 @@ pub(crate) struct Plugins {
     gate: tokio::sync::Mutex<()>,
     events: Mutex<Vec<Value>>,
 }
-fn copy_package(source: &Path, destination: &Path) -> Result<(), String> {
+fn plugin_failure(kind: ErrorKind, message: &str) -> DomainError {
+    DomainError::new(kind, message)
+}
+fn worker_error(error: Error, fallback: ErrorKind) -> DomainError {
+    let kind = match error {
+        Error::Timeout => ErrorKind::PluginTimeout,
+        Error::Closed(_) | Error::Io(_) => ErrorKind::PluginUnavailable,
+        _ => fallback,
+    };
+    let message = match kind {
+        ErrorKind::PluginTimeout => "插件请求超时，请核对已经发生的动作",
+        ErrorKind::PluginUnavailable => "插件运行连接不可用，执行结果可能未确认",
+        ErrorKind::PluginActivationFailed => "插件激活失败，请检查入口及运行环境",
+        _ => "插件操作执行失败，请检查插件运行状态",
+    };
+    plugin_failure(kind, message)
+}
+fn copy_package(source: &Path, destination: &Path) -> Result<(), DomainError> {
+    use std::io::{Read, Write};
+    let io_error = |_| {
+        plugin_failure(
+            ErrorKind::PluginUnavailable,
+            "插件包复制失败，请检查目录和访问权限",
+        )
+    };
     fn walk(
-        source: &Path,
-        destination: &Path,
+        source: &cap_std::fs::Dir,
+        destination: &cap_std::fs::Dir,
         count: &mut usize,
         total: &mut u64,
-    ) -> Result<(), String> {
-        std::fs::create_dir_all(destination).map_err(|error| error.to_string())?;
-        for entry in std::fs::read_dir(source).map_err(|error| error.to_string())? {
-            let entry = entry.map_err(|error| error.to_string())?;
+        depth: usize,
+    ) -> Result<(), DomainError> {
+        let io_error = |_| {
+            plugin_failure(
+                ErrorKind::PluginUnavailable,
+                "插件包复制失败，请检查目录和访问权限",
+            )
+        };
+        if depth > 64 {
+            return Err(invalid_manifest("插件包目录嵌套超过64层"));
+        }
+        for entry in source.entries().map_err(io_error)? {
+            let entry = entry.map_err(io_error)?;
             let name = entry.file_name();
             if matches!(name.to_str(), Some("node_modules" | ".git" | "target")) {
                 continue;
             }
-            let kind = entry.file_type().map_err(|error| error.to_string())?;
+            let kind = entry.file_type().map_err(io_error)?;
             if kind.is_symlink() {
-                return Err("插件包不能包含符号链接，请构建独立安装目录".into());
+                return Err(invalid_manifest(
+                    "插件包不能包含符号链接，请构建独立安装目录",
+                ));
             }
             *count += 1;
             if *count > 5000 {
-                return Err("插件包文件数量超过限制".into());
+                return Err(invalid_manifest("插件包文件数量超过限制"));
             }
             if kind.is_dir() {
-                walk(&entry.path(), &destination.join(&name), count, total)?;
+                destination.create_dir(&name).map_err(io_error)?;
+                walk(
+                    &source.open_dir(&name).map_err(io_error)?,
+                    &destination.open_dir(&name).map_err(io_error)?,
+                    count,
+                    total,
+                    depth + 1,
+                )?;
             } else if kind.is_file() {
-                *total += entry.metadata().map_err(|error| error.to_string())?.len();
-                if *total > 20 * 1024 * 1024 {
-                    return Err("插件包超过 20 MiB，请移除构建缓存".into());
+                let mut options = cap_std::fs::OpenOptions::new();
+                options.read(true);
+                #[cfg(unix)]
+                {
+                    use cap_std::fs::OpenOptionsExt;
+                    options.custom_flags(rustix::fs::OFlags::NONBLOCK.bits() as i32);
                 }
-                std::fs::copy(entry.path(), destination.join(&name))
-                    .map_err(|error| error.to_string())?;
+                let input = source.open_with(&name, &options).map_err(io_error)?;
+                let metadata = input.metadata().map_err(io_error)?;
+                if !metadata.is_file() {
+                    return Err(invalid_manifest("插件包只能包含普通文件和目录"));
+                }
+                let remaining = 20 * 1024 * 1024 - *total;
+                let too_large = || {
+                    plugin_failure(
+                        ErrorKind::PluginResourceTooLarge,
+                        "插件包超过20MiB，请移除构建缓存",
+                    )
+                };
+                if metadata.len() > remaining {
+                    return Err(too_large());
+                }
+                let mut bytes = Vec::new();
+                input
+                    .take(remaining + 1)
+                    .read_to_end(&mut bytes)
+                    .map_err(io_error)?;
+                if bytes.len() as u64 > remaining {
+                    return Err(too_large());
+                }
+                *total += bytes.len() as u64;
+                let mut output = destination.create(&name).map_err(io_error)?;
+                output.write_all(&bytes).map_err(io_error)?;
+                output
+                    .set_permissions(metadata.permissions())
+                    .map_err(io_error)?;
+            } else {
+                return Err(invalid_manifest("插件包只能包含普通文件和目录"));
             }
         }
         Ok(())
     }
-    walk(source, destination, &mut 0, &mut 0)
+    let source = cap_std::fs::Dir::open_ambient_dir(source, cap_std::ambient_authority())
+        .map_err(io_error)?;
+    std::fs::create_dir_all(
+        destination
+            .parent()
+            .ok_or_else(|| invalid_manifest("插件目标目录无效"))?,
+    )
+    .map_err(io_error)?;
+    std::fs::create_dir(destination).map_err(io_error)?;
+    let result = (|| {
+        let target = cap_std::fs::Dir::open_ambient_dir(destination, cap_std::ambient_authority())
+            .map_err(io_error)?;
+        walk(&source, &target, &mut 0, &mut 0, 0)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_dir_all(destination);
+    }
+    result
 }
 pub(crate) async fn inspect(path: PathBuf) -> Result<Value, DomainError> {
     tokio::task::spawn_blocking(move || inspect_manifest(&path))
@@ -254,6 +345,41 @@ fn inspect_manifest(path: &Path) -> Result<Value, DomainError> {
     }
     Ok(manifest)
 }
+fn validate_publication(
+    workbench: &Workbench,
+    record: &Value,
+    base: u64,
+    created: std::time::Instant,
+) -> Result<(), DomainError> {
+    if created.elapsed() >= Duration::from_secs(600) {
+        return Err(plugin_failure(
+            ErrorKind::PluginCandidateExpired,
+            "插件候选已过期，请重新准备",
+        ));
+    }
+    let id = record["id"]
+        .as_str()
+        .ok_or_else(|| invalid_manifest("插件 id 无效"))?;
+    let installed = workbench.catalog("plugin");
+    let current = installed.iter().find(|record| record["id"] == id);
+    if current
+        .and_then(|record| record["generation"].as_u64())
+        .unwrap_or(0)
+        != base
+    {
+        return Err(plugin_failure(
+            ErrorKind::PluginGenerationConflict,
+            "插件已在其他窗口更新，请重新加载候选",
+        ));
+    }
+    if current.is_none() && installed.len() >= 64 {
+        return Err(plugin_failure(
+            ErrorKind::PluginLimit,
+            "本地插件数量已达到当前版本上限",
+        ));
+    }
+    Ok(())
+}
 impl Plugins {
     pub fn new(directory: PathBuf) -> Self {
         Self {
@@ -277,22 +403,29 @@ impl Plugins {
         &self,
         workbench: &Arc<Workbench>,
         record: &Value,
-    ) -> Result<Arc<PluginManager>, String> {
+    ) -> Result<Arc<PluginManager>, DomainError> {
         let runtime = self.runtime();
         let sdk = runtime
             .parent()
             .and_then(Path::parent)
             .and_then(Path::parent)
-            .ok_or("插件运行时路径无效")?
+            .ok_or_else(|| plugin_failure(ErrorKind::PluginUnavailable, "插件运行时路径无效"))?
             .join("plugin-sdk");
         let destination = self.directory.join("node_modules/@vibeone/plugin-sdk");
         if !destination.exists() {
-            copy_package(&sdk, &destination)?;
+            tokio::task::spawn_blocking(move || copy_package(&sdk, &destination))
+                .await
+                .map_err(|_| plugin_failure(ErrorKind::Internal, "插件运行时准备未完成"))??;
         }
-        let node = find_node().ok_or("未找到 Node.js 22+，请安装后重试")?;
+        let node = find_node().ok_or_else(|| {
+            plugin_failure(
+                ErrorKind::PluginUnavailable,
+                "未找到 Node.js 22+，请安装后重试",
+            )
+        })?;
         let host = PluginHost::spawn(&node, &runtime, Arc::new(Broker(Arc::downgrade(workbench))))
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| worker_error(error, ErrorKind::PluginActivationFailed))?;
         let mut progress = host.subscribe();
         let weak = Arc::downgrade(workbench);
         let id = record["id"].clone();
@@ -320,7 +453,11 @@ impl Plugins {
         let manager = Arc::new(PluginManager::new(Arc::new(host)));
         manager
             .replace(Activation {
-                package_path: PathBuf::from(record["path"].as_str().ok_or("插件路径无效")?),
+                package_path: PathBuf::from(
+                    record["path"]
+                        .as_str()
+                        .ok_or_else(|| invalid_manifest("插件路径无效"))?,
+                ),
                 grant: InstanceGrant {
                     key: InstanceKey {
                         instance_id: record["id"].as_str().unwrap_or_default().into(),
@@ -349,7 +486,7 @@ impl Plugins {
                 config: record["config"].clone(),
             })
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| worker_error(error, ErrorKind::PluginActivationFailed))?;
         Ok(manager)
     }
     pub async fn restore(&self, workbench: &Arc<Workbench>) {
@@ -366,33 +503,50 @@ impl Plugins {
                 }
                 Err(error) => {
                     record["enabled"] = json!(false);
-                    record["error"] = json!(error);
+                    record["error"] = json!(error.message);
                     let id = record["id"].as_str().unwrap_or_default().to_owned();
                     let _ = workbench.put_catalog("plugin", &id, record).await;
                 }
             }
         }
     }
-    pub async fn prepare(&self, workbench: &Arc<Workbench>, body: Value) -> Result<Value, String> {
+    pub async fn prepare(
+        &self,
+        workbench: &Arc<Workbench>,
+        body: Value,
+    ) -> Result<Value, DomainError> {
+        workbench.command_available()?;
         let _gate = self.gate.lock().await;
+        workbench.command_available()?;
         if body["trusted"] != true {
-            return Err("请先确认信任本地插件代码与声明权限".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginTrustRequired,
+                "请先确认信任本地插件代码与声明权限",
+            ));
         }
         self.pending
             .lock()
             .expect("plugins poisoned")
             .retain(|_, candidate| candidate.created.elapsed() < Duration::from_secs(600));
         if self.pending.lock().expect("plugins poisoned").len() >= 8 {
-            return Err("有过多待确认的插件更新，请先完成或取消".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginCandidateLimit,
+                "有过多待确认的插件更新，请先完成或取消",
+            ));
         }
-        let source = PathBuf::from(body["path"].as_str().ok_or("请选择插件目录")?)
-            .canonicalize()
-            .map_err(|_| "插件目录不存在")?;
-        let mut manifest = inspect(source.clone())
-            .await
-            .map_err(|error| error.to_string())?;
+        let source = PathBuf::from(
+            body["path"]
+                .as_str()
+                .ok_or_else(|| plugin_failure(ErrorKind::InvalidInput, "请选择插件目录"))?,
+        )
+        .canonicalize()
+        .map_err(resources::io_error)?;
+        let mut manifest = inspect(source.clone()).await?;
         if body.get("expectedManifest").is_some() && body["expectedManifest"] != manifest {
-            return Err("插件清单已变化，请重新检查并授权".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginManifestChanged,
+                "插件清单已变化，请重新检查并授权",
+            ));
         }
         let id = manifest["id"].as_str().unwrap_or_default().to_owned();
         if workbench.catalog("plugin").len() >= 64
@@ -401,7 +555,10 @@ impl Plugins {
                 .iter()
                 .any(|record| record["id"] == id)
         {
-            return Err("本地插件数量已达到当前版本上限".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginLimit,
+                "本地插件数量已达到当前版本上限",
+            ));
         }
         let capabilities = manifest["hostRequirements"]
             .as_array()
@@ -413,7 +570,19 @@ impl Plugins {
                 Some("workspace.read" | "notifications.send" | "agent.spawn")
             )
         }) {
-            return Err("插件声明了当前宿主不支持的权限".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginIncompatible,
+                "插件声明了当前宿主不支持的权限",
+            ));
+        }
+        if body
+            .get("workspaces")
+            .is_some_and(|value| !value.is_null() && !value.is_array())
+        {
+            return Err(plugin_failure(
+                ErrorKind::InvalidInput,
+                "插件工作区授权必须为数组",
+            ));
         }
         let workspaces = body["workspaces"].as_array().cloned().unwrap_or_default();
         let known = workbench.snapshot()["workspaces"]
@@ -424,42 +593,84 @@ impl Plugins {
             .iter()
             .all(|id| known.iter().any(|workspace| workspace["id"] == *id))
         {
-            return Err("插件工作区授权无效".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginPermissionDenied,
+                "插件工作区授权无效",
+            ));
         }
         if !body["config"].is_null() && !body["config"].is_object() {
-            return Err("插件配置须为 JSON 对象".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginConfigurationInvalid,
+                "插件配置须为 JSON 对象",
+            ));
         }
         if let Some(schema) = manifest.get("configurationSchema") {
-            let validator = jsonschema::validator_for(schema).map_err(|error| error.to_string())?;
+            let validator = jsonschema::validator_for(schema)
+                .map_err(|_| invalid_manifest("插件配置Schema无效"))?;
             validator
                 .validate(&body.get("config").cloned().unwrap_or_else(|| json!({})))
-                .map_err(|error| format!("插件配置不符合要求：{error}"))?;
+                .map_err(|_| {
+                    plugin_failure(
+                        ErrorKind::PluginConfigurationInvalid,
+                        "插件配置不符合要求，请检查字段类型和必填项",
+                    )
+                })?;
         }
         let ticket = uuid::Uuid::new_v4().to_string();
         let destination = self.directory.join("plugins").join(&id).join(&ticket);
         if source.starts_with(&destination) || destination.starts_with(&source) {
-            return Err("插件源目录不能包含安装目录".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginInvalid,
+                "插件源目录不能包含安装目录",
+            ));
         }
         let from = source.clone();
         let to = destination.clone();
         tokio::task::spawn_blocking(move || copy_package(&from, &to))
             .await
-            .map_err(|error| error.to_string())??;
-        if manifest["entrypoints"].get("worker").is_none() {
-            manifest["entrypoints"]["worker"] =
-                json!({"path":"vibeone-noop.mjs","runtime":"node","protocolVersion":1});
-            tokio::fs::write(
-                destination.join("vibeone-noop.mjs"),
-                "export default {apiVersion:'0.1',setup(){}};",
-            )
-            .await
-            .map_err(|error| error.to_string())?;
-            tokio::fs::write(
-                destination.join("plugin.json"),
-                serde_json::to_vec(&manifest).map_err(|error| error.to_string())?,
-            )
-            .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|_| plugin_failure(ErrorKind::Internal, "插件包复制任务未完成"))??;
+        let copied_manifest = inspect(destination.clone()).await;
+        let copied_error = match copied_manifest {
+            Ok(copied) if copied == manifest => None,
+            Ok(_) => Some(plugin_failure(
+                ErrorKind::PluginManifestChanged,
+                "插件清单在复制期间变化，请重新检查并授权",
+            )),
+            Err(error) => Some(error),
+        };
+        if let Some(error) = copied_error {
+            let _ = tokio::fs::remove_dir_all(&destination).await;
+            return Err(error);
+        }
+        let generated: Result<(), DomainError> = async {
+            if manifest["entrypoints"].get("worker").is_none() {
+                manifest["entrypoints"]["worker"] =
+                    json!({"path":"vibeone-noop.mjs","runtime":"node","protocolVersion":1});
+                tokio::fs::write(
+                    destination.join("vibeone-noop.mjs"),
+                    "export default {apiVersion:'0.1',setup(){}};",
+                )
+                .await
+                .map_err(|_| {
+                    plugin_failure(ErrorKind::PluginUnavailable, "无法写入插件候选资源")
+                })?;
+                tokio::fs::write(
+                    destination.join("plugin.json"),
+                    serde_json::to_vec(&manifest).map_err(|_| {
+                        plugin_failure(ErrorKind::PluginUnavailable, "无法写入插件候选资源")
+                    })?,
+                )
+                .await
+                .map_err(|_| {
+                    plugin_failure(ErrorKind::PluginUnavailable, "无法写入插件候选资源")
+                })?;
+            }
+            Ok(())
+        }
+        .await;
+        if let Err(error) = generated {
+            let _ = tokio::fs::remove_dir_all(&destination).await;
+            return Err(error);
         }
         let old = workbench
             .catalog("plugin")
@@ -469,13 +680,16 @@ impl Plugins {
             .as_ref()
             .and_then(|record| record["generation"].as_u64())
             .unwrap_or(0);
-        let record = json!({"id":id,"name":manifest["name"],"version":manifest["version"],"manifest":manifest,"path":destination,"generation":base+1,"enabled":true,"capabilities":capabilities,"workspaces":workspaces,"config":body["config"].as_object().cloned().unwrap_or_default(),"error":null});
+        let generation = base.checked_add(1).ok_or_else(|| {
+            plugin_failure(ErrorKind::PluginGenerationConflict, "插件代次无法继续递增")
+        })?;
+        let record = json!({"id":id,"name":manifest["name"],"version":manifest["version"],"manifest":manifest,"path":destination,"generation":generation,"enabled":true,"capabilities":capabilities,"workspaces":workspaces,"config":body["config"].as_object().cloned().unwrap_or_default(),"error":null});
         // Validate the copied candidate's App before starting plugin code.
         let app = match Self::app(record.clone()).await {
             Ok(app) => app,
             Err(error) => {
                 let _ = tokio::fs::remove_dir_all(&destination).await;
-                return Err(error.to_string());
+                return Err(error);
             }
         };
         let manager = match self.activate(workbench, &record).await {
@@ -511,26 +725,32 @@ impl Plugins {
         .await
         .map_err(|_| DomainError::new(ErrorKind::Internal, "插件 App 读取未完成"))?
     }
-    pub async fn commit(&self, workbench: &Workbench, ticket: &str) -> Result<Value, String> {
+    pub async fn commit(&self, workbench: &Workbench, ticket: &str) -> Result<Value, DomainError> {
+        workbench.command_available()?;
         let _gate = self.gate.lock().await;
+        workbench.command_available()?;
         let candidate = self
             .pending
             .lock()
             .expect("plugins poisoned")
             .remove(ticket)
-            .ok_or("插件候选已失效")?;
-        let id = candidate.record["id"].as_str().ok_or("插件 id 无效")?;
-        let current = workbench
-            .catalog("plugin")
-            .iter()
-            .find(|record| record["id"] == id)
-            .and_then(|record| record["generation"].as_u64())
-            .unwrap_or(0);
-        if current != candidate.base {
-            return Err("插件已在其他窗口更新，请重新加载候选".into());
-        }
+            .ok_or_else(|| {
+                plugin_failure(
+                    ErrorKind::PluginCandidateExpired,
+                    "插件候选已失效，请重新准备",
+                )
+            })?;
+        validate_publication(
+            workbench,
+            &candidate.record,
+            candidate.base,
+            candidate.created,
+        )?;
+        let id = candidate.record["id"]
+            .as_str()
+            .ok_or_else(|| invalid_manifest("插件 id 无效"))?;
         workbench
-            .put_catalog("plugin", id, candidate.record.clone())
+            .save_catalog("plugin", id, candidate.record.clone())
             .await?;
         self.current
             .lock()
@@ -544,15 +764,17 @@ impl Plugins {
             .expect("plugins poisoned")
             .remove(ticket);
     }
-    pub async fn disable(&self, workbench: &Workbench, id: &str) -> Result<(), String> {
+    pub async fn disable(&self, workbench: &Workbench, id: &str) -> Result<(), DomainError> {
+        workbench.command_available()?;
         let _gate = self.gate.lock().await;
+        workbench.command_available()?;
         let mut record = workbench
             .catalog("plugin")
             .into_iter()
             .find(|record| record["id"] == id)
-            .ok_or("插件不存在")?;
+            .ok_or_else(|| plugin_failure(ErrorKind::PluginNotFound, "插件不存在"))?;
         record["enabled"] = json!(false);
-        workbench.put_catalog("plugin", id, record).await?;
+        workbench.save_catalog("plugin", id, record).await?;
         self.current.lock().expect("plugins poisoned").remove(id);
         Ok(())
     }
@@ -629,7 +851,7 @@ impl Plugins {
         workbench: &Workbench,
         id: &str,
         body: Value,
-    ) -> Result<Value, String> {
+    ) -> Result<Value, DomainError> {
         let prepared = self.prepare_invocation(workbench, id, &body).await?;
         let generation = prepared.generation();
         let result = prepared.execute().await;
@@ -640,7 +862,7 @@ impl Plugins {
                 .into_iter()
                 .find(|record| record["id"] == id && record["generation"] == generation)
             {
-                current["error"] = json!(error.chars().take(2000).collect::<String>());
+                current["error"] = json!(error.message);
                 let _ = workbench.put_catalog("plugin", id, current).await;
             }
         }
@@ -651,26 +873,53 @@ impl Plugins {
         workbench: &Workbench,
         id: &str,
         body: &Value,
-    ) -> Result<PreparedInvocation, String> {
+    ) -> Result<PreparedInvocation, DomainError> {
+        workbench.command_available()?;
+        if !body.is_object() {
+            return Err(plugin_failure(
+                ErrorKind::InvalidInput,
+                "插件调用参数须为对象",
+            ));
+        }
         let gate = self.gate.lock().await;
+        workbench.command_available()?;
+        let record = workbench
+            .catalog("plugin")
+            .into_iter()
+            .find(|record| record["id"] == id)
+            .ok_or_else(|| plugin_failure(ErrorKind::PluginNotFound, "插件未安装"))?;
+        if record["enabled"] != true {
+            return Err(plugin_failure(ErrorKind::PluginDisabled, "插件未启用"));
+        }
         let manager = self
             .current
             .lock()
             .expect("plugins poisoned")
             .get(id)
             .cloned()
-            .ok_or("插件未启用")?;
-        let record = workbench
-            .catalog("plugin")
-            .into_iter()
-            .find(|record| record["id"] == id)
-            .ok_or("插件未安装")?;
+            .ok_or_else(|| plugin_failure(ErrorKind::PluginUnavailable, "插件运行连接不可用"))?;
+        if body.get("generation").is_some_and(|value| !value.is_u64())
+            || body
+                .get("workspaceId")
+                .is_some_and(|value| !value.is_null() && !value.is_string())
+        {
+            return Err(plugin_failure(
+                ErrorKind::InvalidInput,
+                "插件代次或工作区参数类型无效",
+            ));
+        }
         if let Some(generation) = body["generation"].as_u64()
             && Some(generation) != record["generation"].as_u64()
         {
-            return Err("插件代次已变化，请刷新界面".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginGenerationConflict,
+                "插件代次已变化，请刷新界面",
+            ));
         }
-        let handler = body["handler"].as_str().ok_or("缺少处理器")?;
+        let handler = body["handler"]
+            .as_str()
+            .filter(|handler| !handler.is_empty())
+            .ok_or_else(|| plugin_failure(ErrorKind::InvalidInput, "缺少处理器"))?;
         if !record["manifest"]["contributions"]
             .as_array()
             .is_some_and(|items| {
@@ -679,7 +928,10 @@ impl Plugins {
                 })
             })
         {
-            return Err("处理器未通过清单公开".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginPermissionDenied,
+                "处理器未通过清单公开",
+            ));
         }
         let workspace = body["workspaceId"].as_str();
         if let Some(workspace) = workspace
@@ -687,11 +939,19 @@ impl Plugins {
                 .as_array()
                 .is_some_and(|items| items.iter().any(|item| item == workspace))
         {
-            return Err("插件未获授权访问此工作区".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginPermissionDenied,
+                "插件未获授权访问此工作区",
+            ));
         }
-        let lease = manager.acquire(id).map_err(|error| error.to_string())?;
+        let lease = manager
+            .acquire(id)
+            .map_err(|_| plugin_failure(ErrorKind::PluginUnavailable, "插件运行路由不可用"))?;
         if Some(lease.key().generation) != record["generation"].as_u64() {
-            return Err("插件代次正在切换，请稍后重试".into());
+            return Err(plugin_failure(
+                ErrorKind::PluginGenerationConflict,
+                "插件代次正在切换，请稍后重试",
+            ));
         }
         drop(gate);
         let title = record["manifest"]["contributions"]
@@ -712,5 +972,160 @@ impl Plugins {
             input: body["input"].clone(),
             workspace: workspace.map(str::to_owned),
         })
+    }
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+    #[tokio::test]
+    async fn publication_rechecks_capacity_expiry_and_current_generation() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(directory.path(), vec![]).await.unwrap();
+        for index in 0..63 {
+            let id = format!("installed-{index}");
+            workbench
+                .save_catalog(
+                    "plugin",
+                    &id,
+                    json!({"id":id,"generation":1,"enabled":false}),
+                )
+                .await
+                .unwrap();
+        }
+        let source = directory.path().join("source");
+        std::fs::create_dir(&source).unwrap();
+        std::fs::write(
+            source.join("worker.mjs"),
+            "export default {apiVersion:'0.1',setup(){}};",
+        )
+        .unwrap();
+        let mut candidates = vec![];
+        for id in ["fixture.a", "fixture.b", "installed-0"] {
+            std::fs::write(source.join("plugin.json"),serde_json::to_vec(&json!({"manifestVersion":1,"id":id,"name":"Fixture","version":"0.1.0","engines":{"pluginApi":">=0.1 <0.2"},"entrypoints":{"worker":{"path":"worker.mjs","runtime":"node","protocolVersion":1}},"contributions":[]})).unwrap()).unwrap();
+            candidates.push(
+                workbench
+                    .plugins
+                    .prepare(&workbench, json!({"path":source,"trusted":true}))
+                    .await
+                    .unwrap(),
+            );
+        }
+        workbench
+            .plugins
+            .commit(&workbench, candidates[0]["ticket"].as_str().unwrap())
+            .await
+            .unwrap();
+        assert_eq!(
+            workbench
+                .plugins
+                .commit(&workbench, candidates[1]["ticket"].as_str().unwrap())
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::PluginLimit
+        );
+        assert_eq!(workbench.catalog("plugin").len(), 64);
+        assert!(workbench.plugins.acquire("fixture.b").is_err());
+        let expired = candidates[2]["ticket"].as_str().unwrap();
+        workbench
+            .plugins
+            .pending
+            .lock()
+            .unwrap()
+            .get_mut(expired)
+            .unwrap()
+            .created = std::time::Instant::now() - Duration::from_secs(601);
+        assert_eq!(
+            workbench
+                .plugins
+                .commit(&workbench, expired)
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::PluginCandidateExpired
+        );
+        assert_eq!(
+            workbench
+                .catalog("plugin")
+                .into_iter()
+                .find(|item| item["id"] == "installed-0")
+                .unwrap()["enabled"],
+            false
+        );
+        assert_eq!(
+            validate_publication(
+                &workbench,
+                &json!({"id":"fixture.a"}),
+                0,
+                std::time::Instant::now()
+            )
+            .unwrap_err()
+            .kind,
+            ErrorKind::PluginGenerationConflict
+        );
+        workbench.close().await;
+    }
+    #[test]
+    fn worker_failures_have_safe_messages_and_preserve_transport_identity() {
+        let error = worker_error(
+            Error::Remote {
+                code: "PRIVATE_CODE".into(),
+                message: "PRIVATE_VALUE".into(),
+            },
+            ErrorKind::PluginOperationFailed,
+        );
+        assert_eq!(error.kind, ErrorKind::PluginOperationFailed);
+        assert!(!error.message.contains("PRIVATE"));
+        assert_eq!(
+            worker_error(Error::Timeout, ErrorKind::PluginOperationFailed).kind,
+            ErrorKind::PluginTimeout
+        );
+        assert_eq!(
+            worker_error(
+                Error::Closed("PRIVATE_VALUE".into()),
+                ErrorKind::PluginOperationFailed
+            )
+            .kind,
+            ErrorKind::PluginUnavailable
+        );
+    }
+    #[test]
+    fn package_copy_keeps_executable_bits_and_cleans_oversized_candidates() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source");
+        let target = directory.path().join("target-package");
+        std::fs::create_dir(&source).unwrap();
+        let file = source.join("entry");
+        std::fs::write(&file, b"script").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        copy_package(&source, &target).unwrap();
+        assert_eq!(std::fs::read(target.join("entry")).unwrap(), b"script");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(target.join("entry"))
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o111,
+                0o111
+            );
+        }
+        std::fs::remove_dir_all(&target).unwrap();
+        std::fs::File::create(source.join("large"))
+            .unwrap()
+            .set_len(20 * 1024 * 1024 + 1)
+            .unwrap();
+        assert_eq!(
+            copy_package(&source, &target).unwrap_err().kind,
+            ErrorKind::PluginResourceTooLarge
+        );
+        assert!(!target.exists());
     }
 }
