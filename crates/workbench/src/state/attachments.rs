@@ -106,11 +106,9 @@ impl Workbench {
         let _gate = entry.gate.lock().await;
         let referenced = {
             let view = entry.view.lock().expect("view poisoned");
-            view.runs.iter().any(|run| {
-                run["attachmentIds"]
-                    .as_array()
-                    .is_some_and(|ids| ids.iter().any(|item| item == attachment))
-            })
+            view.runs
+                .iter()
+                .any(|run| run.attachment_ids.iter().any(|item| item == attachment))
         };
         if !referenced {
             self.store

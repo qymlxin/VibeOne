@@ -6,7 +6,7 @@ impl Workbench {
             let view = entry.view.lock().expect("view poisoned");
             (
                 view.workspace.clone(),
-                view.runs.last().map(|run| run["id"].clone()),
+                view.runs.last().map(|run| json!(run.id)),
             )
         };
         let content = crate::files::read(&workspace, path).await?;

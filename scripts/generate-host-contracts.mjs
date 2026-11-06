@@ -11,7 +11,7 @@ for(const schema of Object.values(schemas))for(const [name,value] of Object.entr
 const identifier=name=>{if(!/^[A-Za-z_]\w*$/.test(name))throw Error(`Unsupported type name: ${name}`);return name;};
 function type(schema){
  if(schema===false)return 'never';
- if(schema===true||Object.keys(schema).length===0)return 'JsonValue';
+ if(schema===true||Object.keys(schema).every(key=>['title','description','default','examples','deprecated','readOnly','writeOnly','$schema','$id','definitions'].includes(key)))return 'JsonValue';
  if(schema.$ref){const name=schema.$ref.replace(/^#\/definitions\//,'');return identifier(name);}
  if(schema.enum)return schema.enum.map(value=>JSON.stringify(value)).join(' | ');
  if(schema.anyOf||schema.oneOf)return (schema.anyOf??schema.oneOf).map(item=>`(${type(item)})`).join(' | ');
@@ -23,7 +23,11 @@ function type(schema){
   case 'object':{
    const required=new Set(schema.required??[]);
    const properties=Object.entries(schema.properties??{}).map(([key,value])=>`${JSON.stringify(key)}${required.has(key)?'':'?'}: ${type(value)};`);
-   if(schema.additionalProperties&&typeof schema.additionalProperties==='object')properties.push(`[key: string]: ${type(schema.additionalProperties)};`);
+   if(schema.additionalProperties===true||schema.additionalProperties&&typeof schema.additionalProperties==='object'){
+    const extra=schema.additionalProperties===true?'JsonValue':type(schema.additionalProperties);
+    const optional=Object.keys(schema.properties??{}).some(key=>!required.has(key));
+    properties.push(`[key: string]: ${extra}${optional?' | undefined':''};`);
+   }
    return `{ ${properties.join(' ')} }`;
   }
   default:throw Error(`Unsupported schema: ${JSON.stringify(schema)}`);

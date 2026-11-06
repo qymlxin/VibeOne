@@ -220,6 +220,274 @@
       }
     }
   },
+  "RunRecord": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "RunRecord",
+    "type": "object",
+    "required": [
+      "id",
+      "status"
+    ],
+    "properties": {
+      "attachmentIds": {
+        "default": [],
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "attachments": {
+        "default": [],
+        "type": "array",
+        "items": true
+      },
+      "createdAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "error": {
+        "default": null,
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "files": {
+        "default": [],
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "finishedAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "id": {
+        "type": "string"
+      },
+      "key": {
+        "default": null,
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "startedAt": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "status": {
+        "type": "string"
+      },
+      "text": {
+        "default": "",
+        "type": "string"
+      }
+    },
+    "additionalProperties": true
+  },
+  "SessionView": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "SessionView",
+    "type": "object",
+    "required": [
+      "approvals",
+      "id",
+      "messages",
+      "provider",
+      "status",
+      "title",
+      "tools",
+      "workspace"
+    ],
+    "properties": {
+      "agentState": {
+        "default": null
+      },
+      "approvals": {
+        "type": "array",
+        "items": true
+      },
+      "archived": {
+        "default": false,
+        "type": "boolean"
+      },
+      "decisions": {
+        "default": [],
+        "type": "array",
+        "items": true
+      },
+      "error": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "historyOnly": {
+        "default": false,
+        "type": "boolean"
+      },
+      "historySequence": {
+        "default": 0,
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0
+      },
+      "id": {
+        "type": "string"
+      },
+      "inputs": {
+        "default": [],
+        "type": "array",
+        "items": true
+      },
+      "lastActivityAt": {
+        "default": 0,
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0
+      },
+      "messages": {
+        "type": "array",
+        "items": true
+      },
+      "profile": {
+        "default": null
+      },
+      "provider": {
+        "type": "string"
+      },
+      "queue": {
+        "default": [],
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/RunRecord"
+        }
+      },
+      "queuePaused": {
+        "default": false,
+        "type": "boolean"
+      },
+      "runs": {
+        "default": [],
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/RunRecord"
+        }
+      },
+      "status": {
+        "type": "string"
+      },
+      "stopReason": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "title": {
+        "type": "string"
+      },
+      "tools": {
+        "type": "array",
+        "items": true
+      },
+      "workspace": {
+        "type": "string"
+      }
+    },
+    "definitions": {
+      "RunRecord": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "attachmentIds": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attachments": {
+            "default": [],
+            "type": "array",
+            "items": true
+          },
+          "createdAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "error": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "files": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "finishedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
   "ProfileRequest": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "ProfileRequest",

@@ -81,6 +81,44 @@ pub struct HttpErrorResponse {
     pub request_id: String,
 }
 
+fn legacy_array<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<Vec<T>>::deserialize(deserializer).map(Option::unwrap_or_default)
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RunRecord {
+    pub id: String,
+    #[serde(default)]
+    pub text: String,
+    pub status: String,
+    #[serde(default)]
+    pub key: Option<String>,
+    #[serde(default, deserialize_with = "legacy_array")]
+    #[schemars(with = "Vec<String>")]
+    pub files: Vec<String>,
+    #[serde(default, deserialize_with = "legacy_array")]
+    #[schemars(with = "Vec<String>")]
+    pub attachment_ids: Vec<String>,
+    #[serde(default, deserialize_with = "legacy_array")]
+    #[schemars(with = "Vec<Value>")]
+    pub attachments: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finished_at: Option<u64>,
+    #[serde(default)]
+    pub error: Option<String>,
+    #[serde(flatten)]
+    pub extensions: std::collections::BTreeMap<String, Value>,
+}
+
 // An omitted optional command field differs from an explicitly invalid null.
 fn provided<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
@@ -171,6 +209,8 @@ pub fn schemas() -> Value {
         "CreateSessionResponse":schema_for!(CreateSessionResponse),
         "SubmitMessageReceipt":schema_for!(SubmitMessageReceipt),
         "HttpErrorResponse":schema_for!(HttpErrorResponse),
+        "RunRecord":schema_for!(RunRecord),
+        "SessionView":schema_for!(crate::projection::SessionView),
         "ProfileRequest":schema_for!(ProfileRequest),
         "ProfileRecord":schema_for!(ProfileRecord),
         "ProfileResponse":schema_for!(ProfileResponse)
@@ -180,6 +220,37 @@ pub fn schemas() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn session_wire_schema_preserves_legacy_runs_extensions_and_private_flags() {
+        let raw = json!({"id":"legacy", "title":"Legacy", "workspace":"/legacy", "provider":"demo", "status":"idle", "messages":[], "tools":[], "approvals":[], "error":null, "stopReason":null,
+            "runs":[{"id":"run","text":"task","status":"completed","files":null,"attachments":null,"attachmentIds":null,"futureField":{"keep":true}}], "queue":null});
+        let mut view: crate::projection::SessionView = serde_json::from_value(raw).unwrap();
+        view.active = true;
+        view.observed_active = true;
+        let wire = serde_json::to_value(&view).unwrap();
+        assert!(wire.get("active").is_none());
+        assert!(wire.get("observedActive").is_none());
+        assert_eq!(wire["queue"], json!([]));
+        assert_eq!(wire["runs"][0]["futureField"], json!({"keep":true}));
+        assert_eq!(wire["runs"][0]["files"], json!([]));
+        assert!(wire["runs"][0].get("createdAt").is_none());
+        let schema = serde_json::to_value(schema_for!(crate::projection::SessionView)).unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        assert!(validator.is_valid(&wire));
+        let mut invalid = wire.clone();
+        invalid["runs"][0]["files"] = json!([1]);
+        assert!(!validator.is_valid(&invalid));
+        invalid = wire;
+        invalid["queue"] = json!("invalid queue");
+        assert!(!validator.is_valid(&invalid));
+        let roundtrip: crate::projection::SessionView =
+            serde_json::from_value(serde_json::to_value(&view).unwrap()).unwrap();
+        assert_eq!(
+            roundtrip.runs[0].extensions["futureField"],
+            json!({"keep":true})
+        );
+    }
+
     #[test]
     fn profile_optional_fields_preserve_absence_and_reject_explicit_null() {
         let schema = serde_json::to_value(schema_for!(ProfileRequest)).unwrap();

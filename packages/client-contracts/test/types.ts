@@ -30,3 +30,14 @@ const missingRevision:ProfileRecord={id:'profile',name:'demo',provider:'demo'};
 // @ts-expect-error saves require provider and name even though remove requests do not
 saveProfile({id:'profile'});
 void [profileResponse,nullRevision,wrongArgs,missingRevision];
+
+import type {RunRecord,SessionView} from '../src/generated.js';
+const legacyRun:RunRecord={id:'run',status:'completed',futureField:{keep:true}};
+const sessionView:SessionView={id:'session',title:'New',workspace:'/project',provider:'demo',status:'idle',messages:[],tools:[],approvals:[],runs:[legacyRun],queue:[]};
+// @ts-expect-error run identity must be a string
+const invalidRun:RunRecord={id:1,status:'queued'};
+// @ts-expect-error file references cannot contain numeric paths
+const invalidRunFiles:RunRecord={id:'run',status:'queued',files:[1]};
+// @ts-expect-error the queue must contain typed run records
+const invalidSession:SessionView={...sessionView,queue:['run']};
+void [legacyRun,sessionView,invalidRun,invalidRunFiles,invalidSession];

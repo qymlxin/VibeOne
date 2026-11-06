@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="360" viewBox="0 0 980 360">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#687180"/></marker></defs>
+<rect width="980" height="360" fill="#fff"/>
+<g font-family="system-ui,sans-serif" fill="#202327">
+<text x="30" y="40" font-size="21" font-weight="650">执行记录：存储兼容，运行时使用类型化字段</text>
+<g fill="#f4f5f7" stroke="#cbd0d8"><rect x="30" y="100" width="250" height="120" rx="10"/><rect x="365" y="100" width="250" height="120" rx="10"/><rect x="700" y="100" width="250" height="120" rx="10"/></g>
+<g font-size="16" font-weight="600"><text x="48" y="130">既有 SQLite JSON</text><text x="383" y="130">SessionView / RunRecord</text><text x="718" y="130">桌面 / 手机响应</text></g>
+<g font-size="13" fill="#4a5565"><text x="48" y="157">缺省 / null 列表 → 空数组</text><text x="48" y="180">缺少时间时保留缺省</text><text x="48" y="203">未知 Run 扩展字段继续保留</text><text x="383" y="157">队列、执行、取消使用结构字段</text><text x="383" y="180">附件与历史恢复共用同一记录</text><text x="383" y="203">持久化格式仍为 JSON</text><text x="718" y="157">runs / queue 输出执行记录</text><text x="718" y="180">内部活动标志不序列化</text><text x="718" y="203">ACP 动态内容保留 JsonValue</text></g>
+<g stroke="#8e98a7" stroke-width="1.5" fill="none" marker-end="url(#arrow)"><path d="M280 160H361"/><path d="M615 160H696"/><path d="M490 220V268H155V224"/></g>
+<g font-size="12"><text x="293" y="145">反序列化</text><text x="632" y="145">序列化</text><text x="245" y="258">状态提交后写回</text></g>
+<text x="30" y="316" font-size="14">同一 Rust 定义 → JSON Schema → TypeScript；检查生成漂移、字段类型与恢复行为。</text>
+<text x="30" y="341" font-size="12" fill="#4a5565">原有权限、串行执行、幂等键及 SQLite 提交顺序保持不变；此图不表示所有 ACP 扩展已经静态类型化。</text>
+</g></svg>

@@ -21,16 +21,16 @@ fn finish(view: &mut SessionView, status: &str) {
     }
     if let Some(run) = view.runs.iter_mut().rev().find(|run| {
         matches!(
-            run["status"].as_str(),
+            Some(run.status.as_str()),
             Some("starting" | "running" | "requires_action" | "cancelling")
         )
     }) {
-        run["status"] = json!(status);
-        run["finishedAt"] = json!(now());
-        run["error"] = json!(view.error);
+        run.status = status.into();
+        run.finished_at = Some(now());
+        run.error = view.error.clone();
         if status == "cancelled" {
             for tool in &mut view.tools {
-                if tool["runId"] == run["id"]
+                if tool["runId"] == run.id
                     && matches!(tool["status"].as_str(), Some("pending" | "in_progress"))
                 {
                     tool["status"] = json!("cancelled");
@@ -136,21 +136,17 @@ impl Workbench {
         }
         let mut view = entry.view.lock().expect("view poisoned").clone();
         if let Some(key) = &key
-            && let Some(run) = view.runs.iter().find(|run| run["key"] == *key)
+            && let Some(run) = view
+                .runs
+                .iter()
+                .find(|run| run.key.as_deref() == Some(key.as_str()))
         {
-            if run["text"] != text
-                || run["files"] != json!(files)
-                || run["attachmentIds"].as_array().cloned().unwrap_or_default()
-                    != attachment_ids
-                        .iter()
-                        .map(|id| json!(id))
-                        .collect::<Vec<_>>()
-            {
+            if run.text != text || run.files != files || run.attachment_ids != attachment_ids {
                 return Err("同一幂等键不能用于不同输入".into());
             }
             return Ok(crate::contracts::SubmitMessageReceipt {
-                operation_id: run["id"].as_str().ok_or("历史执行回执身份无效")?.into(),
-                queued: run["status"] == "queued",
+                operation_id: run.id.clone(),
+                queued: run.status == "queued",
                 duplicate: true,
             });
         }
@@ -216,7 +212,20 @@ impl Workbench {
         }
         let run_id = uuid::Uuid::new_v4().to_string();
         let queued = view.active || view.queue_paused || !view.queue.is_empty();
-        let run = json!({"id":run_id,"text":text,"key":key,"files":files,"attachmentIds":attachment_ids,"attachments":attachments,"status":"queued","createdAt":now()});
+        let run = crate::contracts::RunRecord {
+            id: run_id.clone(),
+            text: text.clone(),
+            key,
+            files,
+            attachment_ids,
+            attachments,
+            status: "queued".into(),
+            created_at: Some(now()),
+            started_at: None,
+            finished_at: None,
+            error: None,
+            extensions: Default::default(),
+        };
         view.queue.push(run.clone());
         view.runs.push(run);
         if view.title == "新会话" {
@@ -265,17 +274,10 @@ impl Workbench {
                 leases.insert(lease.clone(), view.id.clone());
             }
             let queued = view.queue.remove(0);
-            let mut text = queued["text"].as_str().unwrap_or_default().to_owned();
-            let attachment_ids: Vec<String> = serde_json::from_value(
-                queued
-                    .get("attachmentIds")
-                    .cloned()
-                    .unwrap_or_else(|| json!([])),
-            )
-            .map_err(|_| "附件引用无效")?;
+            let mut text = queued.text.clone();
+            let attachment_ids = queued.attachment_ids.clone();
             self.attachment_metadata(&view.id, &attachment_ids).await?;
-            for path in queued["files"].as_array().cloned().unwrap_or_default() {
-                let path = path.as_str().ok_or("引用文件无效")?;
+            for path in &queued.files {
                 let content = crate::files::read(&view.workspace, path).await?;
                 if content["binary"] == true || content["size"].as_u64().unwrap_or(0) > 32768 {
                     return Err("引用文件已变化，队列已暂停，请重新提交".into());
@@ -293,17 +295,17 @@ impl Workbench {
             let run = view
                 .runs
                 .iter_mut()
-                .find(|run| run["id"] == queued["id"])
+                .find(|run| run.id == queued.id)
                 .ok_or("队列数据无效")?;
-            run["status"] = json!("starting");
-            run["startedAt"] = json!(now());
+            run.status = "starting".into();
+            run.started_at = Some(now());
             if view.messages.len() >= 128 {
                 view.messages.remove(0);
             }
-            view.messages.push(json!({"id":uuid::Uuid::new_v4().to_string(),"runId":queued["id"],"role":"user","text":text,"attachments":queued["attachments"],"pending":true}));
+            view.messages.push(json!({"id":uuid::Uuid::new_v4().to_string(),"runId":queued.id,"role":"user","text":text,"attachments":queued.attachments,"pending":true}));
             let (cancel, cancelled) = watch::channel(false);
             if let Err(error) = self
-                .commit(entry, view, "run.started", &json!({"runId":queued["id"]}))
+                .commit(entry, view, "run.started", &json!({"runId":queued.id}))
                 .await
             {
                 self.leases.lock().expect("leases poisoned").remove(&lease);
@@ -530,11 +532,11 @@ impl Workbench {
             .rev()
             .find(|run| {
                 matches!(
-                    run["status"].as_str(),
+                    Some(run.status.as_str()),
                     Some("starting" | "running" | "requires_action" | "cancelling")
                 )
             })
-            .map(|run| run["id"].clone());
+            .map(|run| json!(run.id));
         let inherited = history::restore(
             &self.store,
             &mut view,
@@ -610,8 +612,8 @@ impl Workbench {
             let metadata = view
                 .runs
                 .iter()
-                .find(|run| Some(run["id"].clone()) == current_run)
-                .map(|run| run["attachments"].clone())
+                .find(|run| Some(json!(run.id)) == current_run)
+                .map(|run| json!(run.attachments))
                 .unwrap_or_else(|| json!([]));
             if let Some(message) = view
                 .messages
@@ -644,9 +646,9 @@ impl Workbench {
                 .runs
                 .iter_mut()
                 .rev()
-                .find(|run| run["status"] != "queued" && run["finishedAt"].is_null())
+                .find(|run| run.status != "queued" && run.finished_at.is_none())
         {
-            run["status"] = json!(view.status);
+            run.status = view.status.clone();
         }
         if event["type"] == "permission_resolved"
             && let Some(decision) = view
@@ -734,12 +736,12 @@ impl Workbench {
             let position = view
                 .queue
                 .iter()
-                .position(|run| run["id"] == withdraw)
+                .position(|run| run.id == withdraw)
                 .ok_or("消息已开始执行或已撤回")?;
             view.queue.remove(position);
-            if let Some(run) = view.runs.iter_mut().find(|run| run["id"] == withdraw) {
-                run["status"] = json!("withdrawn");
-                run["finishedAt"] = json!(now());
+            if let Some(run) = view.runs.iter_mut().find(|run| run.id == withdraw) {
+                run.status = "withdrawn".into();
+                run.finished_at = Some(now());
             }
         }
         if resume {

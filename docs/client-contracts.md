@@ -16,8 +16,9 @@
 | PluginTicketRequest | 激活或丢弃已准备的插件候选 |
 | HttpErrorResponse | code/error/status/requestId错误信封 |
 | ProfileRequest / ProfileRecord / ProfileResponse | 配置保存/移除命令、实际保存记录及移除结果 |
+| RunRecord / SessionView | 实际会话投影、执行列表及排队记录 |
 
-Profile全量快照、完整Session/Run/队列响应、插件包/操作记录与ACP动态字段尚未全部迁移到共享业务DTO。这里不把JsonValue或若干请求类型称为整个业务模型已经完成。
+完整Snapshot封装、Profile全量快照、待处理业务结构、插件包/操作记录与ACP动态字段尚未全部迁移到共享业务DTO。这里不把JsonValue或若干请求类型称为整个业务模型已经完成。
 
 ![契约生成与调用](diagrams/client-contracts.svg)
 
@@ -49,6 +50,18 @@ Rust检查Schema与实际Serde对缺字段/null的判断一致；TypeScript正�
 
 `ProfileRequest`直接由HTTP解析器使用；`ProfileRecord`在存储前验证实际将保存的记录，成功保存/移除返回类型化的`ProfileResponse`。设置页通过共享`saveProfile`和`removeProfile`构造器调用。保存构造器要求name/provider；移除构造器携带id/revision。Host仍校验名称长度、Provider、程序绝对路径、参数限制和修订冲突。
 
-请求可省略id/revision/command/args等字段；字段一旦提供必须为正确的非null类型。特别是revision:null不会当作“没有修订条件”而绕过并发保护；args:null或非字符串元素也会被解析器拒绝。空command和空参数列表仍支持。响应省略未设置的command/args，不引入多余null字段。旧存储数据及会话已固定配置的读取路径保持兼容；此处没有宣称整个Profile快照、Session和Run已经完成类型迁移。
+请求可省略id/revision/command/args等字段；字段一旦提供必须为正确的非null类型。特别是revision:null不会当作“没有修订条件”而绕过并发保护；args:null或非字符串元素也会被解析器拒绝。空command和空参数列表仍支持。响应省略未设置的command/args，不引入多余null字段。旧存储数据及会话已固定配置的读取路径保持兼容；此处没有宣称Profile全量快照及全部ACP动态业务模型已完成类型迁移。
 
 Schema与Serde对字段省略、显式null、负修订号和错误参数元素做一致性检查；真实Host验证保存、改名递增修订、旧修订拒绝、非法null拒绝、按配置建会话固定修订和删除。TypeScript反例保证缺少保存字段、null修订或错误参数无法通过作者类型检查。
+
+## 会话、Run 与队列记录
+
+`SessionView`是实际快照和增量响应使用的会话投影；其中`runs`与`queue`均改为`Vec<RunRecord>`。任务提交、幂等判断、队列开始/撤回、完成/取消、附件保留、产物关联和历史回放使用同一结构字段。响应Schema由这些实际生产类型生成，未用另一份手抄接口替代。
+
+Run身份、文本、状态、幂等键、文件引用、附件身份、时间及错误使用已知类型。状态仍用字符串，以兼容后续状态。附件元数据和ACP消息/工具/审批/输入内容继续以明确的JsonValue承载动态部分；完整待处理业务模型及Snapshot封装仍待继续，并未宣称所有上游协议字段已静态化。
+
+恢复仍读取原来的JSON。历史inputs/runs/queue/decisions缺失或为null时保持兼容；Run的files/attachmentIds/attachments缺失或null时规范为空列表。旧记录没有createdAt/startedAt/finishedAt时不补造时间；Run未知扩展字段通过flatten保留并再次序列化。新结构可能为缺少的key/error输出null，为缺少的列表输出空数组。id/status等已有业务身份字段必须类型正确，不把损坏的记录伪装成有效执行。内部active/observed_active标志不进入响应。
+
+生成器对只有default等说明性属性的无约束Schema输出JsonValue；带扩展字段的对象使用JsonValue索引签名，可选属性允许undefined。无法解释的约束仍直接报错。类型反例覆盖非字符串执行身份、非字符串文件路径及错误队列元素；Rust使用实际SessionView序列化结果验证Schema，并核对扩展字段、缺省时间和私有标志。
+
+![执行记录类型与恢复](diagrams/typed-run-records.svg)

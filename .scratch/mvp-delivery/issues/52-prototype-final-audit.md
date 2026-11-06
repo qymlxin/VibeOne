@@ -40,3 +40,5 @@ Blocked by: 50, 51
 68补齐Agent配置保存/删除的请求和成功响应契约；Schema/Serde检查缺省及显式null差异，真实Host验证修订冲突和固定配置。桌面回归已通过；本轮CUA再次明确Mac locked，未操作用户Host。
 
 68最终检查完成：51项Node、Workbench13项及Clippy，配置/构造器Host集成3项，桌面54.8秒、手机23.4秒与828.82MiB重建包/仓库外资源验证通过。14剩余完整业务响应和领域错误分类；52仍claimed，原生与物理设备项未验收。
+
+69完成实际Run/队列结构及SessionView响应生成，执行、取消、附件和长历史恢复共用类型；51项Node、Workbench14项、16项Host、恢复、Clippy、桌面/HTTPS及包外验证通过。当前包828.89MiB，新SVG已查看。原生CUA仍明确Mac locked，未动实际Host；完整Snapshot、待处理模型和领域错误分类仍未完成，52保持claimed。

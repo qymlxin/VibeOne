@@ -97,10 +97,12 @@
 
 - [68-profile-contracts](issues/68-profile-contracts.md)：实际Profile保存/删除契约及设置构造器已接入，省略/null规则与修订冲突有真实Host验证；完整快照响应仍待继续。
 
+- [69-session-run-contracts](issues/69-session-run-contracts.md)：实际Run/队列迁移为结构字段并生成SessionView响应；执行、取消、幂等、附件与历史共用模型，旧记录扩展和缺省时间有专门检查。
+
 ## Fog
 
 
 - 真实Claude认证及该工具的审批/取消仍由本机账号和实际工具能力决定；Codex路径和人工请求可控时间超时已有实测。
 - 物理 iOS/Android 证书信任、弱网、锁屏及 macOS 托盘/系统通知仍待人工验收。
-- Profile全量快照、完整Session/Run/队列响应类型及完整领域错误分类仍见14；请求和基本回执生成已由66交付；HTTP失败信封已由65交付；插件HTTP持久异步回执、客户端游标投影增量及长历史已独立交付。
+- 完整Snapshot封装、Profile全量快照与待处理业务结构、完整领域错误分类仍见14；SessionView与Run/队列基本响应由69补齐；请求和基本回执生成已由66交付；HTTP失败信封已由65交付；插件HTTP持久异步回执、客户端游标投影增量及长历史已独立交付。
 - 公开 SDK 完整 semver/跨插件依赖、跨平台发行、签名公证后置。

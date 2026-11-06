@@ -138,9 +138,8 @@ pub(super) fn annotate(
     let attachments = view
         .runs
         .iter()
-        .find(|item| item["id"].as_str() == run)
-        .and_then(|item| item.get("attachments"))
-        .cloned();
+        .find(|item| Some(item.id.as_str()) == run)
+        .map(|item| json!(item.attachments));
     let list = if kind == "tool" {
         &mut view.tools
     } else {
@@ -293,13 +292,13 @@ pub(super) async fn prepare(
             if let Some(input) = base
                 .runs
                 .iter()
-                .find(|item| item["id"].as_str() == run.as_deref())
+                .find(|item| Some(item.id.as_str()) == run.as_deref())
             {
                 let existing = base
                     .messages
                     .iter()
-                    .find(|message| message["role"] == "user" && message["runId"] == input["id"]);
-                let pending = json!({"id":existing.and_then(|item|item["id"].as_str()).map(str::to_owned).unwrap_or_else(||format!("pending:{}",input["id"].as_str().unwrap_or_default())),"role":"user","runId":input["id"],"text":input["text"],"attachments":input.get("attachments").cloned().unwrap_or_else(||json!([])),"pending":true,"reconstructedFromRun":existing.is_none()});
+                    .find(|message| message["role"] == "user" && message["runId"] == input.id);
+                let pending = json!({"id":existing.and_then(|item|item["id"].as_str()).map(str::to_owned).unwrap_or_else(||format!("pending:{}",input.id)),"role":"user","runId":input.id,"text":input.text,"attachments":input.attachments,"pending":true,"reconstructedFromRun":existing.is_none()});
                 let old = replay.clone();
                 replay.messages.push(pending);
                 stamp(&mut replay, &old, saved.revision as u64)?;
@@ -452,17 +451,14 @@ pub(super) async fn prepare(
         .map_err(|e| e.to_string())?;
     for item in &mut final_view.messages {
         if item["pending"] == true
-            && let Some(run) = final_view
-                .runs
-                .iter()
-                .find(|run| run["id"] == item["runId"])
+            && let Some(run) = final_view.runs.iter().find(|run| item["runId"] == run.id)
             && matches!(
-                run["status"].as_str(),
+                Some(run.status.as_str()),
                 Some("completed" | "cancelled" | "failed" | "interrupted")
             )
         {
             item["pending"] = json!(false);
-            item["delivery"] = json!(match run["status"].as_str() {
+            item["delivery"] = json!(match Some(run.status.as_str()) {
                 Some("completed") => "accepted",
                 Some("interrupted") => "interrupted",
                 _ => "unconfirmed",

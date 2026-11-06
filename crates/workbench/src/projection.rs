@@ -1,11 +1,17 @@
+use crate::contracts::RunRecord;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-fn legacy_list<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Vec<Value>, D::Error> {
-    Option::<Vec<Value>>::deserialize(deserializer).map(Option::unwrap_or_default)
+fn legacy_list<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<Vec<T>>::deserialize(deserializer).map(Option::unwrap_or_default)
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionView {
     pub id: String,
@@ -21,6 +27,7 @@ pub struct SessionView {
     pub tools: Vec<Value>,
     pub approvals: Vec<Value>,
     #[serde(default, deserialize_with = "legacy_list")]
+    #[schemars(with = "Vec<Value>")]
     pub inputs: Vec<Value>,
     pub error: Option<String>,
     pub stop_reason: Option<String>,
@@ -29,12 +36,15 @@ pub struct SessionView {
     #[serde(default)]
     pub archived: bool,
     #[serde(default, deserialize_with = "legacy_list")]
-    pub runs: Vec<Value>,
+    #[schemars(with = "Vec<RunRecord>")]
+    pub runs: Vec<RunRecord>,
     #[serde(default, deserialize_with = "legacy_list")]
-    pub queue: Vec<Value>,
+    #[schemars(with = "Vec<RunRecord>")]
+    pub queue: Vec<RunRecord>,
     #[serde(default)]
     pub queue_paused: bool,
     #[serde(default, deserialize_with = "legacy_list")]
+    #[schemars(with = "Vec<Value>")]
     pub decisions: Vec<Value>,
     #[serde(default)]
     pub profile: Option<Value>,
