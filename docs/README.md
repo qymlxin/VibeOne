@@ -11,7 +11,8 @@
 | [功能实现设计](functional-implementation.md) | 每项功能的操作、接口、流程、异常与验收 |
 | [UI 与交互设计](ui-specification.md) | 桌面和手机的信息架构、组件、状态与适配 |
 | [实施计划](implementation-plan.md) | 开发顺序、工作量、验证矩阵与阶段出口 |
-| [本地开发任务](../.scratch/mvp-delivery/spec.md) | 待评审的 29 个任务、依赖、验收条件与逐功能提交切片 |
+| [本地开发任务](../.scratch/mvp-delivery/spec.md) | 29 个执行任务、依赖、验收条件与逐功能提交切片 |
+| [ACP v2 兼容记录](acp-compatibility.md) | 锁定版本、真实 Codex 对话结果、Claude 认证缺口与当前桌面体验范围 |
 | [交互原型说明](../prototype/README.md) | 三种桌面布局、手机审批与模拟状态操作 |
 
 ## 图示索引

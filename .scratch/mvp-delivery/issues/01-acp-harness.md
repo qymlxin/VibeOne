@@ -1,6 +1,6 @@
 # 01 · ACP 客户端与可控假 Agent
 
-Status: claimed
+Status: resolved
 Type: task
 Batch: A
 Blocked by: none
@@ -26,3 +26,7 @@ Blocked by: none
 3. 取消及异常进程清理。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## Answer
+
+已交付官方 Rust SDK 5.0.0 的严格 ACP v2 客户端。4 项协议集成测试覆盖流、早到状态、chunk/快照、审批、取消、畸形帧、崩溃与 v1 拒绝；工作台投影另有 2 项语义测试。无 GUI 路径通过 headless Host 与 CLI 测试脚本验证。

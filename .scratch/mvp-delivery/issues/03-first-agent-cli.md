@@ -1,6 +1,6 @@
 # 03 · 第一个真实 Agent 的 CLI 对话
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: A
 Blocked by: 02
@@ -26,3 +26,7 @@ Blocked by: 02
 3. 取消和错误展示。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## 实现进度
+
+按用户要求优先提供桌面。Codex 的 ACP v2 实际对话及 end_turn 已通过，另有显式 CLI 烟测；真实工具取消、交互式 CLI 与完整异常清理验收仍待补齐，不标记本任务全部完成。

@@ -1,6 +1,6 @@
 # 20 · 桌面审批与补充输入
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: C
 Blocked by: 13, 19
@@ -25,3 +25,7 @@ Blocked by: 13, 19
 2. 补充输入与异常回执展示。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## 实现进度
+
+已接入 Host 的临时权限请求和上游选项；演示 Agent 与原生窗口审批验证通过，持久决定、竞争投递及 Input Request 未实现。

@@ -17,6 +17,7 @@
     "check": "npm test && cargo test --workspace && npm run host:test",
     "host:test": "cargo build -p vibeone-host && node --test tests/workbench.test.mjs",
     "desktop:test": "cargo build -p vibeone-host && node --test tests/desktop.test.mjs",
+    "agent:smoke": "cargo build -p vibeone-host && node scripts/smoke-real-agents.mjs",
     "plugin:scan": "npm run build && cargo run -p vibeone-host -- plugin scan --workspace .",
     "desktop": "node scripts/prepare-desktop.mjs && npm run desktop -w @vibeone/desktop",
     "desktop:bundle": "node scripts/prepare-desktop.mjs && npm run desktop:build -w @vibeone/desktop -- --debug",

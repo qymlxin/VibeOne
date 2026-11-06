@@ -1,0 +1,47 @@
+# ACP v2 接入与桌面验证记录
+
+验证日期：2026-11-06；环境：当前 macOS 工作区。以下区分已经观察到的结果与后续验收目标，不将演示 Agent 等同于真实编码工具。
+
+## 协议与固定版本
+
+| 项目 | 当前版本或选择 |
+| --- | --- |
+| ACP 协议 | `protocolVersion: 2`，官方 Draft；不自动降级 v1 |
+| Rust SDK | `agent-client-protocol = 5.0.0`，开启 `process` 与 `unstable_protocol_v2` |
+| Schema | `agent-client-protocol-schema 1.15.1`，由 Cargo.lock 固定 |
+| Codex 适配器 | `@agentclientprotocol/codex-acp 2.5.0`，由 package-lock.json 固定 |
+| Claude 适配器 | `@agentclientprotocol/claude-agent-acp 0.101.0`，由 package-lock.json 固定 |
+| 桌面 | Tauri Rust 2.12.5；CLI / 前端 API 2.12.4 |
+
+v2 的 prompt 响应仅确认消息被接受。更新处理器先于请求安装，按消息类型和 messageId 维护投影，等待活动状态后的 idle 及停止原因，不把早到的初始 idle 当成本轮完成。官方仍将 v2 标为 Draft，SDK 的主版本号与协议版本不是同一个概念。[Rust SDK v2 说明](https://agentclientprotocol.github.io/rust-sdk/protocol-v2.html)、[ACP v2 执行生命周期](https://agentclientprotocol.com/protocol/v2/prompt-lifecycle)。
+
+## 已观察到的结果
+
+| 路径 | 握手与会话 | 消息与完成 | 审批 / 取消 |
+| --- | --- | --- | --- |
+| 本地演示 | 真实 stdio、官方客户端严格 v2 解析通过 | chunk 与快照无重复，提前状态更新、idle 完成通过 | 合成权限请求、允许、拒绝与协议取消测试通过；不调用模型 |
+| Codex | v2 握手与 session/new 通过 | 在独立临时工作区实际发送只返回固定文本的输入；收到目标文本与 `end_turn` | 真实工具权限和实际模型执行中的取消尚未验收 |
+| Claude Code | v2 握手与 session/new 通过 | 实际 prompt 进入 `idle / error`，错误为 `Authentication required` | 被本机认证阻塞，尚未验收 |
+
+真实工具检查在独立临时目录中执行，没有请求读取或修改项目文件。Codex 的成功不代表已有两个完整工具，也不代表审批能力已获真实工具证据。Claude 的认证由用户在本机完成，本轮没有修改认证文件、凭据或默认工具配置。
+
+## 桌面已验证范围
+
+- 已生成并打开原生 `VibeOne.app`，在真实窗口中完成创建会话、演示权限请求、选择“允许一次”及查看结果。
+- React 集成测试使用真实独立 Host 和 stdio 演示进程；只替代目录选择与连接发现的原生桥接，不模拟消息或审批结果。
+- 覆盖发送、审批、停止、亮暗切换、WS 断开后重连快照、最小 960×640 窗口，以及查看历史时保留滚动位置和显式跟随最新消息。
+- 独立包不依赖 Vite；Host 通过 loopback HTTP/WS 提供业务，Tauri IPC 仅用于启动/发现与目录选择。HTTP 校验认证与 Origin，WS 首帧认证，不把连接密钥放在 URL。
+
+## 复验入口
+
+```sh
+npm run check
+npm run desktop:test
+npm run desktop
+```
+
+真实工具的人工显式烟测为 `npm run agent:smoke -- codex` 或 `npm run agent:smoke -- claude`，会使用对应工具的本机认证实际发送验证输入，不加入默认测试套件。桌面中也可选择对应工具手动发送任务。
+
+## 当前缺口
+
+会话状态在内存中，停止 Host 后不恢复；未接入 SQLite 历史、完整 Run Actor、下一轮队列、持久幂等与审批投递、事件 cursor、附件与完整配置/认证 UI、手机配对。关闭窗口后 Host 可继续独立运行，但托盘、完整退出/强制终止策略及正式分发仍需后续验收。本地包为开发包，Node 与真实适配器的跨机器安装和运行时分发尚未完成。插件后端已经存在，但 App 插件 SDK 和桌面插件管理尚未接入当前桌面。

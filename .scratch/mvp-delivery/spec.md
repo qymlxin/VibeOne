@@ -25,6 +25,10 @@ React 紧凑原型及亮暗模式；TypeScript Worker SDK、Scope/Registry；Nod
 
 A 阶段确定协议与能力之后才冻结业务契约；P0 结束不代表具备可靠持久状态。07 与 17 持续验证独立 Host 存活，24 验证实际手机网络，不能用插件子进程退出测试代替这两项验收。
 
+## 当前交付
+
+ACP v2 客户端基础完成，Tauri 桌面预览已提前交付；Codex 真实对话通过，Claude 认证阻塞。HTTP/WS 与桌面会话当前为内存实现，不将可靠 Host、全部桌面任务或 P0 整体标记完成。详见 [兼容与体验记录](../../docs/acp-compatibility.md)。
+
 ## 完整任务列表
 
 | 编号 | 任务 | 批次 | 直接依赖 |

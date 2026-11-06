@@ -1,6 +1,6 @@
 # 05 · 第二个真实工具与接入兼容矩阵
 
-Status: needs-triage
+Status: needs-info
 Type: task
 Batch: A
 Blocked by: 04
@@ -25,3 +25,7 @@ Blocked by: 04
 2. 两工具能力矩阵及协议样例。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## 实现进度
+
+Claude Code 已完成 v2 握手/会话创建，实际 prompt 返回 Authentication required，需用户完成本机认证后复验；两个真实工具的共同功能验收未完成。

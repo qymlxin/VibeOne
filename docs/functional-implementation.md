@@ -43,8 +43,8 @@ Provider 返回启动描述：可执行文件、参数数组、cwd 策略、允�
 1. 用户选择工作区、Agent 和配置，输入任务，可附带获准的文件引用。
 2. 客户端提交 `session.submit`，携带 session_id 或新会话配置、idempotency_key、expected_version。
 3. Host 校验设备权限、配置版本、工作区与并发额度；会话空闲时原子保存 Run、命令回执及事件，忙碌时原子保存 QueuedMessage 与对应回执。
-4. Supervisor 准备进程，完成 ACP initialize、认证检查和 session/new 或可用的 session/load。
-5. 发出 session/prompt，Actor 持续处理更新及反向请求；运行失败则保存结构化错误。
+4. Supervisor 准备进程，完成 ACP v2 initialize、认证检查和 session/new 或可用的 session/resume。
+5. 发出 session/prompt，接受回执只表示消息插入，不表示执行完成；Actor 独立持续处理更新及反向请求，以活动状态后的 idle 与停止原因收束前台执行，运行失败保存结构化错误。
 
 UI 点击发送后为“提交中”，Host 受理后才插入可信运行记录；输入草稿可以本地保留。网络重试复用同一个幂等键；用户修改内容重新发送才产生新命令。
 
@@ -52,7 +52,7 @@ UI 点击发送后为“提交中”，Host 受理后才插入可信运行记录
 
 ### 4.2 流式投影
 
-消息块、工具调用、计划、用量分别建模；客户端按 block_id/tool_call_id 增量更新，避免每个 token 都新建时间线行。已提交事件具有 seq；临时动画不写入领域记录。
+消息、工具调用、计划、用量分别建模；ACP v2 消息按消息类型和 messageId 联合定位，chunk 追加、快照替换、content 为 null 清空、遗漏 content 保留已有内容。不同消息类型即使 ID 相同也不能合并。工具按 toolCallId 增量更新，避免每个 token 都新建时间线行。目标中的持久事件具有 seq；当前预览仅支持内存快照与 WS 变更通知，临时动画不写入领域记录。
 
 工具输出按需展开并分页，长日志不撑满会话；仅当用户已在底部时自动滚动，否则显示“有新进展”。多个并发工具按调用关系展示，不把完成时间当作发起顺序。
 

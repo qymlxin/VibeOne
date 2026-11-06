@@ -1,6 +1,6 @@
 # 02 · Agent Provider 描述与环境探测
 
-Status: needs-triage
+Status: claimed
 Type: task
 Batch: A
 Blocked by: 01
@@ -25,3 +25,7 @@ Blocked by: 01
 2. 环境探测与 Profile 选择。
 
 每个切片完成相关验证后单独提交；新增失败或代码变动才扩大验证。未通过本任务验收时不标记完成。
+
+## 实现进度
+
+已接入演示、Codex、Claude 启动描述与入口发现；完整 Profile 持久化、版本探测和认证流程 UI 尚未完成。
