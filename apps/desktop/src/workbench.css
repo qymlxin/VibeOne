@@ -845,3 +845,35 @@ p {
     width: calc(100% - 32px);
   }
 }
+
+.desktop-text-action,
+.desktop-session-actions button,
+.desktop-title-form button {
+  border: 0;
+  padding: 2px 5px;
+  border-radius: 3px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 11px;
+}
+.desktop-text-action:hover,
+.desktop-session-actions button:hover,
+.desktop-title-form button:hover {
+  background: var(--soft);
+  color: var(--ink);
+}
+.desktop-session-actions {
+  display: flex;
+  gap: 6px;
+  margin: 4px 0;
+}
+.desktop-title-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.desktop-title-form input {
+  max-width: 260px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}

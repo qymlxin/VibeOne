@@ -32,6 +32,7 @@ const labels = {
   requires_action: "等待审批",
   cancelling: "正在停止",
   disconnected: "已断开",
+  interrupted: "已中断",
   error: "执行失败",
 };
 function savedTheme() {
@@ -57,6 +58,7 @@ function App() {
   const [creating, setCreating] = useState(true);
   const [settings, setSettings] = useState(false);
   const [query, setQuery] = useState("");
+  const [archived, setArchived] = useState(false);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(savedTheme);
   useEffect(() => {
@@ -71,12 +73,14 @@ function App() {
     }
     return () => media.removeEventListener("change", apply);
   }, [theme]);
-  const online = workbench.phase === "online";
+  const online = workbench.phase === "online" && !workbench.storageError;
   const session = workbench.sessions.find((session) => session.id === selected);
-  const sessions = workbench.sessions.filter((session) =>
-    `${session.title} ${session.workspace}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
+  const sessions = workbench.sessions.filter(
+    (session) =>
+      !!session.archived === archived &&
+      `${session.title} ${session.workspace}`
+        .toLowerCase()
+        .includes(query.toLowerCase()),
   );
   const pending = workbench.sessions.reduce(
     (count, session) => count + session.approvals.length,
@@ -124,7 +128,12 @@ function App() {
           待处理<span className="desktop-count">{pending}</span>
         </button>
         <div className="desktop-list-title">
-          <span>会话</span>
+          <button
+            className="desktop-text-action"
+            onClick={() => setArchived(!archived)}
+          >
+            {archived ? "已归档 · 查看会话" : "会话 · 查看归档"}
+          </button>
           <button
             className="desktop-icon"
             aria-label="新建会话"
@@ -218,10 +227,11 @@ function App() {
           </span>
           <span>ACP v2 · 本地运行</span>
         </div>
-        {(error || workbench.error || !online) && (
+        {(error || workbench.storageError || workbench.error || !online) && (
           <div className="desktop-alert" role="status">
             <span>
               {error ||
+                workbench.storageError ||
                 workbench.error ||
                 "主机连接中，连接完成后可以创建会话。"}
             </span>
@@ -293,6 +303,7 @@ function NewSession({ workbench, online, act, onCreated }) {
         <div className="desktop-path">
           <input
             id="workspace"
+            list="saved-workspaces"
             value={workspace}
             onChange={(event) => setWorkspace(event.target.value)}
             placeholder="选择或输入项目目录"
@@ -309,6 +320,13 @@ function NewSession({ workbench, online, act, onCreated }) {
             <FolderOpen size={16} />
           </button>
         </div>
+        <datalist id="saved-workspaces">
+          {(workbench.workspaces ?? []).map((item) => (
+            <option key={item.id} value={item.path}>
+              {item.name}
+            </option>
+          ))}
+        </datalist>
         <label htmlFor="agent">Agent</label>
         <select
           id="agent"
@@ -353,6 +371,9 @@ function NewSession({ workbench, online, act, onCreated }) {
 
 function Conversation({ session, workbench, online, act }) {
   const [draft, setDraft] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [title, setTitle] = useState(session.title);
+  const readOnly = session.historyOnly || session.archived;
   const [sending, setSending] = useState(false);
   const [deciding, setDeciding] = useState(null);
   const bottom = useRef(null);
@@ -389,7 +410,7 @@ function Conversation({ session, workbench, online, act }) {
     if (followLatest.current) bottom.current?.scrollIntoView({ block: "end" });
   }, [contentLength, session.approvals.length]);
   const send = async () => {
-    if (!draft.trim() || sending || !online || active) return;
+    if (!draft.trim() || sending || !online || active || readOnly) return;
     setSending(true);
     const result = await act(() =>
       workbench.call(`/sessions/${session.id}/messages`, { text: draft }),
@@ -401,7 +422,56 @@ function Conversation({ session, workbench, online, act }) {
     <>
       <header className="desktop-conversation-heading">
         <div>
-          <h1>{session.title}</h1>
+          {editingTitle ? (
+            <form
+              className="desktop-title-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const result = await act(() =>
+                  workbench.call(`/sessions/${session.id}/metadata`, { title }),
+                );
+                if (result) setEditingTitle(false);
+              }}
+            >
+              <input
+                aria-label="会话标题"
+                maxLength={120}
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+              />
+              <button disabled={!online || !title.trim()}>保存标题</button>
+              <button type="button" onClick={() => setEditingTitle(false)}>
+                取消
+              </button>
+            </form>
+          ) : (
+            <h1>{session.title}</h1>
+          )}
+          {workbench.persistent && (
+            <div className="desktop-session-actions">
+              <button
+                disabled={!online}
+                onClick={() => {
+                  setTitle(session.title);
+                  setEditingTitle(true);
+                }}
+              >
+                重命名
+              </button>
+              <button
+                disabled={!online || active}
+                onClick={() =>
+                  void act(() =>
+                    workbench.call(`/sessions/${session.id}/metadata`, {
+                      archived: !session.archived,
+                    }),
+                  )
+                }
+              >
+                {session.archived ? "取消归档" : "归档"}
+              </button>
+            </div>
+          )}
           <p title={session.workspace}>
             <FolderOpen size={12} />
             {session.workspace}
@@ -579,12 +649,15 @@ function Conversation({ session, workbench, online, act }) {
         <div className="desktop-composer">
           <textarea
             aria-label="发送任务"
+            disabled={readOnly}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder={
-              active
-                ? "可以先编辑草稿，等当前轮次结束后发送…"
-                : "描述任务，或发送新的指令…"
+              readOnly
+                ? "历史或归档会话仅供查看，请新建会话开始执行"
+                : active
+                  ? "可以先编辑草稿，等当前轮次结束后发送…"
+                  : "描述任务，或发送新的指令…"
             }
             onKeyDown={(event) => {
               if (
@@ -608,6 +681,7 @@ function Conversation({ session, workbench, online, act }) {
               className="desktop-send"
               aria-label="发送消息"
               disabled={
+                readOnly ||
                 !draft.trim() ||
                 sending ||
                 !online ||
@@ -639,7 +713,13 @@ function Conversation({ session, workbench, online, act }) {
               {session.status === "cancelling" ? "正在停止" : "停止执行"}
             </button>
           ) : (
-            <span>本次主机运行期间保留会话</span>
+            <span>
+              {session.historyOnly
+                ? "历史会话 · 新建会话开始新的执行"
+                : workbench.persistent
+                  ? "会话已保存到本机"
+                  : "本次主机运行期间保留会话"}
+            </span>
           )}
         </div>
       </div>
@@ -685,9 +765,26 @@ function Settings({ workbench }) {
     <div className="desktop-settings">
       <h1>连接与工具</h1>
       <p>
-        当前是桌面开发预览版。会话随本次 Host
-        运行保留，数据库历史与手机配对尚未接入。
+        {workbench.persistent
+          ? "会话与工作区保存在本机 SQLite 数据库中。重启后可查看历史，未结束的执行会标记为中断，旧审批失效。"
+          : "当前连接的主机仅在运行期间保留会话，请升级主机以启用本地历史。"}
+        手机配对尚未接入。
       </p>
+      <button
+        className="desktop-button"
+        disabled={
+          workbench.phase !== "online" ||
+          workbench.sessions.some((session) =>
+            ["starting", "running", "requires_action", "cancelling"].includes(
+              session.status,
+            ),
+          )
+        }
+        onClick={() => void workbench.restart()}
+      >
+        {workbench.persistent ? "重启工作主机" : "保存会话并升级主机"}
+      </button>
+      <p>请先结束所有执行。升级会保存旧版会话，重启后可查看历史。</p>
       <h2>Agent 接入</h2>
       {workbench.providers.map((provider) => (
         <div className="desktop-provider" key={provider.id}>

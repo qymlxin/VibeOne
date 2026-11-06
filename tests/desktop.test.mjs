@@ -150,6 +150,34 @@ test(
     await page.getByRole("button", { name: "停止执行", exact: true }).click();
     await page.getByText("本轮已停止", { exact: true }).waitFor();
     assert.equal(await page.locator(".desktop-live-status").count(), 0);
+    await page.getByRole("button", { name: "重命名", exact: true }).click();
+    await page
+      .getByRole("textbox", { name: "会话标题" })
+      .fill("已保存的桌面会话");
+    await page.getByRole("button", { name: "保存标题", exact: true }).click();
+    await page
+      .getByRole("heading", { name: "已保存的桌面会话", exact: true })
+      .waitFor();
+    await page.getByRole("button", { name: "归档", exact: true }).click();
+    await page.waitForFunction(
+      () => document.querySelector('textarea[aria-label="发送任务"]')?.disabled,
+    );
+    await page
+      .getByRole("button", { name: "会话 · 查看归档", exact: true })
+      .click();
+    await page
+      .locator(".desktop-session")
+      .filter({ hasText: "已保存的桌面会话" })
+      .waitFor();
+    await page.getByRole("button", { name: "取消归档", exact: true }).click();
+    await page.waitForFunction(
+      () =>
+        !document.querySelector('textarea[aria-label="发送任务"]')?.disabled,
+    );
+    await page
+      .getByRole("button", { name: "已归档 · 查看会话", exact: true })
+      .click();
+
     await page
       .getByRole("combobox", { name: "主题", exact: true })
       .selectOption("dark");

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
+export const restartHost = () => invoke("restart_host");
 export const connectHost = () => invoke("host_connection");
 export const chooseWorkspace = () => invoke("choose_workspace");
 

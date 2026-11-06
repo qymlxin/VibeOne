@@ -13,7 +13,7 @@ use tauri_plugin_dialog::DialogExt;
 struct Launcher(tokio::sync::Mutex<()>);
 
 async fn healthy(path: &Path) -> Option<Value> {
-    let connection: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
+    let mut connection: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
     let url = connection["url"].as_str()?;
     let parsed = reqwest::Url::parse(url).ok()?;
     if parsed.scheme() != "http" || parsed.host_str() != Some("127.0.0.1") {
@@ -33,6 +33,7 @@ async fn healthy(path: &Path) -> Option<Value> {
         .await
         .ok()?;
     if health["name"] == "vibeone-host" && health["protocolVersion"] == 2 {
+        connection["persistent"] = health["persistent"].clone();
         Some(connection)
     } else {
         None
@@ -45,6 +46,10 @@ async fn host_connection(
     launcher: State<'_, Launcher>,
 ) -> Result<Value, String> {
     let _gate = launcher.0.lock().await;
+    launch_host(&app).await
+}
+
+async fn launch_host(app: &tauri::AppHandle) -> Result<Value, String> {
     let data = app
         .path()
         .app_data_dir()
@@ -100,6 +105,100 @@ async fn host_connection(
     Err("Host 启动超时，请查看应用数据目录中的 host.log".into())
 }
 
+// Export before stopping the old in-memory Host. A failed export leaves it running.
+fn save_legacy(data: &Path, snapshot: &Value) -> Result<(), String> {
+    use std::io::Write;
+    let temporary = data.join(format!("legacy-snapshot.{}.tmp", std::process::id()));
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let result = (|| {
+        let mut file = options
+            .open(&temporary)
+            .map_err(|error| error.to_string())?;
+        file.write_all(&serde_json::to_vec(snapshot).map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?;
+        file.sync_all().map_err(|error| error.to_string())?;
+        std::fs::rename(&temporary, data.join("legacy-snapshot.json"))
+            .map_err(|error| error.to_string())?;
+        std::fs::File::open(data)
+            .and_then(|directory| directory.sync_all())
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(temporary);
+    }
+    result
+}
+
+#[tauri::command]
+async fn restart_host(
+    app: tauri::AppHandle,
+    launcher: State<'_, Launcher>,
+) -> Result<Value, String> {
+    let _gate = launcher.0.lock().await;
+    let data = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    let record = data.join("host.json");
+    if let Some(connection) = healthy(&record).await {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(3))
+            .build()
+            .map_err(|error| error.to_string())?;
+        let url = connection["url"].as_str().ok_or("主机地址无效")?;
+        let token = connection["token"].as_str().ok_or("主机凭证无效")?;
+        let snapshot: Value = client
+            .get(format!("{url}/v1/snapshot"))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(|error| error.to_string())?
+            .error_for_status()
+            .map_err(|error| error.to_string())?
+            .json()
+            .await
+            .map_err(|error| error.to_string())?;
+        let sessions = snapshot["sessions"].as_array().ok_or("主机会话格式无效")?;
+        if sessions.iter().any(|session| {
+            matches!(
+                session["status"].as_str(),
+                Some("starting" | "running" | "requires_action" | "cancelling")
+            ) || session["approvals"]
+                .as_array()
+                .is_some_and(|items| !items.is_empty())
+        }) {
+            return Err("请先完成或停止所有执行并处理审批，再重启主机".into());
+        }
+        if snapshot["persistent"] != true {
+            save_legacy(&data, &snapshot)?;
+        }
+        client
+            .post(format!("{url}/v1/host/stop"))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(|error| error.to_string())?
+            .error_for_status()
+            .map_err(|error| error.to_string())?;
+        // Host keeps its instance lock until ACP children and SQLite have closed.
+        for _ in 0..100 {
+            if !record.exists() {
+                return launch_host(&app).await;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        return Err("主机尚未退出，请稍后重新连接；会话导出已保留".into());
+    }
+    launch_host(&app).await
+}
+
 #[tauri::command]
 async fn choose_workspace(app: tauri::AppHandle) -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -122,7 +221,49 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Launcher::default())
-        .invoke_handler(tauri::generate_handler![host_connection, choose_workspace])
+        .invoke_handler(tauri::generate_handler![
+            host_connection,
+            restart_host,
+            choose_workspace
+        ])
         .run(tauri::generate_context!())
         .expect("VibeOne 桌面应用启动失败");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn upgrade_export_is_durable_and_failed_replacement_preserves_previous_export() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory =
+            std::env::temp_dir().join(format!("vibeone-upgrade-{}-{unique}", std::process::id()));
+        std::fs::create_dir(&directory).unwrap();
+        let snapshot = serde_json::json!({"sessions":[{"id":"retained"}]});
+        save_legacy(&directory, &snapshot).unwrap();
+        let file = directory.join("legacy-snapshot.json");
+        assert_eq!(
+            serde_json::from_slice::<Value>(&std::fs::read(&file).unwrap()).unwrap(),
+            snapshot
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+        std::fs::create_dir(directory.join(format!("legacy-snapshot.{}.tmp", std::process::id())))
+            .unwrap();
+        assert!(save_legacy(&directory, &serde_json::json!({"sessions":[]})).is_err());
+        assert_eq!(
+            serde_json::from_slice::<Value>(&std::fs::read(&file).unwrap()).unwrap(),
+            snapshot
+        );
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 }

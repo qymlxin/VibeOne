@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { connectHost, request } from "./api.js";
+import { connectHost, restartHost, request } from "./api.js";
 
 export function useWorkbench() {
   const [connection, setConnection] = useState(null);
@@ -12,6 +12,16 @@ export function useWorkbench() {
     setError("");
     try {
       setConnection(await connectHost());
+    } catch (error) {
+      setError(String(error));
+      setPhase("offline");
+    }
+  }, []);
+  const restart = useCallback(async () => {
+    setPhase("upgrading");
+    setError("");
+    try {
+      setConnection(await restartHost());
     } catch (error) {
       setError(String(error));
       setPhase("offline");
@@ -91,5 +101,5 @@ export function useWorkbench() {
     },
     [connection, phase],
   );
-  return { ...snapshot, phase, error, call, reconnect };
+  return { ...snapshot, phase, error, call, reconnect, restart };
 }
