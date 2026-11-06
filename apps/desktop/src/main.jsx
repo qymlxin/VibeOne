@@ -634,8 +634,10 @@ function Conversation({ session, workbench, online, act }) {
         {turns.map(turn => (
           <div className="desktop-turn" key={turn.id}>
             {turn.user && <ChatMessage message={turn.user} name={name}/>}
-            <ActivityFeed turn={turn} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
-            {turn.reply && <ChatMessage message={turn.reply} name={name}/>}
+            {turn.blocks.map(block=>block.kind==='message'
+              ? <ChatMessage key={block.id} message={block.message} name={name}/>
+              : <ActivityFeed key={block.id} turn={{...turn,...block}} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
+            )}
           </div>
         ))}
         {(session.inputs ?? []).map((request) => (

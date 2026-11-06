@@ -132,6 +132,8 @@ test(
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
     const liveProcess=page.locator('.desktop-activity[data-live="true"]');
     await liveProcess.getByText('演示：整理执行结果',{exact:true}).waitFor();
+    assert.deepEqual(await page.locator('.desktop-turn').last().evaluate(turn=>[...turn.querySelectorAll('.desktop-message.assistant,.desktop-activity')].map(node=>node.classList.contains('desktop-activity')?'activity':'message')),['message','activity'],'execution commentary must precede the tool activity');
+
     assert.ok(await liveProcess.locator('.desktop-activity-preview-row').count()<=3);
     assert.equal(await liveProcess.locator('.desktop-activity-preview').innerText().then(text=>text.includes('演示：梳理任务范围')),false,'old activity rolls out of bounded preview');
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-light.png')});
@@ -149,6 +151,8 @@ test(
     assert.equal(await liveProcess.locator('details[open]').count(),0,'activity details remain collapsed until requested');
     await liveProcess.getByRole('button').click();
     await page.getByText('演示处理已完成。以上思考摘要与工具事件用于验证实时活动视图，没有读取文件或执行命令。',{exact:true}).waitFor();
+    await page.getByText('本轮执行结束',{exact:true}).waitFor();
+    assert.deepEqual(await page.locator('.desktop-turn').last().evaluate(turn=>[...turn.querySelectorAll('.desktop-message.assistant,.desktop-activity')].map(node=>node.classList.contains('desktop-activity')?'activity':'message')),['message','activity','message'],'final response must follow the tools');
     const latestProcess=page.getByRole('region',{name:'Agent 处理过程'}).last();
     assert.equal(await latestProcess.getByRole('button').getAttribute('aria-expanded'),'false');
     await latestProcess.getByRole('button').click();

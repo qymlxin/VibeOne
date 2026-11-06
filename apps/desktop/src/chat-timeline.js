@@ -8,6 +8,7 @@ export function buildTurns(session) {
     const turn = {id, user:null, replies:[], activity:[], run:(session.runs ?? []).find(run=>run.id===id)};
     turns.push(turn); byId.set(id,turn); return turn;
   };
+  const messagePositions = new Map(session.messages.map((message,index)=>[message,index+1]));
   let current;
   for (const message of session.messages) {
     if (message.role === 'user') {
@@ -27,10 +28,28 @@ export function buildTurns(session) {
   const activeRun = (session.runs ?? []).findLast(run=>isRunActive(run.status));
   if (isRunActive(session.status) && !turns.length) add(activeRun?.id ?? 'pending');
   for (const turn of turns) {
-    for (const message of turn.replies.slice(0,-1)) turn.activity.push({id:`note:${message.id}`,type:'note',text:message.text,item:message});
     turn.reply = turn.replies.at(-1);
     turn.activity.sort((a,b)=>(a.item.activityOrder ?? 0)-(b.item.activityOrder ?? 0));
     turn.live = isRunActive(session.status) && (activeRun ? turn.id===activeRun.id : turn===turns.at(-1));
+    // Preserve first-observed order, not the latest patch time. A completed search
+    // update must not jump ahead of the assistant text that introduced it.
+    const events = [
+      ...turn.activity.map(activity=>({kind:'activity',activity,order:activity.item.activityOrder ?? messagePositions.get(activity.item) ?? 0})),
+      ...turn.replies.map(message=>({kind:'message',message,order:message.activityOrder ?? messagePositions.get(message)})),
+    ].sort((a,b)=>a.order-b.order);
+    turn.blocks=[];
+    for (const event of events) {
+      const last=turn.blocks.at(-1);
+      if (event.kind==='message') turn.blocks.push({kind:'message',id:`message:${event.message.id}`,message:event.message});
+      else if (last?.kind==='activity') last.activity.push(event.activity);
+      else turn.blocks.push({kind:'activity',id:event.activity.id,activity:[event.activity],live:false});
+    }
+    if (turn.live) {
+      const last=turn.blocks.at(-1);
+      if (last?.kind==='activity') last.live=true;
+      else turn.blocks.push({kind:'activity',id:`waiting:${last?.id ?? turn.id}`,activity:[],live:true});
+    }
+
   }
   return turns;
 }

@@ -64,7 +64,7 @@ export function ActivityFeed({turn,status,hasInput,onReadHistory}) {
     </button>
     {!expanded && live && <div className="desktop-activity-preview" aria-label="最新处理动态">
       {preview.map(a=><div key={a.id} className={`desktop-activity-preview-row ${a.type}`}><span>{typeLabel[a.type]}</span><span>{activityTail(a.text) || '正在接收摘要…'}</span>{a.type==='tool' && <span>{toolStatus[a.item.status] ?? a.item.status}</span>}</div>)}
-      {!preview.length && <div className="desktop-live-status"><span>{label==='正在处理'?'Agent 正在处理，等待输出':label}</span>{status==='running' && elapsed>=3 && <small>尚未收到可展示的思考摘要；收到后会自动显示。</small>}</div>}
+      {!preview.length && <div className="desktop-live-status"><span>{label==='正在处理'?(turn.reply?.text?'Agent 正在处理':'Agent 正在处理，等待输出'):label}</span>{status==='running' && !turn.reply?.text && elapsed>=3 && <small>尚未收到可展示的思考摘要；收到后会自动显示。</small>}</div>}
     </div>}
     {expanded && <div className="desktop-activity-history" ref={body} onScroll={event=>{
       const element=event.currentTarget;follow.current=element.scrollHeight-element.scrollTop-element.clientHeight<40;if(!follow.current)onReadHistory();

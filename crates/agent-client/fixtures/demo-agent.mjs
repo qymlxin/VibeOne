@@ -26,6 +26,7 @@ async function run(sessionId, prompt, userId, epoch) {
       update(sessionId, { sessionUpdate: 'agent_thought', messageId, content: [{ type: 'text', text }] });
     }
     if (prompt.includes('/activity')) {
+      update(sessionId,{sessionUpdate:'agent_message',messageId:`commentary:${userId}`,content:[{type:'text',text:'演示：我先梳理任务，再检查处理步骤。'}]});
       const stages=['梳理任务范围','检查目录结构','核对变更影响','整理执行结果'];
       for (let index=0;index<stages.length;index++) {
         if (!active()) return;
