@@ -1,12 +1,20 @@
 import React,{useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
-import {File,Folder,Slash,X,AtSign,RefreshCw} from 'lucide-react';
+import {File,Folder,Slash,X,AtSign,RefreshCw,BookOpen} from 'lucide-react';
 import {composerToken,replaceToken,commandOptions} from './composer.js';
+import {discoverComposerSkills} from './composer-skills.js';
 import './composer.css';
 
 export function ComposerInput({session,workbench,value,onChange,files,onFiles,onSubmit,onPanel,disabled,online,placeholder}) {
   const input=useRef(null),root=useRef(null),cache=useRef(new Map()),selection=useRef(null);
   const [token,setToken]=useState(null),[selected,setSelected]=useState(0),[listing,setListing]=useState(null),[error,setError]=useState('');
   const [refresh,setRefresh]=useState(0);
+  const [skills,setSkills]=useState([]),[skillError,setSkillError]=useState(''),[skillsLoading,setSkillsLoading]=useState(false);
+  useEffect(()=>{
+    if(token?.kind!=='/'||!online||disabled)return;
+    let stale=false;const controller=new AbortController();setSkills([]);setSkillError('');setSkillsLoading(true);
+    discoverComposerSkills(workbench.read,session.id,controller.signal).then(items=>{if(!stale)setSkills(items);}).catch(reason=>{if(!stale)setSkillError(`技能目录读取失败，可关闭后重试：${reason.message??reason}`);}).finally(()=>{if(!stale)setSkillsLoading(false);});
+    return()=>{stale=true;controller.abort();};
+  },[token?.kind,online,disabled,session.id,workbench.read]);
   const listId=useId();
   // Restore the caret in the same commit as the controlled value. A queued
   // animation frame could otherwise overwrite a newer user selection/input.
@@ -34,17 +42,21 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
     return()=>{stale=true;controller.abort();clearTimeout(timer);};
   },[directory,token?.kind,online,session.id,workbench.read,refresh]);
   useEffect(()=>{const close=event=>{if(!root.current?.contains(event.target))setToken(null);};document.addEventListener('pointerdown',close);return()=>document.removeEventListener('pointerdown',close);},[]);
-  const options=token?.kind==='/'?commandOptions(session.agentState?.commands,token.query):(listing?.entries??[])
+  const options=token?.kind==='/'?commandOptions(session.agentState?.commands,token.query,skills):(listing?.entries??[])
     .filter(item=>item.kind!=='symlink'&&item.name.toLowerCase().includes(query.toLowerCase()))
     .sort((a,b)=>(a.kind==='directory'?0:1)-(b.kind==='directory'?0:1)||a.name.localeCompare(b.name));
-  useEffect(()=>setSelected(0),[token?.query,listing]);
+  useEffect(()=>setSelected(0),[token?.query,listing,skills]);
   useEffect(()=>{root.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({block:'nearest'});},[selected]);
   const update=(text,caret)=>{onChange(text);setToken(composerToken(text,caret));setError('');};
   const choose=item=>{
     if(!token)return;
     let insertion='';
     if(token.kind==='/'){
-      if(item.panel)onPanel(item.panel);else insertion=`/${item.name} `;
+      if(item.kind==='skill'){
+        if(!files.includes(item.path)&&files.length>=5){setError('每轮最多引用 5 个文本文件，请先移除一个引用');return;}
+        if(!files.includes(item.path))onFiles([...files,item.path]);
+        insertion=`使用技能「${item.name}」处理以下任务：`;
+      }else if(item.panel)onPanel(item.panel);else insertion=`/${item.name} `;
     }else if(item.kind==='directory')insertion=`@"${item.path}/`;
     else{
       if(files.includes(item.path)){setError('此文件已引用');return;}
@@ -63,14 +75,16 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
   return <section className="composer-input" ref={root}>
     {!!files.length&&<div className="composer-references" aria-label="已引用文件">{files.map(path=><span key={path} title={path}><File size={14}/><span>{path}</span><button type="button" disabled={disabled} aria-label={`移除引用 ${path}`} onClick={()=>onFiles(files.filter(file=>file!==path))}><X size={13}/></button></span>)}</div>}
     {token&&!disabled&&<div className="composer-picker">
-      <div className="composer-picker-heading">{token.kind==='/'?'指令':'工作区文件'}<small>{token.kind==='/'?'Agent 命令插入后发送':'最多 5 个文本文件 · 每个 32 KiB'}</small>{token.kind==='@'&&<button type="button" aria-label="刷新引用目录" disabled={!online} onClick={()=>{cache.current.delete(`${session.id}:${directory}`);setRefresh(count=>count+1);}}><RefreshCw size={14}/></button>}<button type="button" aria-label="关闭建议" onClick={()=>setToken(null)}><X size={14}/></button></div>
+      <div className="composer-picker-heading">{token.kind==='/'?'指令':'工作区文件'}<small>{token.kind==='/'?'Agent 命令 · 工作台 · 项目技能':'最多 5 个文本文件 · 每个 32 KiB'}</small>{token.kind==='@'&&<button type="button" aria-label="刷新引用目录" disabled={!online} onClick={()=>{cache.current.delete(`${session.id}:${directory}`);setRefresh(count=>count+1);}}><RefreshCw size={14}/></button>}<button type="button" aria-label="关闭建议" onClick={()=>setToken(null)}><X size={14}/></button></div>
       {token.kind==='@'&&directory&&<button type="button" className="composer-parent" onClick={()=>{const parent=directory.replace(/\/$/,'').split('/').slice(0,-1).join('/');const insertion=parent?'@\"'+parent+'/':'@';const next=replaceToken(value,token,insertion),caret=token.start+insertion.length;selection.current={text:next,caret};update(next,caret);}}>‹ 上级目录 · {directory}</button>}
       <div id={listId} role="listbox" aria-label={token.kind==='/'?'指令建议':'文件建议'}>{options.map((item,index)=><button type="button" role="option" id={`${listId}-${index}`} aria-selected={index===selected} key={item.path??item.name} onPointerMove={()=>setSelected(index)} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(item)}>
-        {token.kind==='/'?<Slash size={16}/>:item.kind==='directory'?<Folder size={16}/>:<File size={16}/>}
+        {item.kind==='skill'?<BookOpen size={16}/>:token.kind==='/'?<Slash size={16}/>:item.kind==='directory'?<Folder size={16}/>:<File size={16}/>}
         <span><strong>{token.kind==='/'?'/'+item.name:item.name}</strong><small>{item.description??(item.kind==='directory'?'打开目录':item.path)}</small></span>{item.source&&<small>{item.source}</small>}
       </button>)}</div>
       {!options.length&&<p role={error?'alert':undefined}>{error|| (token.kind==='@'&&!listing?'正在读取目录…':token.kind==='/'?'未找到指令，按 Enter 仍可发送给 Agent':'没有匹配项，可刷新目录或返回上级')}</p>}
       {options.length>0&&error&&<p role="alert">{error}</p>}
+      {token.kind==='/'&&skillsLoading&&<p role="status">正在读取项目技能…</p>}
+      {token.kind==='/'&&skillError&&<p role="alert">{skillError}</p>}
       {listing?.truncated&&token.kind==='@'&&<p>目录仅显示前 300 项，请输入更具体的子目录。</p>}
       <footer>↑ ↓ 选择 · Enter / Tab 确认 · Esc 关闭</footer>
     </div>}

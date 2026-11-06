@@ -16,6 +16,8 @@ test(
     await writeFile(join(directory,'preview.txt'),'workspace preview text\n');
     await mkdir(join(directory,'folder name'));
     await writeFile(join(directory,'folder name','child.txt'),'nested text');
+    await mkdir(join(directory,'.agents','skills','composer-review'),{recursive:true});
+    await writeFile(join(directory,'.agents','skills','composer-review','SKILL.md'),'# Composer review\nUse the project skill fixture for review.');
     const git=(...args)=>execFileSync('git',['-C',directory,...args],{stdio:'ignore'});
     git('init');
     await writeFile(join(directory,'tracked.txt'),'before\nkept\n');
@@ -158,6 +160,12 @@ test(
     await page.getByRole('heading',{name:'工作区',exact:true,level:1}).waitFor();
     await page.getByRole('button',{name:'返回工作台',exact:true}).click();
     const composer=page.getByRole('textbox',{name:'发送任务'});
+    await composer.fill('/composer-review');
+    await page.getByRole('option',{name:/composer-review/}).waitFor();
+    await page.screenshot({path:join(tmpdir(),'vibeone-composer-skills.png')});
+    await composer.press('Enter');
+    assert.equal(await composer.inputValue(),'使用技能「composer-review」处理以下任务：');
+    await page.getByRole('button',{name:'移除引用 .agents/skills/composer-review/SKILL.md'}).click();
     await composer.fill('/fi');
     await page.getByRole('option',{name:/files/}).waitFor();
     await composer.press('Enter');
@@ -221,6 +229,8 @@ test(
     await page.evaluate(()=>{const transfer=new DataTransfer();transfer.items.add(new File(['drop fixture'],'dropped.txt',{type:'text/plain'}));document.querySelector('.desktop-composer').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));});
     await page.getByRole('button',{name:'移除附件 dropped.txt',exact:true}).click();
     await page.screenshot({path:join(tmpdir(),'vibeone-attachment-draft.png')});
+    await composer.fill('/composer-review');
+    await page.getByRole('option',{name:/composer-review/}).click();
     await composer.fill('桌面集成测试 /thought');
     await composer.press('Enter');
     await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000}).catch(async error=>{throw new Error(`${error.message}\nReact errors: ${JSON.stringify(errors)}\n${(await page.locator("body").innerText()).slice(-6000)}`);});
@@ -233,6 +243,8 @@ test(
     assert.equal(downloaded.suggestedFilename(),'pixel.png');
     assert.deepEqual(await readFile(await downloaded.path()),imageBytes);
     assert.match(await page.locator('.desktop-message.user').first().innerText(),/workspace preview text/);
+    assert.match(await page.locator('.desktop-message.user').first().innerText(),/Use the project skill fixture for review/);
+    assert.equal(await page.getByRole('button',{name:'移除引用 .agents/skills/composer-review/SKILL.md'}).count(),0);
     assert.equal(await page.locator(".desktop-message.user").count(), 1);
     assert.equal(await page.locator(".desktop-message.assistant").count(), 1);
     await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__copiedAnswer=text;}}}));

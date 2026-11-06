@@ -91,6 +91,8 @@
 
 - [65-http-error-contract](issues/65-http-error-contract.md)：统一HTTP错误信封、响应身份和客户端错误字段；阻止API落入SPA，并修复插件输入网关限制不一致；49项Node、15项Host、桌面/手机及包外验证通过。
 
+- [67-composer-project-skills](issues/67-composer-project-skills.md)：`/` 补齐真实项目 SKILL.md 选择及正文引用发送；保持 ACP/本地命令与 `@` 文件交互，桌面及 HTTPS 手机回归通过。
+
 ## Fog
 
 

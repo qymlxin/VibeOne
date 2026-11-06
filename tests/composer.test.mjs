@@ -57,3 +57,20 @@ test('recent sessions sort by persisted activity and fall back to legacy Run tim
  assert.deepEqual(recentSessions(sessions).map(session=>session.id),['b','c','a']);
  assert.deepEqual(sessions.map(session=>session.id),['a','b','c']);
 });
+
+import {discoverComposerSkills} from '../apps/desktop/src/composer-skills.js';
+test('project skill discovery uses authorized paths, ignores symlinks and preserves source identities',async()=>{
+ const dir=(name,path=name)=>({name,path,kind:'directory'}), file=name=>({name,kind:'file'});
+ const trees={'.':{entries:[dir('.agents'),dir('.claude')]},'.agents':{entries:[dir('skills')]},'.claude':{entries:[dir('skills')]},'.agents/skills':{entries:[dir('review','.agents/skills/review'),{name:'linked',kind:'symlink'}]},'.claude/skills':{entries:[dir('review','.claude/skills/review'),dir('empty','.claude/skills/empty')]},'.agents/skills/review':{entries:[file('SKILL.md')]},'.claude/skills/review':{entries:[file('SKILL.md')]},'.claude/skills/empty':{entries:[]}};
+ const paths=[];
+ const skills=await discoverComposerSkills(async url=>{assert.ok(url.startsWith('/sessions/session%20id/tree?'));const path=new URL(url,'http://host').searchParams.get('path');paths.push(path);assert.ok(trees[path],path);return trees[path];},'session id');
+ assert.equal(skills.length,2);
+ assert.notEqual(skills[0].path,skills[1].path);
+ assert.equal(commandOptions([],'review',skills).length,2);
+ assert.equal(commandOptions([{name:'review'}],'review',skills).length,1);
+ assert.equal(paths.some(path=>path.includes('linked')),false);
+});
+test('skill discovery reports real read failures rather than presenting a false empty catalog',async()=>{
+ await assert.rejects(discoverComposerSkills(async()=>{throw Error('offline');},'session'),/offline/);
+ assert.deepEqual(await discoverComposerSkills(async()=>({entries:[]}), 'session'),[]);
+});

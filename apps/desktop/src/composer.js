@@ -16,10 +16,10 @@ export const localCommands = [
   {name:'terminal',description:'查看终端执行记录',panel:'terminal'},
   {name:'runs',description:'查看执行记录',panel:'runs'},
 ];
-export function commandOptions(commands, query) {
+export function commandOptions(commands, query, skills = []) {
   const agent = (Array.isArray(commands)?commands:[]).filter(item=>typeof item.name==='string').map(item=>({...item,source:'Agent'}));
   const names=new Set(agent.map(item=>item.name));
-  return [...agent,...localCommands.filter(item=>!names.has(item.name)).map(item=>({...item,source:'工作台'}))]
+  return [...agent,...localCommands.filter(item=>!names.has(item.name)).map(item=>({...item,source:'工作台'})),...skills.filter(item=>!names.has(item.name)&&!localCommands.some(command=>command.name===item.name))]
     .filter(item=>(item.name+' '+(item.description??'')).toLowerCase().includes(query.toLowerCase())).slice(0,50);
 }
 
