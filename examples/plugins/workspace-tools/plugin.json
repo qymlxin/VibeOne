@@ -1,12 +1,41 @@
 {
   "manifestVersion": 1,
   "id": "dev.vibeone.workspace-tools",
-  "name": "工作区工具",
+  "name": "\u5de5\u4f5c\u533a\u5de5\u5177",
   "version": "0.1.0",
-  "engines": { "pluginApi": ">=0.1 <0.2" },
-  "entrypoints": { "worker": { "path": "dist/worker.js", "runtime": "node", "protocolVersion": 1 } },
+  "engines": {
+    "pluginApi": ">=0.1 <0.2"
+  },
+  "entrypoints": {
+    "worker": {
+      "path": "dist/worker.js",
+      "runtime": "node",
+      "protocolVersion": 1
+    },
+    "app": {
+      "path": "app.mjs"
+    }
+  },
   "contributions": [
-    { "id": "scan", "kind": "app.command", "kindVersion": 1, "binding": { "type": "worker", "handler": "workspace.scan" } }
+    {
+      "id": "scan",
+      "kind": "app.command",
+      "kindVersion": 1,
+      "binding": {
+        "type": "worker",
+        "handler": "workspace.scan"
+      }
+    },
+    {
+      "id": "workspace-panel",
+      "kind": "app.panel",
+      "kindVersion": 1,
+      "binding": {
+        "type": "app"
+      }
+    }
   ],
-  "hostRequirements": ["workspace.read"]
+  "hostRequirements": [
+    "workspace.read"
+  ]
 }
