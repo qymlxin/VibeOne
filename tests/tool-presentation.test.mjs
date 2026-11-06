@@ -44,3 +44,12 @@ test('semantic reads use explicit ACP file paths, never infer reads from arbitra
  assert.equal(describeAction({kind:'execute',rawInput:{command:'cat /project/a.ts'}}).operation,null);
  assert.equal(describeAction({kind:'read',title:"List files in '/project'"}).operation,null);
 });
+
+import {previewUrl,workspacePath} from '../apps/desktop/src/preview-links.js';
+test('preview links separate web URLs and workspace paths, rejecting traversal and embedded credentials',()=>{
+ assert.equal(previewUrl('https://example.com/docs'),'https://example.com/docs');
+ for(const value of ['javascript:alert(1)','https://name:secret@example.com','file:///tmp/a'])assert.equal(previewUrl(value),null);
+ assert.equal(workspacePath('/workspace/src/a.ts#L12','/workspace'),'src/a.ts');
+ assert.equal(workspacePath('file:///workspace/src/a.ts','/workspace'),'src/a.ts');
+ for(const value of ['../secret','%2e%2e/secret','/other/a','file://remote/workspace/a','https://example.com/a','C:\\private'])assert.equal(workspacePath(value,'/workspace'),null);
+});

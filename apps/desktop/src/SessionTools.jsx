@@ -1,26 +1,31 @@
-import React, { useEffect, useState } from "react";
+import {describeTool} from "./tool-presentation.js";
+import {ToolDetails} from "./ToolDetails.jsx";
+import React, { useEffect, useRef, useState } from "react";
 
-export function SessionTools({ session, workbench, tab, act }) {
+export function SessionTools({ session, workbench, tab, act, fileTarget }) {
   const [result, setResult] = useState(null),
     [preview, setPreview] = useState(null),
     [path, setPath] = useState("."),
     [busy, setBusy] = useState(false);
+  const requestId=useRef(0),listRequest=useRef(0);
   async function load(nextPath = path) {
+    const id=++listRequest.current;
     setBusy(true);
     const result = await act(() =>
       workbench.call(
         `/sessions/${session.id}/${tab === "changes" ? "changes" : tab === "artifacts" ? "artifacts" : "tree"}?path=${encodeURIComponent(nextPath)}`,
       ),
     );
-    if (result) setResult(result);
-    setBusy(false);
+    if (id===listRequest.current){if(result)setResult(result);setBusy(false);}
   }
   useEffect(() => {
     setPreview(null);
     setResult(null);
-    if (!["runs", "agent"].includes(tab)) void load(".");
+    if (!["runs", "agent", "terminal"].includes(tab)) void load(".");
   }, [session.id, tab]);
+  useEffect(()=>{if(tab==='files' && fileTarget?.path)void inspect({path:fileTarget.path});},[fileTarget,tab]);
   async function inspect(file, staged = false) {
+    const id=++requestId.current;
     if (file.kind === "directory") {
       setPath(file.path);
       await load(file.path);
@@ -31,7 +36,12 @@ export function SessionTools({ session, workbench, tab, act }) {
         `/sessions/${session.id}/${tab === "changes" && !file.untracked ? "diff" : "file"}?path=${encodeURIComponent(file.path)}&staged=${staged}`,
       ),
     );
-    if (value) setPreview(value);
+    if (value && id===requestId.current) setPreview(value);
+  }
+  if(tab==='terminal'){
+    const tools=session.tools.filter(tool=>tool.kind==='execute'||describeTool(tool).kind==='command');
+    const terminals=session.agentState?.terminals ?? [];
+    return <section className="desktop-inspector desktop-terminal"><h2>Agent 终端输出（只读）</h2><p>来自当前会话的实际执行记录，不启动交互 Shell。</p>{!tools.length&&!terminals.length&&<p>尚未收到命令或终端输出。</p>}{tools.map(tool=><details key={tool.toolCallId}><summary>{tool.title ?? tool.name ?? '命令'} · {tool.status}</summary><ToolDetails tool={tool}/></details>)}{terminals.map((terminal,index)=><pre key={terminal.id??index}>{terminal.data?decode(terminal.data):JSON.stringify(terminal,null,2)}</pre>)}</section>;
   }
   if (tab === "agent")
     return (
@@ -135,6 +145,7 @@ export function SessionTools({ session, workbench, tab, act }) {
       )}
       {busy && <p role="status">正在读取…</p>}
       {result?.truncated && <p>列表已截断，请缩小目录范围。</p>}
+      <div className="desktop-file-browser"><div className="desktop-file-list">
       {(result?.files ?? result?.entries ?? []).map((file) => (
         <div className="desktop-file-row" key={file.path}>
           <button onClick={() => void inspect(file)}>
@@ -148,8 +159,9 @@ export function SessionTools({ session, workbench, tab, act }) {
       {result && !(result.files ?? result.entries ?? []).length && (
         <p>没有可显示的内容</p>
       )}
+      </div>
       {preview && (
-        <article>
+        <article className="desktop-file-preview">
           <header>
             <strong>{preview.path}</strong>
             <button onClick={() => setPreview(null)}>关闭预览</button>
@@ -177,6 +189,7 @@ export function SessionTools({ session, workbench, tab, act }) {
           {preview.truncated && <p>内容超过显示上限，已截断。</p>}
         </article>
       )}
+      </div>
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowUp,
@@ -29,6 +29,9 @@ import { Management } from "./Management.jsx";
 import { ChatMessage, AgentResponse } from "./ChatTimeline.jsx";
 import { ConversationNav } from "./ConversationNav.jsx";
 import { buildTurns } from "./chat-timeline.js";
+import {SplitHandle} from "./SplitHandle.jsx";
+import {PreviewContext} from "./PreviewLinks.jsx";
+import {BrowserPreview} from "./BrowserPreview.jsx";
 import { Brand } from "./Brand.jsx";
 import "../../../prototype/src/theme.css";
 import "./workbench.css";
@@ -462,6 +465,11 @@ function Conversation({ session, workbench, online, act }) {
     ["operator", "approver"].includes(workbench.device.role);
   const [editingTitle, setEditingTitle] = useState(false);
   const [tab, setTab] = useState("chat");
+  const [panelWidth,setPanelWidth]=useState(null);
+  const [browserUrl,setBrowserUrl]=useState(null),[fileTarget,setFileTarget]=useState(null);
+  const openUrl=useCallback(url=>{setBrowserUrl(url);setTab('browser');},[]);
+  const openFile=useCallback(path=>{setFileTarget({path,key:crypto.randomUUID()});setTab('files');},[]);
+  const previewContext=useMemo(()=>({workspace:session.workspace,openUrl,openFile}),[session.workspace,openUrl,openFile]);
   const requestKey = useRef(null);
   const [fileReference, setFileReference] = useState("");
   const [title, setTitle] = useState(session.title);
@@ -508,7 +516,7 @@ function Conversation({ session, workbench, online, act }) {
     setSending(false);
   };
   return (
-    <>
+    <PreviewContext.Provider value={previewContext}>
       <header className="desktop-conversation-heading">
         <div>
           {editingTitle ? (
@@ -592,6 +600,8 @@ function Conversation({ session, workbench, online, act }) {
           ["changes", "变更"],
           ["files", "文件"],
           ["runs", "执行记录"],
+          ["terminal", "终端"],
+          ["browser", "网址浏览"],
           ["artifacts", "产物"],
           ["agent", "Agent 设置"],
         ].map(([id, label]) => (
@@ -848,9 +858,9 @@ function Conversation({ session, workbench, online, act }) {
         </div>
       </div>
       </div>
-      {tab!=="chat" && <aside className="desktop-right-panel" aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header><SessionTools key={tab} session={session} workbench={workbench} tab={tab} act={act}/></aside>}
+      {tab!=="chat" && <><SplitHandle onResize={setPanelWidth}/><aside style={panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className="desktop-right-panel" aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',browser:'网址浏览',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl}/>:<SessionTools key={tab} session={session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget}/>}</aside></>}
       </div>
-    </>
+    </PreviewContext.Provider>
   );
 }
 

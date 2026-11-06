@@ -5,14 +5,15 @@ import {BookOpen, Brain, Check, ChevronDown, FileText, LoaderCircle, MessageSqua
 import {activityTail, formatDuration, groupProcess, toolFamily} from './chat-timeline.js';
 import {ToolDetails} from './ToolDetails.jsx';
 import {describeAction,describeTool} from './tool-presentation.js';
+import {PreviewLink,markdownLink} from './PreviewLinks.jsx';
 import {remarkSoftBreaks} from './markdown-layout.js';
 
 const markdownComponents = {
-  a: props => <a {...props} target="_blank" rel="noopener noreferrer"/>,
+  a: PreviewLink,
   img: props => <span>[图片：{props.alt ?? '图片'}]</span>,
 };
 const MarkdownBody=memo(function MarkdownBody({text}) {
-  return <div className="desktop-message-text"><ReactMarkdown remarkPlugins={[remarkGfm,remarkSoftBreaks]} components={markdownComponents}>{text || '…'}</ReactMarkdown></div>;
+  return <div className="desktop-message-text"><ReactMarkdown urlTransform={markdownLink} remarkPlugins={[remarkGfm,remarkSoftBreaks]} components={markdownComponents}>{text || '…'}</ReactMarkdown></div>;
 });
 export const ChatMessage = memo(function ChatMessage({message,name}) {
   const user=message.role==='user';
