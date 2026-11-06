@@ -107,6 +107,17 @@ test(
       { connection, directory },
     );
     const page = await context.newPage();
+    const syncEvidence={reset:false,delta:false,offline:false};
+    page.on('response',response=>{
+      if(!new URL(response.url()).pathname.endsWith('/v1/sync')||!response.ok())return;
+      void response.json().then(frame=>{
+        if(frame.reset)syncEvidence.reset=true;
+        else {
+          syncEvidence.delta=true;
+          if(frame.events?.some(event=>event.session?.runs?.some(run=>run.text?.includes('/history-test second offline run'))))syncEvidence.offline=true;
+        }
+      }).catch(()=>{});
+    });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(frontend);
@@ -832,6 +843,7 @@ test(
     assert.equal(await fixture.getByRole('button',{name:'提交回答',exact:true}).isDisabled(),true);
     await page.evaluate(()=>{window.__inputFixture.root.unmount();window.__inputFixture.mount.remove();delete window.__inputFixture;});
     await page.setViewportSize({width:1360,height:900});
+    assert.deepEqual(syncEvidence,{reset:true,delta:true,offline:true},'the actual browser must use cursor deltas, including the disconnected Run');
     assert.deepEqual(errors, []);
     assert.equal(
       await page.evaluate(

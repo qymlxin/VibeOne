@@ -16,6 +16,7 @@ mod catalog;
 mod execution;
 mod history;
 mod outbox;
+mod sync;
 use vibeone_storage::{SavedSession, Store, Workspace};
 
 pub struct Entry {
@@ -66,6 +67,8 @@ pub struct Workbench {
     workspaces: Mutex<Vec<Workspace>>,
     catalog_gate: tokio::sync::Mutex<()>,
     publication: Mutex<()>,
+    sync_gate: tokio::sync::Mutex<()>,
+    sync_epoch: String,
     leases: Mutex<HashMap<String, String>>,
     catalog: Mutex<HashMap<String, HashMap<String, Value>>>,
     stopping: AtomicBool,
@@ -154,6 +157,8 @@ impl Workbench {
             workspaces: Mutex::new(workspaces),
             catalog_gate: tokio::sync::Mutex::new(()),
             publication: Mutex::new(()),
+            sync_gate: tokio::sync::Mutex::new(()),
+            sync_epoch: uuid::Uuid::new_v4().to_string(),
             leases: Mutex::default(),
             catalog: Mutex::new(catalog),
             stopping: AtomicBool::new(false),
@@ -226,6 +231,7 @@ impl Workbench {
         kind: &str,
         event: &Value,
     ) -> Result<(), String> {
+        let _sync = self.sync_gate.lock().await;
         if let Some(error) = self
             .storage_error
             .lock()
@@ -272,7 +278,7 @@ impl Workbench {
             .map(|entry| entry.view.lock().expect("view poisoned").clone())
             .collect();
         views.sort_by(|a, b| a.id.cmp(&b.id));
-        json!({"apiVersion":3,"features":["queuePause","attachments","conversationHistory"],"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"examplePluginPath":std::env::var_os("VIBEONE_EXAMPLE_PLUGIN").map(PathBuf::from).unwrap_or_else(||Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/plugins/workspace-tools")),"pluginEvents":self.plugins.events(),"plugins":self.catalog("plugin"),"notifications":self.catalog("notification"),"profiles":self.catalog("profile"),"providers":self.provider_descriptors(),"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
+        json!({"apiVersion":3,"features":["queuePause","attachments","conversationHistory","cursorSync"],"protocolVersion":2,"sdkVersion":"5.0.0","persistent":true,"storageError":self.storage_error.lock().expect("storage error poisoned").clone(),"revision":self.revision.load(Ordering::SeqCst),"examplePluginPath":std::env::var_os("VIBEONE_EXAMPLE_PLUGIN").map(PathBuf::from).unwrap_or_else(||Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/plugins/workspace-tools")),"pluginEvents":self.plugins.events(),"plugins":self.catalog("plugin"),"notifications":self.catalog("notification"),"profiles":self.catalog("profile"),"providers":self.provider_descriptors(),"sessions":views,"workspaces":*self.workspaces.lock().expect("workspaces poisoned")})
     }
     pub fn entry(&self, id: &str) -> Result<Arc<Entry>, String> {
         self.sessions
@@ -425,6 +431,7 @@ impl Workbench {
             revision: 1,
             snapshot: serde_json::to_value(&view).map_err(|error| error.to_string())?,
         };
+        let _sync = self.sync_gate.lock().await;
         let cursor = self
             .store
             .save(&record, "session.created", &json!({}))

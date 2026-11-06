@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="560" viewBox="0 0 1000 560" role="img" aria-labelledby="title desc">
+<title id="title">桌面与手机的游标同步链路</title><desc id="desc">客户端先订阅WS，HTTP获取基线。Host提交SQLite后异步通知；客户端携带epoch和cursor查询增量，同步响应后合并状态。过期或缺口恢复完整快照。</desc>
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#657080"/></marker></defs>
+<rect width="1000" height="560" rx="16" fill="white"/>
+<g font-family="system-ui,sans-serif" fill="#1a1c1f"><text x="30" y="40" font-size="21" font-weight="600">同步查询状态，异步通知变化</text>
+<g fill="#f4f5f7" stroke="#cbd0d7"><rect x="30" y="72" width="230" height="72" rx="10"/><rect x="385" y="72" width="230" height="72" rx="10"/><rect x="740" y="72" width="230" height="72" rx="10"/></g>
+<g font-size="16" font-weight="600"><text x="52" y="101">桌面 / 手机</text><text x="407" y="101">Rust Host</text><text x="762" y="101">SQLite / 内存投影</text></g>
+<g font-size="13" fill="#505965"><text x="52" y="126">共享客户端与投影合并</text><text x="407" y="126">鉴权、范围过滤、游标上界</text><text x="762" y="126">事务提交后发布</text></g>
+<g stroke="#cbd0d7" stroke-dasharray="4 5"><path d="M145 155V465"/><path d="M500 155V465"/><path d="M855 155V465"/></g>
+<g stroke="#657080" fill="none" marker-end="url(#a)"><path d="M145 190H490"/><path d="M500 240H845"/><path d="M855 282H510"/><path d="M500 326H155" stroke-dasharray="6 4"/><path d="M145 376H490"/><path d="M500 428H155"/></g>
+<g font-size="14"><text x="180" y="178">① 鉴权WS订阅 → HTTP获取基线</text><text x="575" y="228">② 状态与事件同事务保存</text><text x="598" y="270">提交完成，发布当前游标</text><text x="205" y="314">③ WS异步通知 changed</text><text x="175" y="364">④ HTTP查询 epoch + after</text><text x="176" y="416">⑤ 授权增量 / 完整快照响应</text></g>
+<text x="30" y="498" font-size="15">客户端串行合并批次；重复事件不重放；过期、缺口或主机切换 → 恢复快照</text>
+<text x="30" y="533" font-size="13" fill="#505965">WS慢客户端断开后补齐；网络发送不占持久化门闩；原始协议事件不直接交给前端解释。</text></g></svg>

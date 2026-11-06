@@ -5,6 +5,7 @@
 | 文档 | 阅读目标 |
 | --- | --- |
 | [桌面资源与打包](desktop-bundle.md) | 包内ACP桥接器/CLI、资源路径与包外验证 |
+| [游标增量同步](cursor-sync.md) | WS通知、HTTP授权增量、快照恢复与客户端去重 |
 | [持久会话历史](conversation-history.md) | 完整档案、分页、旧数据回填与阅读位置 |
 | [通知与系统授权](notifications.md) | 本设备开关、实际权限查询与事件基线 |
 | [原型逐项验收](prototype-audit.md) | 每个批准原型操作的实现落点、自动证据与实机缺口 |

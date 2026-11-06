@@ -29,9 +29,9 @@ export async function request(connection, path, body, signal) {
     if (connection.remote && response.status === 401)
       window.dispatchEvent(new Event("vibeone-unpaired"));
     const result = await response.json().catch(() => null);
-    throw new Error(
-      result?.error ?? `请求未成功（${response.status}），请检查主机连接`,
-    );
+    const error = new Error(result?.error ?? `请求未成功（${response.status}），请检查主机连接`);
+    error.status = response.status;
+    throw error;
   }
   return response.json();
 }

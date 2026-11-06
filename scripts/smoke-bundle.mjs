@@ -59,6 +59,9 @@ try{
  const wait=async(id,predicate)=>{for(let index=0;index<300;index++){const session=(await call('/snapshot')).sessions.find(session=>session.id===id);if(predicate(session))return session;await sleep(30);}throw Error('Packaged session did not complete');};
  const snapshot=await call('/snapshot');
  assert.ok(snapshot.features.includes('conversationHistory'));
+ assert.ok(snapshot.features.includes('cursorSync'));
+ const baseline=await call('/sync');
+ assert.equal(baseline.snapshot.revision,baseline.cursor);
  assert.ok(snapshot.examplePluginPath.startsWith(resources));
  assert.ok(snapshot.providers.find(provider=>provider.id==='codex')?.available);
  assert.ok(snapshot.providers.find(provider=>provider.id==='claude')?.available);
@@ -90,8 +93,11 @@ try{
  await wait(session.id,session=>session.runs.some(run=>run.status==='completed'));
  const history=await call(`/sessions/${session.id}/history`);
  assert.ok(history.records.some(record=>record.item.role==='assistant'));
+ const delta=await call(`/sync?epoch=${baseline.epoch}&after=${baseline.cursor}`);
+ assert.equal(delta.reset,undefined);
+ assert.ok(delta.events.some(event=>event.type==='session.projected'&&event.session.id===session.id));
  await call('/host/stop',{});await exited;
- console.log(JSON.stringify({packagedResources:true,isolatedDirectory:true,web:true,workerContext:true,pluginProvider:true,persistentHistory:true,bridges:bridgeResults,nativeClis:true,hostSha256:createHash('sha256').update(await readFile(binary)).digest('hex')},null,2));
+ console.log(JSON.stringify({packagedResources:true,isolatedDirectory:true,web:true,workerContext:true,pluginProvider:true,persistentHistory:true,cursorSync:true,bridges:bridgeResults,nativeClis:true,hostSha256:createHash('sha256').update(await readFile(binary)).digest('hex')},null,2));
 }finally{
  if(child&&child.exitCode===null&&child.signalCode===null){
   if(connection)await fetch(`${connection.url}/v1/host/stop`,{method:'POST',headers:{Authorization:`Bearer ${connection.token}`}}).catch(()=>{});

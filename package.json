@@ -13,9 +13,9 @@
   },
   "scripts": {
     "build": "npm run build -w @vibeone/plugin-sdk && npm run build -w @vibeone/plugin-runtime && npm run build -w @vibeone/example-workspace-tools",
-    "test": "npm run build && node --test packages/*/test/*.test.mjs tests/chat-timeline.test.mjs tests/tool-presentation.test.mjs tests/composer.test.mjs tests/input-form.test.mjs tests/conversation-history.test.mjs tests/package-bridges.test.mjs",
+    "test": "npm run build && node --test packages/*/test/*.test.mjs tests/chat-timeline.test.mjs tests/tool-presentation.test.mjs tests/composer.test.mjs tests/input-form.test.mjs tests/conversation-history.test.mjs tests/workbench-sync.test.mjs tests/package-bridges.test.mjs",
     "check": "npm test && cargo test --workspace && npm run host:test && npm run storage:test",
-    "host:test": "cargo build -p vibeone-host && node --test tests/workbench.test.mjs tests/execution.test.mjs tests/workspace.test.mjs tests/plugins.test.mjs tests/attachments.test.mjs tests/history.test.mjs",
+    "host:test": "cargo build -p vibeone-host && node --test tests/workbench.test.mjs tests/execution.test.mjs tests/workspace.test.mjs tests/plugins.test.mjs tests/attachments.test.mjs tests/history.test.mjs tests/sync.test.mjs",
     "desktop:test": "cargo build -p vibeone-host && node --test tests/desktop.test.mjs",
     "agent:smoke": "cargo build -p vibeone-host && node scripts/smoke-real-agents.mjs",
     "plugin:scan": "npm run build && cargo run -p vibeone-host -- plugin scan --workspace .",

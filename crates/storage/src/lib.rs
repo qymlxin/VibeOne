@@ -231,6 +231,13 @@ impl Store {
         )
     }
 
+    /// Only identities and committed sequence numbers; do not load protocol payloads.
+    pub async fn changed_sessions(&self, after: u64, through: u64) -> Result<Vec<(String, u64)>> {
+        sqlx::query("SELECT session_id,MAX(seq) AS seq FROM event_log WHERE seq>? AND seq<=? AND session_id IS NOT NULL GROUP BY session_id")
+            .bind(after as i64).bind(through as i64).fetch_all(&self.pool).await?
+            .into_iter().map(|row| Ok((row.try_get("session_id")?, row.try_get::<i64,_>("seq")? as u64))).collect()
+    }
+
     /// Called only after the Host's instance lock is held, before accepting clients.
     pub async fn recover(&self) -> Result<()> {
         sqlx::query("UPDATE notification_outbox SET state='obsolete' WHERE state='pending' AND json_extract(payload,'$.type')='attention.created'").execute(&self.pool).await?;

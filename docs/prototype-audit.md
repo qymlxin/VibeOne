@@ -26,7 +26,7 @@
 | W12 | 附件按钮、图片/文件上下文 | `Attachments.jsx`、Host附件API | 真上传、粘贴/拖放、预览、下载字节、ACP内容块、失败恢复与重启自动通过 |
 | W13 | 输入区Agent/模型/权限配置 | `AgentConfigControls.jsx` | 只显示上游实际选项，select/boolean和失败回退自动通过；不冒充所有Agent都有同一权限模式 |
 | W14 | 阅读刻度、当前位置、悬停预览、渐减长度 | `ConversationNav.jsx` | 真实轮次跳转及200刻度组件的End键/点击可达自动通过 |
-| W15 | 阅读更早消息、停止跟随、回到最新 | `use-conversation-history.js` | 完整档案、分页、像素锚定、断线整轮缺口补齐、手机分页自动通过 |
+| W15 | 阅读更早消息、停止跟随、回到最新 | `use-conversation-history.js` | 完整档案、分页、像素锚定、断线整轮缺口补齐、手机分页自动通过；63新增实际浏览器游标增量断言 |
 | W16 | 当前变更摘要跳转 | `main.jsx`、`FileExplorer.jsx` | 实际文件数与Git差异；明确是工作区当前变更，包含其他工具修改，自动通过 |
 
 ## 右侧工具与链接
@@ -78,18 +78,18 @@
 
 | 检查 | 结果与具体范围 |
 | --- | --- |
-| `npm run check` | 通过：Node/SDK/打包器、workspace Rust、11项Host集成、崩溃恢复；后增的配置恢复拒绝及最终6项执行测试另行通过；不包含真实模型请求 |
-| `npm run desktop:test` | 53秒完整回归通过：真实Host、目录路径导入、历史与重连、通知桥接状态、插件React及200刻度组件 |
+| `npm run check` | 通过：44项Node/SDK/打包器、workspace Rust、13项Host集成与崩溃恢复；不包含真实模型请求 |
+| `npm run desktop:test` | 54.5秒完整回归通过：真实Host、目录路径导入、历史与重连的实际游标增量、通知桥接状态、插件React及200刻度组件 |
 | `npm run remote:test` | 23秒通过：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
 | `cargo clippy --workspace --all-targets -- -D warnings` | 通过 |
 | 原生Cargo测试 / Clippy | 4项测试通过；原生Clippy通过；系统回调的实际窗口观察仍未完成 |
-| `npm run desktop:bundle` | 通过，当前macOS调试包827.31MiB；包标识dev.vibeone.desktop，最低系统10.15 |
+| `npm run desktop:bundle` | 通过，当前macOS调试包827.56MiB；包标识dev.vibeone.desktop，最低系统10.15 |
 | `npm run bundle:smoke` | 通过：复制全部资源到仓库外，两个桥接器v2握手和原生CLI启动、可信HTTPS网页、Worker反向调用、插件Provider及历史 |
 | `npm run agent:smoke -- codex claude` | Codex目标文本/end_turn通过；Claude失败，Authentication required，未冒充双工具完成 |
 | `npm run agent:controls` / `-- --input-only` | 真实Codex批准/拒绝、取消待审批、旧请求失效、进程退出、只读恢复及结构化输入通过 |
 | `cargo test -p vibeone-agent-client` | 全13项通过，覆盖初始化45秒人工等待、独立600秒时限、工作预算恢复、迟到答案拒绝和父子进程清理；客户端Clippy通过 |
 
-包内Host SHA-256：`dca21b4857f2f814d82c53dd45579992a5d8702ec5470f38caa0860612fc26c7`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
+包内Host SHA-256：`24e9e822b89640916c596242feb75e564d23309c1e5aea413f8b0b6c5f8861d9`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
 
 ## 解锁后的原生核对顺序
 
@@ -100,3 +100,5 @@
 5. 核对证书保存、外部浏览器和托盘行为；物理手机信任证书及真实工具授权另外记录结果。
 
 2026-11-07：62初始化人工等待修复后，Host12项、SQLite恢复及真实Codex固定文本往返通过；重新生成827.35 MiB桌面调试包并通过包外资源回归。Mac仍锁屏，未停止用户Host或清除其草稿。
+
+2026-11-07：63游标投影增量已接桌面/手机，旧计划15完成；44项Node、13项Host、工作区Rust/Clippy、54.5秒桌面、23.3秒HTTPS手机及包外cursorSync均通过。原生界面仍锁屏，14的完整契约生成/插件持久异步回执仍另行推进，未据此完成总目标。

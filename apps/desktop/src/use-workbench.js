@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { connectHost, restartHost, request } from "./api.js";
+import { createWorkbenchSync } from "./workbench-sync.js";
 
 export function useWorkbench() {
   const [connection, setConnection] = useState(null);
@@ -42,21 +43,13 @@ export function useWorkbench() {
       retry,
       debounce;
     const controller = new AbortController();
+    const sync = createWorkbenchSync(
+      path => request(connection,path,undefined,controller.signal),
+      setSnapshot,
+    );
     const refresh = async () => {
-      try {
-        const next = await request(
-          connection,
-          "/snapshot",
-          undefined,
-          controller.signal,
-        );
-        if (!closed)
-          setSnapshot((current) =>
-            current.revision > next.revision ? current : next,
-          );
-      } catch (error) {
-        if (!closed && !upgrading.current) setError(error.message);
-      }
+      try {await sync.refresh();}
+      catch(error){if(!closed&&!upgrading.current)setError(error.message);}
     };
     // A new Host has a different revision space; discard the old in-memory projection.
     setSnapshot({ providers: [], sessions: [] });
@@ -69,7 +62,9 @@ export function useWorkbench() {
         socket.send(JSON.stringify({ token: connection.token }));
       socket.onmessage = (event) => {
         if (closed || upgrading.current) return;
-        const message = JSON.parse(event.data);
+        let message;
+        try {message = JSON.parse(event.data);}
+        catch {socket.close();return;}
         if (message.type === "ready") {
           setPhase("online");
           setError("");
@@ -94,6 +89,7 @@ export function useWorkbench() {
       closed = true;
       clearTimeout(retry);
       clearTimeout(debounce);
+      sync.close();
       controller.abort();
       socket?.close();
     };

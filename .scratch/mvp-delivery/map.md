@@ -38,7 +38,7 @@
 - [09-workspaces](issues/09-workspaces.md)：工作区按规范路径去重，文件 API 使用能力目录与路径校验；Git Worktree 执行租约与分发前文件引用复验已接入。工作区集成测试覆盖越界、符号链接、Git 差异和引用。跨平台文件系统差异仍按发布清单实机验收。
 - [10-sessions](issues/10-sessions.md)：会话由 Host 持久化，支持延迟启动、标题搜索/重命名/归档；Profile 修订、插件 Provider 代次及上游身份分别保存。活动执行禁止归档，历史恢复不自动启动。Host、恢复与桌面测试通过。
 - [11-run-actor](issues/11-run-actor.md)：串行 Run、20 条队列、幂等提交、撤回、工作区互斥、失败/取消暂停与显式恢复已实现。集成测试还验证不响应取消/关闭的假 Agent 及其真实子进程在宽限期后被清理。
-- [12-events-outbox](issues/12-events-outbox.md)：状态、单调游标事件及通知 outbox 同事务提交；投递独立异步执行、有限退避重试、稳定 eventId，恢复时淘汰旧待处理通知。SQLite、事件查询、恢复及真实插件消费测试通过。客户端当前通过 WS 通知后获取快照，增量 reducer 属于任务 15 的剩余项。
+- [12-events-outbox](issues/12-events-outbox.md)：状态、单调游标事件及通知 outbox 同事务提交；投递独立异步执行、有限退避重试、稳定 eventId，恢复时淘汰旧待处理通知。SQLite、事件查询、恢复及真实插件消费测试通过。客户端游标投影增量后由63补齐，见任务15和docs/cursor-sync.md。
 - [13-attention-state](issues/13-attention-state.md)：审批与结构化输入分别持久化，包含原始选项/Schema、有效期和 Run；唯一决定、同决定重试、冲突及投递不确定状态已实现，恢复后不重放批准。测试覆盖并发决定、Schema 拒绝及 session/new 尚未完成时的输入回应。真实工具验证仍由任务 04 跟踪。
 - [16-workspace-changes](issues/16-workspace-changes.md)：实现带分支/时间的已暂存、未暂存、未跟踪差异和受范围限制的文件预览；二进制/大文件明确提示。文本产物快照关联最近 Run，源文件后续修改不影响快照；工作区集成测试通过。
 - [19-chat-ui](issues/19-chat-ui.md)：聊天接入持久 Host 状态与真实 ACP 流；展示思考摘要、Markdown、工具输出、执行回执、运行/等待/结束状态，支持队列、取消、文本引用和本地草稿。桌面浏览器测试与执行/恢复测试通过；最近 128 条消息的投影上限已记录。
@@ -85,10 +85,12 @@
 
 - [62-human-initialization-timeout](issues/62-human-initialization-timeout.md)：复现并修复30秒初始化误中断人工等待；独立600秒请求时限、剩余工作预算、旧请求失效及父子进程清理通过13项客户端回归。
 
+- [63-cursor-sync](issues/63-cursor-sync.md)：补齐15的桌面/手机游标增量、合并投影去重、并发上界、过期快照及慢订阅恢复；原生与物理设备条件仍独立待验。
+
 ## Fog
 
 
 - 真实Claude认证及该工具的审批/取消仍由本机账号和实际工具能力决定；Codex路径和人工请求可控时间超时已有实测。
 - 物理 iOS/Android 证书信任、弱网、锁屏及 macOS 托盘/系统通知仍待人工验收。
-- 客户端当前用 WS 通知加快照恢复；事件增量 reducer及完整 DTO 生成未完成；长历史已独立分页交付。
+- 完整DTO生成和插件HTTP持久异步操作对账仍见14；客户端游标投影增量及长历史已独立交付。
 - 公开 SDK 完整 semver/跨插件依赖、跨平台发行、签名公证后置。

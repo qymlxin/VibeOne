@@ -155,6 +155,7 @@ fn routes(state: Server) -> Router {
     Router::new()
         .route("/v1/health",get(||async{Json(json!({"name":"vibeone-host","apiVersion":3,"protocolVersion":2,"persistent":true,"version":env!("CARGO_PKG_VERSION")}))}))
         .route("/v1/snapshot",get(snapshot))
+        .route("/v1/sync",get(sync_view))
         .route("/v1/workspaces",post(import_workspace))
         .route("/v1/profiles",post(profile))
         .route("/v1/remote",post(remote::configure))
@@ -272,7 +273,7 @@ async fn authorize(
         } else {
             matches!(
                 path.as_str(),
-                "/v1/health" | "/v1/snapshot" | "/v1/event-log"
+                "/v1/health" | "/v1/snapshot" | "/v1/event-log" | "/v1/sync"
             ) || path == "/v1/sessions" && request.method() == Method::POST
         };
         if !allowed {
@@ -508,6 +509,50 @@ async fn snapshot(
         &identity,
     ))
 }
+#[derive(Deserialize)]
+struct SyncCursor {
+    after: Option<u64>,
+    epoch: Option<String>,
+}
+async fn sync_view(
+    State(state): State<Server>,
+    Query(query): Query<SyncCursor>,
+    Extension(identity): Extension<remote::Identity>,
+) -> ApiResult {
+    let view = state
+        .workbench
+        .sync_view(query.after, query.epoch.as_deref())
+        .await
+        .map_err(fail)?;
+    let mut snapshot = remote::filter_snapshot(view.snapshot, &identity);
+    let cursor = snapshot["revision"].clone();
+    if let Some(reason) = view.reset {
+        return Ok(Json(
+            json!({"version":1,"epoch":view.epoch,"cursor":cursor,"reset":reason,"snapshot":snapshot}),
+        ));
+    }
+    let sessions = snapshot
+        .as_object_mut()
+        .expect("snapshot object")
+        .remove("sessions")
+        .unwrap_or(json!([]));
+    let visible: Vec<_> = sessions
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|session| session["id"].clone())
+        .collect();
+    let mut events: Vec<_> = sessions.as_array().unwrap().iter().filter_map(|session| {
+        let id = session["id"].as_str()?;
+        let sequence = view.changed.get(id)?;
+        Some(json!({"id":format!("{}:{sequence}:{id}",view.epoch),"cursor":sequence,"type":"session.projected","session":session}))
+    }).collect();
+    events.sort_by_key(|event| event["cursor"].as_u64());
+    Ok(Json(
+        json!({"version":1,"epoch":view.epoch,"from":query.after,"cursor":cursor,"events":events,"visibleSessionIds":visible,"metadata":snapshot}),
+    ))
+}
+
 #[derive(Deserialize)]
 struct Create {
     provider: String,
@@ -772,10 +817,78 @@ async fn socket_loop(mut socket: WebSocket, state: Server, cookie: Option<String
             result=input.next()=>match result {Some(Ok(Message::Close(_)))|None|Some(Err(_))=>break,_=>{}},
             event=updates.recv()=>{
                 if remote::identity(&state,&token).is_none(){break}
-                if matches!(event,Err(tokio::sync::broadcast::error::RecvError::Closed)){break}
+                if event.is_err(){break} // Slow subscribers reconnect using the bounded cursor feed.
                 let message=json!({"type":"changed","cursor":state.workbench.revision.load(std::sync::atomic::Ordering::SeqCst)});
                 if !matches!(tokio::time::timeout(Duration::from_secs(3),output.send(Message::Text(message.to_string().into()))).await,Ok(Ok(()))){break}
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod sync_socket_tests {
+    use super::*;
+    use tokio_tungstenite::{
+        connect_async,
+        tungstenite::{Message as ClientMessage, client::IntoClientRequest},
+    };
+
+    #[tokio::test]
+    async fn lagged_subscription_disconnects_and_can_authenticate_again() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(directory.path(), vec![]).await.unwrap();
+        let (stop, _) = watch::channel(false);
+        let state = Server {
+            workbench: workbench.clone(),
+            token: "test-token".into(),
+            stop: stop.clone(),
+            remote: Arc::new(remote::Remote::new(directory.path().to_path_buf())),
+            is_remote: false,
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, routes(state)).await.unwrap();
+        });
+        let connect = || async {
+            let mut request = format!("ws://{address}/v1/events")
+                .into_client_request()
+                .unwrap();
+            request
+                .headers_mut()
+                .insert("origin", ORIGINS[0].parse().unwrap());
+            let (mut socket, _) = connect_async(request).await.unwrap();
+            socket
+                .send(ClientMessage::Text(
+                    json!({"token":"test-token"}).to_string().into(),
+                ))
+                .await
+                .unwrap();
+            let ready = socket.next().await.unwrap().unwrap().into_text().unwrap();
+            assert_eq!(
+                serde_json::from_str::<Value>(&ready).unwrap()["type"],
+                "ready"
+            );
+            socket
+        };
+        let mut socket = connect().await;
+        // No yield: on the current-thread executor the actual socket consumer
+        // cannot drain the bounded broadcast before this burst fills it.
+        for _ in 0..256 {
+            let _ = workbench.events.send(0);
+        }
+        let ended = tokio::time::timeout(Duration::from_secs(3), socket.next())
+            .await
+            .unwrap();
+        assert!(
+            !matches!(ended, Some(Ok(ClientMessage::Text(_)))),
+            "a lagged subscriber must reconnect instead of silently skipping"
+        );
+        let mut reconnected = connect().await;
+        reconnected.close(None).await.unwrap();
+        let _ = stop.send(true);
+        server.abort();
+        let _ = server.await;
+        workbench.close().await;
     }
 }

@@ -89,6 +89,7 @@ impl Workbench {
     }
     async fn put_catalog_locked(&self, kind: &str, id: &str, value: Value) -> Result<(), String> {
         self.available()?;
+        let _sync = self.sync_gate.lock().await;
         let cursor = self
             .store
             .put_catalog(kind, id, &value)
@@ -114,6 +115,7 @@ impl Workbench {
             return Err("请选择工作目录".into());
         }
         let _gate = self.catalog_gate.lock().await;
+        let _sync = self.sync_gate.lock().await;
         let cursor = self
             .store
             .import_workspace(path.to_str().ok_or("目录名称无效")?)

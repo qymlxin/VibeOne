@@ -26,6 +26,7 @@ cap-std = "4.0.3"
 
 [dev-dependencies]
 tempfile = "3"
+tokio-tungstenite = "0.29"
 
 [dependencies.rustls]
 version = "0.23"

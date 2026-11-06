@@ -125,11 +125,23 @@ test(
     assert.ok(
       events.body.events.every((event) => event.sessionId === visible.id),
     );
+    const sync = await request('/v1/sync', undefined, cookie);
+    assert.equal(sync.status,200);
+    assert.deepEqual(sync.body.snapshot.sessions.map(session=>session.id),[visible.id]);
+    await call(`/sessions/${visible.id}/metadata`,{title:'visible sync title'});
+    await call(`/sessions/${invisible.id}/metadata`,{title:'secret sync title'});
+    const delta = await request(`/v1/sync?epoch=${sync.body.epoch}&after=${sync.body.cursor}`,undefined,cookie);
+    assert.equal(delta.status,200);
+    assert.deepEqual(delta.body.visibleSessionIds,[visible.id]);
+    assert.equal(delta.body.events.length,1);
+    assert.equal(delta.body.events[0].session.id,visible.id);
+    assert.equal(JSON.stringify(delta.body).includes('secret sync title'),false);
     await call(`/devices/${claim.body.id}/revoke`, {});
     assert.equal(
       (await request("/v1/snapshot", undefined, cookie)).status,
       401,
     );
+    assert.equal((await request('/v1/sync', undefined, cookie)).status,401);
     // Browser context exercises actual Secure cookies and WSS, with OS trust setup left for physical-device acceptance.
     const browser = await chromium.launch({
       executablePath:
