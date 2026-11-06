@@ -1,8 +1,8 @@
 export type * from './generated.js';
 import type {CreateSessionRequest,SubmitMessageRequest,QueueRequest,UpdateSessionRequest,WorkspaceImportRequest,ApprovalDecisionRequest,ProfileRequest} from './generated.js';
 export type Command<T> = readonly [path:string,body:T];
-export function createSession(provider:string,workspace='',profileId?:string):Command<CreateSessionRequest>{
- return ['/sessions',{provider,workspace,...(profileId?{profileId}:{})}];
+export function createSession(provider:string,workspace='',profileId?:string,key?:string):Command<CreateSessionRequest>{
+ return ['/sessions',{provider,workspace,...(profileId?{profileId}:{}),...(key?{key}:{})}];
 }
 export function submitMessage(sessionId:string,text:string,files:string[],attachments:string[],key:string):Command<SubmitMessageRequest>{
  return [`/sessions/${encodeURIComponent(sessionId)}/messages`,{text,files,attachments,key}];

@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [97 会话创建对账](issues/97-session-creation-idempotency.md)：原子持久创建回执与正式表单同键重试接入；真实并发、重启、丢失响应、存储故障和HTTPS权限通过，文档/SVG及桌面包同步更新。
+
 - [96 Host 生命周期验收](issues/96-host-lifecycle-acceptance.md)：隔离服务端验证单实例、私有鉴权、断开保活、进程树停止和重启中断恢复；原生窗口验收继续保留，创建幂等缺口交由97修复。
 
 - [98 指令和引用输入](issues/98-composer-chinese-triggers.md)：核对正式菜单和真实上下文发送，补全中文无空格触发；输入框单元测试与真实 Host 桌面回归通过，亮暗截图已核对。

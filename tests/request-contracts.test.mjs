@@ -14,7 +14,9 @@ test('generated-contract command builders control the actual Host and preserve r
  await call('/profiles',{...updatedProfile,revision:null},false);
  await call('/profiles',{name:'invalid args',provider:'demo',args:null},false);
  assert.equal((await call('/snapshot')).profiles.find(item=>item.id===profile.id).revision,2);
- const {id}=await call(...createSession('demo',directory,profile.id));
+ const creation=createSession('demo',directory,profile.id,'typed-create');
+ const {id}=await call(...creation);
+ assert.equal((await call(...creation)).id,id);
  await call(...updateSession(id,{title:'typed commands'}));
  const command=submitMessage(id,'/approve',[],[],'generated-key');
  const accepted=await call(...command),duplicate=await call(...command);
@@ -26,6 +28,7 @@ test('generated-contract command builders control the actual Host and preserve r
  const ended=await wait(id,session=>session.stopReason==='end_turn');
  assert.equal(ended.profile.revision,2);
  await call(...removeProfile(profile.id,updatedProfile.revision));
+ assert.equal((await call(...creation)).id,id,'retries retain the original pinned Profile after its catalog entry is removed');
  assert.equal((await call('/snapshot')).profiles.some(item=>item.id===profile.id),false);
  assert.equal(ended.title,'typed commands');assert.equal(ended.runs.length,1);
  assert.equal(ended.messages.filter(message=>message.role==='user').length,1);

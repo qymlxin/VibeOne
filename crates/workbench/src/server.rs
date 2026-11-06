@@ -654,7 +654,12 @@ async fn create(
     domain_command(async move {
         state
             .workbench
-            .create(&body.provider, &body.workspace, body.profile_id.as_deref())
+            .create_with_key(
+                &body.provider,
+                &body.workspace,
+                body.profile_id.as_deref(),
+                body.key.as_deref(),
+            )
             .await
     })
     .await

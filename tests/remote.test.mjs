@@ -18,10 +18,12 @@ test(
     await mkdir(hidden);
     await call("/workspaces", { path: hidden });
     const visible = await call("/sessions", {
-      workspace: directory,
+      key: 'visible-creation',
+      workspace: workspace.path,
       provider: "demo",
     });
     const invisible = await call("/sessions", {
+      key: 'hidden-creation',
       workspace: hidden,
       provider: "demo",
     });
@@ -130,6 +132,7 @@ test(
     assert.equal((await request(`/v1/sessions/${visible.id}/history`, undefined, cookie)).status,200);
     assert.equal((await request(`/v1/sessions/${invisible.id}/history`, undefined, cookie)).status,403);
     assert.equal((await request(`/v1/sessions/${visible.id}/history`)).status,401);
+    assert.equal((await request('/v1/sessions',{provider:'demo',workspace:workspace.path,key:'visible-creation'},cookie)).status,403,'a known creation receipt cannot grant viewer execution rights');
     assert.equal((await request("/v1/devices", undefined, cookie)).status, 403);
     assert.equal((await request("/v1/providers/demo/probe", {}, cookie)).status, 403);
     assert.equal((await request("/v1/profiles", undefined, cookie)).status, 403);
@@ -195,6 +198,12 @@ test(
       workspaces: [workspace.id],
     });
     await page.getByText("本机 · 已连接", { exact: true }).waitFor();
+    const replays=await page.evaluate(async({directory,hidden})=>{
+      const replay=async(workspace,key)=>{const response=await fetch('/v1/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'demo',workspace,key})});return {status:response.status,body:await response.json()};};
+      return [await replay(directory,'visible-creation'),await replay(hidden,'hidden-creation')];
+    },{directory:workspace.path,hidden});
+    assert.equal(replays[0].status,200);assert.equal(replays[0].body.id,visible.id);
+    assert.equal(replays[1].status,403);assert.equal(replays[1].body.id,undefined,'a durable receipt must not disclose a forbidden session');
     await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('dark');
     await page.locator(".desktop-session").first().click();
     await page.getByRole('textbox',{name:'发送任务'}).fill('/fi');

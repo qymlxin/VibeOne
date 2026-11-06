@@ -216,6 +216,7 @@ pub async fn run(args: &[OsString]) -> Result<(), String> {
             .await?
         } else {
             let body = serde_json::to_value(CreateSessionRequest {
+                key: None,
                 provider: profile.provider.clone(),
                 workspace: options.workspace,
                 profile_id: Some(id.into()),

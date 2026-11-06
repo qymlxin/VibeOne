@@ -71,6 +71,18 @@ impl Store {
     }
 
     pub async fn save(&self, session: &SavedSession, kind: &str, event: &Value) -> Result<u64> {
+        self.save_with_creation_receipt(session, kind, event, None)
+            .await
+    }
+
+    /// A creation receipt and its session must become visible in one commit.
+    pub async fn save_with_creation_receipt(
+        &self,
+        session: &SavedSession,
+        kind: &str,
+        event: &Value,
+        receipt: Option<(&str, &Value)>,
+    ) -> Result<u64> {
         if session.snapshot["id"] != session.id
             || session.snapshot["workspace"] != session.workspace
         {
@@ -124,6 +136,13 @@ impl Store {
                 .await?;
         }
         history::save_projection(&mut tx, session, kind).await?;
+        if let Some((id, value)) = receipt {
+            sqlx::query("INSERT INTO catalog(kind,id,value) VALUES('session-create',?,?)")
+                .bind(id)
+                .bind(serde_json::to_string(value)?)
+                .execute(&mut *tx)
+                .await?;
+        }
         tx.commit().await?;
         Ok(seq as u64)
     }
@@ -359,6 +378,45 @@ mod tests {
         store.close().await;
         let reopened = Store::open(dir.path()).await.unwrap();
         assert_eq!(reopened.sessions().await.unwrap()[0].revision, 2);
+        reopened.close().await;
+    }
+    #[tokio::test]
+    async fn creation_receipt_failure_rolls_back_session_workspace_and_event() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).await.unwrap();
+        sqlx::query("CREATE TRIGGER fail_receipt BEFORE INSERT ON catalog WHEN NEW.kind='session-create' BEGIN SELECT RAISE(ABORT,'injected receipt failure'); END").execute(&store.pool).await.unwrap();
+        assert!(
+            store
+                .save_with_creation_receipt(
+                    &record(1, "idle"),
+                    "session.created",
+                    &json!({}),
+                    Some(("intent", &json!({"sessionId":"one"})))
+                )
+                .await
+                .is_err()
+        );
+        assert!(store.sessions().await.unwrap().is_empty());
+        assert!(store.workspaces().await.unwrap().is_empty());
+        assert!(store.catalog().await.unwrap().is_empty());
+        assert_eq!(store.cursor().await.unwrap(), 0);
+        sqlx::query("DROP TRIGGER fail_receipt")
+            .execute(&store.pool)
+            .await
+            .unwrap();
+        store
+            .save_with_creation_receipt(
+                &record(1, "idle"),
+                "session.created",
+                &json!({}),
+                Some(("intent", &json!({"sessionId":"one"}))),
+            )
+            .await
+            .unwrap();
+        store.close().await;
+        let reopened = Store::open(dir.path()).await.unwrap();
+        assert_eq!(reopened.sessions().await.unwrap().len(), 1);
+        assert_eq!(reopened.catalog().await.unwrap()[0].0, "session-create");
         reopened.close().await;
     }
     #[tokio::test]

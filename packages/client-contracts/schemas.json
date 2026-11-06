@@ -681,6 +681,12 @@
       "provider"
     ],
     "properties": {
+      "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "profileId": {
         "type": [
           "string",

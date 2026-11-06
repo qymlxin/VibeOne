@@ -14,7 +14,7 @@
 
 | ID | 原型操作 / 行为 | 正式实现入口 | 证据与状态 |
 | --- | --- | --- | --- |
-| W01 | 新建会话，选择工作区、Agent；目录可选 | `main.jsx` NewSession、Host Session API | 桌面真实表单、默认托管项目与Host workspace测试自动通过 |
+| W01 | 新建会话，选择工作区、Agent；目录可选 | `main.jsx` NewSession、Host Session API | 桌面真实表单、默认托管项目自动通过；97补齐同键并发/重启对账、存储原子回滚和页面丢失创建回执后的手动重试，见[创建对账](session-creation-idempotency.md) |
 | W02 | 选择、搜索会话；Cmd/Ctrl+K | `main.jsx`、`SessionIdentity.jsx` | 桌面搜索、无结果、快捷键与焦点自动通过 |
 | W03 | 项目分组、最近列表、添加项目、侧栏开合 | `session-groups.js`、工作区设置 | 项目分组折叠、活动时间持久排序及侧栏自动通过 |
 | W04 | 会话菜单中的命名/归档意图 | 标题处重命名、归档与归档筛选 | 正式操作使用直接入口；桌面与恢复测试自动通过 |

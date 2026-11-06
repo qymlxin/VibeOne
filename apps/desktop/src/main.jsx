@@ -327,6 +327,7 @@ function App() {
 }
 
 function NewSession({ workbench, online, act, onCreated }) {
+  const creation = useRef(null);
   const [workspace, setWorkspace] = useState("");
   const [provider, setProvider] = useState("demo");
   const [busy, setBusy] = useState(false);
@@ -338,12 +339,19 @@ function NewSession({ workbench, online, act, onCreated }) {
   );
   const create = async (event) => {
     event.preventDefault();
+    if(creation.current?.busy)return;
+    const signature=JSON.stringify([profile?.provider??provider,workspace,profile?.id??null]);
+    if(creation.current?.signature!==signature)creation.current={signature,key:crypto.randomUUID(),busy:false};
+    const intent=creation.current;
+    intent.busy=true;
     setBusy(true);
-    const result = await act(() =>
-      workbench.call(...createSessionCommand(profile?.provider ?? provider,workspace,profile?.id)),
-    );
-    setBusy(false);
-    if (result) onCreated(result.id);
+    try {
+      const result = await act(() =>
+        workbench.call(...createSessionCommand(profile?.provider ?? provider,workspace,profile?.id,
+          workbench.features?.includes('sessionCreationIdempotency')?intent.key:undefined)),
+      );
+      if (result) {creation.current=null;onCreated(result.id);}
+    } finally {intent.busy=false;setBusy(false);}
   };
   return (
     <div className="desktop-setup">

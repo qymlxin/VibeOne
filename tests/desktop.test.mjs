@@ -145,9 +145,23 @@ test(
     await page.goto(frontend);
     await page.getByText("工作主机 · 本机已连接", { exact: true }).waitFor();
     // Optional workspace must work through the actual form, without a native picker.
+    const creationKeys=[];
+    const lostCreation=async route=>{
+      creationKeys.push(route.request().postDataJSON().key);
+      const response=await route.fetch();
+      if(creationKeys.length===1)await route.abort('failed');else await route.fulfill({response});
+    };
+    await page.route('**/v1/sessions',lostCreation);
+    await page.getByRole('button',{name:'创建会话',exact:true}).click();
+    await page.getByRole('button',{name:'关闭提示',exact:true}).waitFor();
+    const uncertain=await (await fetch(`${connection.url}/v1/snapshot`,{headers:{Authorization:`Bearer ${connection.token}`}})).json();
+    assert.equal(uncertain.sessions.length,1,'the lost response has already committed one session');
     await page.getByRole('button',{name:'创建会话',exact:true}).click();
     await page.getByRole('textbox',{name:'发送任务'}).waitFor();
+    assert.equal(creationKeys.length,2);assert.equal(typeof creationKeys[0],'string');assert.equal(creationKeys[0],creationKeys[1]);
+    await page.unroute('**/v1/sessions',lostCreation);
     const managed=await (await fetch(`${connection.url}/v1/snapshot`,{headers:{Authorization:`Bearer ${connection.token}`}})).json();
+    assert.equal(managed.sessions.length,1,'retry after a lost creation response must not duplicate the session');
     assert.ok(managed.sessions.some(s=>s.workspace.includes('/projects/project-')));
     assert.ok(managed.features.includes('queuePause'));
     await page.getByRole('button',{name:'新建会话',exact:true}).click();

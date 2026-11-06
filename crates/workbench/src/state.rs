@@ -385,6 +385,7 @@ impl Workbench {
                     "cursorSync",
                     "pluginOperations",
                     "pluginLifecycleOperations",
+                    "sessionCreationIdempotency",
                     "structuredErrors",
                 ]
                 .into_iter()
@@ -433,15 +434,73 @@ impl Workbench {
             .cloned()
             .ok_or("会话不存在".into())
     }
+    #[cfg(test)]
     pub(crate) async fn create(
         &self,
         provider: &str,
         workspace: &str,
         profile_id: Option<&str>,
     ) -> Result<String, DomainError> {
+        self.create_with_key(provider, workspace, profile_id, None)
+            .await
+    }
+
+    pub(crate) async fn create_with_key(
+        &self,
+        provider: &str,
+        workspace: &str,
+        profile_id: Option<&str>,
+        key: Option<&str>,
+    ) -> Result<String, DomainError> {
+        use sha2::{Digest, Sha256};
+        let hash = |bytes: &[u8]| {
+            Sha256::digest(bytes)
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        };
         self.command_available()?;
         let _catalog = self.catalog_gate.lock().await;
         self.command_available()?;
+        let receipt_key = key
+            .map(|key| {
+                if key.is_empty() || key.len() > 128 {
+                    return Err(DomainError::new(
+                        ErrorKind::InvalidInput,
+                        "创建幂等键必须为1至128字节",
+                    ));
+                }
+                Ok(hash(key.as_bytes()))
+            })
+            .transpose()?;
+        let fingerprint = hash(
+            &serde_json::to_vec(
+                &json!({"provider":provider,"workspace":workspace,"profileId":profile_id}),
+            )
+            .map_err(|_| DomainError::new(ErrorKind::Internal, "创建参数编码失败"))?,
+        );
+        if let Some(key) = &receipt_key {
+            let saved = self
+                .catalog
+                .lock()
+                .expect("catalog poisoned")
+                .get("session-create")
+                .and_then(|items| items.get(key))
+                .cloned();
+            if let Some(saved) = saved {
+                if saved["fingerprint"] != fingerprint {
+                    return Err(DomainError::new(
+                        ErrorKind::IdempotencyConflict,
+                        "同一创建幂等键的参数不同",
+                    ));
+                }
+                let id = saved["sessionId"]
+                    .as_str()
+                    .ok_or_else(|| DomainError::new(ErrorKind::Internal, "创建回执身份无效"))?;
+                self.command_entry(id)?;
+                return Ok(id.to_owned());
+            }
+        }
         let mut profile = profile_id
             .map(|id| {
                 self.profile_view(id)
@@ -520,7 +579,8 @@ impl Workbench {
             ));
         }
         self.check_session_capacity()?;
-        let workspace = if workspace.trim().is_empty() {
+        let managed_workspace = workspace.trim().is_empty();
+        let workspace = if managed_workspace {
             let path = self
                 .directory
                 .join("projects")
@@ -619,14 +679,31 @@ impl Workbench {
                 .map_err(|_| DomainError::new(ErrorKind::Internal, "会话编码失败"))?,
         };
         let _sync = self.sync_gate.lock().await;
-        let cursor = self
+        let receipt = json!({"fingerprint":fingerprint,"sessionId":id});
+        let result = self
             .store
-            .save(&record, "session.created", &json!({}))
-            .await
-            .map_err(|error| {
-                self.fail_storage(error);
-                DomainError::storage()
-            })?;
+            .save_with_creation_receipt(
+                &record,
+                "session.created",
+                &json!({}),
+                receipt_key.as_deref().map(|key| (key, &receipt)),
+            )
+            .await;
+        let cursor = result.map_err(|error| {
+            if managed_workspace {
+                let _ = std::fs::remove_dir(&workspace);
+            }
+            self.fail_storage(error);
+            DomainError::storage()
+        })?;
+        if let Some(key) = receipt_key {
+            self.catalog
+                .lock()
+                .expect("catalog poisoned")
+                .entry("session-create".into())
+                .or_default()
+                .insert(key, receipt);
+        }
         let workspaces = self.store.workspaces().await.map_err(|error| {
             self.fail_storage(error);
             DomainError::storage()
@@ -1144,6 +1221,44 @@ mod tests {
             .unwrap_err();
         assert_eq!(error.kind, ErrorKind::SessionLimit);
         assert!(workbench.entry(&id).unwrap().view.lock().unwrap().archived);
+        workbench.close().await;
+    }
+
+    #[tokio::test]
+    async fn failed_creation_does_not_publish_a_receipt_or_leave_an_empty_managed_project() {
+        let directory = tempfile::tempdir().unwrap();
+        let workbench = Workbench::open(
+            directory.path(),
+            vec![Provider {
+                id: "demo".into(),
+                name: "Demo".into(),
+                available: true,
+                description: String::new(),
+                command: PathBuf::from("unused"),
+                args: vec![],
+            }],
+        )
+        .await
+        .unwrap();
+        workbench.store.close().await;
+        let error = workbench
+            .create_with_key("demo", "", None, Some("failed-intent"))
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind, ErrorKind::StorageUnavailable);
+        assert!(
+            workbench.snapshot()["sessions"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(workbench.catalog("session-create").is_empty());
+        assert_eq!(
+            std::fs::read_dir(directory.path().join("projects"))
+                .unwrap()
+                .count(),
+            0
+        );
         workbench.close().await;
     }
 

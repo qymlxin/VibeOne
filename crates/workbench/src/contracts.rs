@@ -93,6 +93,7 @@ pub struct ProviderProbeResponse {
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CreateSessionRequest {
+    pub key: Option<String>,
     pub provider: String,
     #[serde(default)]
     pub workspace: String,
