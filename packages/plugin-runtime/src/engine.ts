@@ -14,6 +14,7 @@ interface Instance {
   context: InstanceContext;
   handlers: Map<string, Handler>;
   controller: AbortController;
+  scope: Scope;
   ready: boolean;
 }
 
@@ -79,7 +80,7 @@ export class PluginEngine {
     const scope = new Scope();
     const handlers = new Map<string, Handler>();
     // Reserve the slot before asynchronous IO; concurrent activation cannot race it.
-    const instance = { controller, handlers, ready: false } as Instance;
+    const instance = { controller, handlers, scope, ready: false } as Instance;
     this.#instances.set(key, instance);
     try {
       const pkg = await loadWorkerPackage(requiredString(params.packagePath, 'packagePath'));
@@ -97,6 +98,7 @@ export class PluginEngine {
         const url = pathToFileURL(pkg.entrypoint);
         url.searchParams.set('generation', `${identity.generation}-${++this.#imports}`);
         const module = await import(url.href);
+        if (controller.signal.aborted) throw new PluginError('cancelled', 'Activation cancelled');
         const definition = module.default as WorkerDefinition | undefined;
         if (definition?.apiVersion !== '0.1' || typeof definition.setup !== 'function') throw new PluginError('api_incompatible', 'Worker must export defineWorker() as default');
         let registering = true;
@@ -109,7 +111,10 @@ export class PluginEngine {
             handlers.set(id, handler);
           } }, context);
         } finally { registering = false; }
-        if (typeof cleanup === 'function') scope.add(cleanup);
+        if (typeof cleanup === 'function') {
+          if (controller.signal.aborted) await cleanup();
+          else scope.add(cleanup);
+        }
       });
       for (const handler of pkg.handlers) {
         if (!handlers.has(handler)) throw new PluginError('handler_missing', `Declared handler not registered: ${handler}`);
@@ -119,7 +124,7 @@ export class PluginEngine {
       return { ...identity, handlers: [...handlers.keys()].sort() };
     } catch (error) {
       controller.abort();
-      this.#instances.delete(key);
+      if (this.#instances.get(key) === instance) this.#instances.delete(key);
       try { await scope.dispose(); } catch (cleanupError) { console.error(cleanupError); }
       throw error;
     }
@@ -167,11 +172,10 @@ export class PluginEngine {
     const key = this.#key(params);
     const instance = this.#instances.get(key);
     if (!instance) return { deactivated: false };
-    if (!instance.context) throw new PluginError('instance_busy', 'Activation is still in progress');
     instance.ready = false;
     instance.controller.abort();
     this.#instances.delete(key);
-    await instance.context.scope.dispose();
+    await instance.scope.dispose();
     return { deactivated: true };
   }
 
@@ -180,6 +184,6 @@ export class PluginEngine {
     const instances = [...this.#instances.values()];
     this.#instances.clear();
     for (const instance of instances) { instance.ready = false; instance.controller.abort(); }
-    await Promise.allSettled(instances.map(instance => instance.context?.scope.dispose()));
+    await Promise.allSettled(instances.map(instance => instance.scope.dispose()));
   }
 }

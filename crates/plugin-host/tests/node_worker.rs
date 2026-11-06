@@ -5,10 +5,69 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use vibeone_plugin_host::PluginManager;
 use vibeone_plugin_host::{
     Activation, Error, HostCall, HostCapabilityBroker, HostFuture, InstanceGrant, InstanceKey,
     PluginHost,
 };
+
+#[tokio::test]
+async fn replacement_preserves_old_leases_and_failed_candidate_preserves_current_route() {
+    let host = Arc::new(host().await);
+    let manager = PluginManager::new(host.clone());
+    manager.replace(activation(&[])).await.unwrap();
+    let old = manager.acquire("test").unwrap();
+    let mut next = activation(&[]);
+    next.grant.key.generation = 2;
+    next.config = json!({"from": "generation-2"});
+    manager.replace(next).await.unwrap();
+    let current = manager.acquire("test").unwrap();
+    let old_result = old
+        .invoke("inspect", Value::Null, None, Duration::from_secs(2))
+        .await
+        .unwrap();
+    let current_result = current
+        .invoke("inspect", Value::Null, None, Duration::from_secs(2))
+        .await
+        .unwrap();
+    assert_eq!(old_result["generation"], 1);
+    assert_eq!(current_result["generation"], 2);
+    assert_eq!(current_result["config"]["from"], "generation-2");
+
+    let mut broken = activation(&[]);
+    broken.grant.key.generation = 3;
+    broken.package_path = root().join("does-not-exist");
+    assert!(manager.replace(broken).await.is_err());
+    assert_eq!(manager.acquire("test").unwrap().key().generation, 2);
+    drop(old);
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            if host
+                .invoke(&key(), "inspect", Value::Null, None, Duration::from_secs(1))
+                .await
+                .is_err()
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    manager.disable("test").await;
+    assert!(manager.acquire("test").is_err());
+    // Disabling removes the route; an existing Session lease remains usable.
+    assert_eq!(
+        current
+            .invoke("inspect", Value::Null, None, Duration::from_secs(2))
+            .await
+            .unwrap()["generation"],
+        2
+    );
+    drop(current);
+    drop(manager);
+    host.terminate().unwrap();
+}
 
 struct EchoBroker;
 impl HostCapabilityBroker for EchoBroker {

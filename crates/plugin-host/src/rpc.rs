@@ -83,6 +83,29 @@ struct PendingGuard {
     id: String,
     state: Arc<State>,
 }
+
+struct ActivationGuard {
+    key: InstanceKey,
+    state: Arc<State>,
+    committed: bool,
+}
+
+impl Drop for ActivationGuard {
+    fn drop(&mut self) {
+        if self.committed {
+            return;
+        }
+        self.state
+            .routing
+            .lock()
+            .expect("routing poisoned")
+            .instances
+            .remove(&self.key);
+        let _ = self.state.outgoing.try_send(json!({
+            "jsonrpc": "2.0", "method": "plugin/deactivate", "params": self.key
+        }));
+    }
+}
 impl Drop for PendingGuard {
     fn drop(&mut self) {
         let mut routing = self.state.routing.lock().expect("routing poisoned");
@@ -256,6 +279,9 @@ impl PluginHost {
         let (sender, receiver) = oneshot::channel();
         {
             let mut routing = self.state.routing.lock().expect("routing poisoned");
+            if self.state.closed.load(Ordering::SeqCst) {
+                return Err(Error::Closed("worker unavailable".into()));
+            }
             if routing.pending.len() >= 128 {
                 return Err(Error::Invalid("too many pending requests".into()));
             }
@@ -303,6 +329,11 @@ impl PluginHost {
                 .instances
                 .insert(key.clone(), activation.grant.clone());
         }
+        let mut guard = ActivationGuard {
+            key: key.clone(),
+            state: self.state.clone(),
+            committed: false,
+        };
         let result = self
             .request(
                 "plugin/activate",
@@ -314,14 +345,7 @@ impl PluginHost {
                 None,
             )
             .await;
-        if result.is_err() {
-            self.state
-                .routing
-                .lock()
-                .expect("routing poisoned")
-                .instances
-                .remove(&key);
-        }
+        guard.committed = result.is_ok();
         result
     }
 
@@ -343,7 +367,7 @@ impl PluginHost {
                 return Err(Error::Invalid("workspace denied".into()));
             }
         }
-        if timeout.is_zero() || timeout > Duration::from_secs(30) {
+        if timeout.as_millis() == 0 || timeout > Duration::from_secs(30) {
             return Err(Error::Invalid(
                 "P0 invocation timeout must be 1ms..30s".into(),
             ));

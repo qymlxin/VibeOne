@@ -1,10 +1,12 @@
 //! Trusted local plugin supervision. Plugin RPC is separate from Agent ACP.
+mod manager;
 mod rpc;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashSet, future::Future, path::PathBuf, pin::Pin};
 
+pub use manager::{PluginLease, PluginManager};
 pub use rpc::PluginHost;
 pub type Result<T> = std::result::Result<T, Error>;
 
