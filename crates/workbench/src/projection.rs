@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+fn legacy_list<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Vec<Value>, D::Error> {
+    Option::<Vec<Value>>::deserialize(deserializer).map(Option::unwrap_or_default)
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionView {
@@ -12,7 +16,7 @@ pub struct SessionView {
     pub messages: Vec<Value>,
     pub tools: Vec<Value>,
     pub approvals: Vec<Value>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "legacy_list")]
     pub inputs: Vec<Value>,
     pub error: Option<String>,
     pub stop_reason: Option<String>,
@@ -20,13 +24,13 @@ pub struct SessionView {
     pub history_only: bool,
     #[serde(default)]
     pub archived: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "legacy_list")]
     pub runs: Vec<Value>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "legacy_list")]
     pub queue: Vec<Value>,
     #[serde(default)]
     pub queue_paused: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "legacy_list")]
     pub decisions: Vec<Value>,
     #[serde(default)]
     pub profile: Option<Value>,

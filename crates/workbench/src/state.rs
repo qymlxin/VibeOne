@@ -644,6 +644,55 @@ impl Workbench {
 mod tests {
     use super::*;
     #[tokio::test]
+    async fn legacy_sessions_survive_recovery_with_missing_or_null_execution_lists() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::open(directory.path()).await.unwrap();
+        for (id, fields) in [
+            ("missing", json!({})),
+            (
+                "null",
+                json!({"runs":null,"decisions":null,"queue":null,"inputs":null}),
+            ),
+        ] {
+            let mut snapshot = json!({"id":id,"workspace":"/old-workspace","title":"Old conversation","provider":"demo","status":"idle","messages":[{"id":"old-message","text":"Preserve history"}],"tools":[],"approvals":[],"error":null,"stopReason":"end_turn"});
+            snapshot
+                .as_object_mut()
+                .unwrap()
+                .extend(fields.as_object().unwrap().clone());
+            store
+                .save(
+                    &SavedSession {
+                        id: id.into(),
+                        workspace: "/old-workspace".into(),
+                        revision: 1,
+                        snapshot,
+                    },
+                    "session.created",
+                    &json!({}),
+                )
+                .await
+                .unwrap();
+        }
+        store.close().await;
+        std::fs::write(directory.path().join("legacy-snapshot.json"), serde_json::to_vec(&json!({"sessions":[{"id":"imported","workspace":"/old-workspace","title":"Old conversation","provider":"demo","status":"idle","messages":[{"id":"old-message","text":"Preserve history"}],"tools":[],"approvals":[],"runs":null,"decisions":null,"inputs":null,"queue":null}]})).unwrap()).unwrap();
+        for _ in 0..2 {
+            let workbench = Workbench::open(directory.path(), vec![])
+                .await
+                .expect("legacy database must start without Load failed");
+            let snapshot = workbench.snapshot();
+            assert_eq!(snapshot["sessions"].as_array().unwrap().len(), 3);
+            for session in snapshot["sessions"].as_array().unwrap() {
+                assert_eq!(session["messages"][0]["text"], "Preserve history");
+                assert_eq!(session["historyOnly"], true);
+                for field in ["runs", "decisions", "queue", "inputs"] {
+                    assert_eq!(session[field], json!([]));
+                }
+            }
+            workbench.close().await;
+        }
+    }
+
+    #[tokio::test]
     async fn failed_storage_never_publishes_a_session_or_accepts_another_run() {
         let directory = tempfile::tempdir().unwrap();
         let provider = Provider {

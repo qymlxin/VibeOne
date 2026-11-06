@@ -230,6 +230,13 @@ impl Store {
         sqlx::query("UPDATE notification_outbox SET state='obsolete' WHERE state='pending' AND json_extract(payload,'$.type')='attention.created'").execute(&self.pool).await?;
         let records = self.sessions().await?;
         for mut session in records {
+            // Earlier projections predate execution lists. Mutable JSON indexing used to
+            // materialize absent fields as null, so accept both forms during recovery.
+            for field in ["runs", "queue", "decisions"] {
+                if session.snapshot[field].is_null() {
+                    session.snapshot[field] = json!([]);
+                }
+            }
             let active = matches!(
                 session.snapshot["status"].as_str(),
                 Some("starting" | "running" | "requires_action" | "cancelling")

@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [30 旧会话升级启动失败](issues/30-legacy-startup.md)：兼容缺失/null 执行列表，保留会话历史；回归覆盖连续重启与旧导出导入。
+
 - [06-app-plugin-sdk](issues/06-app-plugin-sdk.md)：AppRuntime 提供候选激活、面板/命令/设置、Scope 与服务/Hook；共享宿主 React、React DOM、SDK，支持 JS 与 TS/TSX 编译的 ESM。SDK 生命周期测试及真实 Host 的浏览器动态面板测试通过。
 - [09-workspaces](issues/09-workspaces.md)：工作区按规范路径去重，文件 API 使用能力目录与路径校验；Git Worktree 执行租约与分发前文件引用复验已接入。工作区集成测试覆盖越界、符号链接、Git 差异和引用。跨平台文件系统差异仍按发布清单实机验收。
 - [10-sessions](issues/10-sessions.md)：会话由 Host 持久化，支持延迟启动、标题搜索/重命名/归档；Profile 修订、插件 Provider 代次及上游身份分别保存。活动执行禁止归档，历史恢复不自动启动。Host、恢复与桌面测试通过。
