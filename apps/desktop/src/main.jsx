@@ -19,6 +19,7 @@ import {
   Sun,
   X,
 } from "lucide-react";
+import { AgentConfigControls } from "./AgentConfigControls.jsx";
 import { ComposerInput } from "./ComposerInput.jsx";
 import { useNotifications } from "./notifications.js";
 import { RemoteSettings, PhoneGate } from "./Remote.jsx";
@@ -778,6 +779,7 @@ function Conversation({ session, workbench, online, act }) {
             files={fileReferences} onFiles={changeReferences} onSubmit={()=>void send()}
             onPanel={setTab} disabled={readOnly || sending} online={online}
             placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档或在新上下文继续" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 引用文件…"}/>
+          <AgentConfigControls session={session} workbench={workbench} compact onOpen={()=>setTab('agent')}/>
           <div>
             <span>
               <MessageSquare size={13} />

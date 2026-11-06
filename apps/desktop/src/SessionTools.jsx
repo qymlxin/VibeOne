@@ -1,3 +1,4 @@
+import {AgentConfigControls} from "./AgentConfigControls.jsx";
 import {FileExplorer} from "./FileExplorer.jsx";
 import {describeTool} from "./tool-presentation.js";
 import {ToolDetails} from "./ToolDetails.jsx";
@@ -25,17 +26,9 @@ function SessionToolsDetail({ session, workbench, tab, act, onLocateRun, availab
       <section className="desktop-inspector">
         <h2>Agent 当前配置</h2>
         <p>由 Agent 通过 ACP 声明；先发送一条消息建立连接，空闲后可修改。</p>
-        {(session.agentState?.configOptions ?? []).map((option) => (
-          <AgentOption
-            key={option.configId}
-            option={option}
-            session={session}
-            workbench={workbench}
-            act={act}
-          />
-        ))}
+        <AgentConfigControls session={session} workbench={workbench}/>
         <h3>可用命令</h3>
-        <pre>{JSON.stringify(session.agentState?.commands ?? [], null, 2)}</pre>
+        <ul>{(session.agentState?.commands??[]).map(command=><li key={command.name}><strong>/{command.name}</strong><p>{command.description}</p></li>)}</ul>
         <h3>上下文与用量</h3>
         <pre>{JSON.stringify(session.agentState?.usage ?? {}, null, 2)}</pre>
       </section>
@@ -153,43 +146,4 @@ function decode(data) {
   } catch {
     return "终端数据无法解码";
   }
-}
-function AgentOption({ option, session, workbench, act }) {
-  const [value, setValue] = useState(JSON.stringify(option.currentValue));
-  const disabled =
-    workbench.phase !== "online" ||
-    session.historyOnly ||
-    ["starting", "running", "requires_action", "cancelling"].includes(
-      session.status,
-    ) ||
-    !!session.queue?.length ||
-    (workbench.device && workbench.device.role !== "operator");
-  return (
-    <form
-      className="desktop-management-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void act(() =>
-          workbench.call(`/sessions/${session.id}/configure`, {
-            id: option.configId,
-            value: JSON.parse(value),
-          }),
-        );
-      }}
-    >
-      <label>
-        {option.name ?? option.configId}
-        <input
-          value={value ?? ""}
-          onChange={(event) => setValue(event.target.value)}
-          disabled={disabled}
-        />
-      </label>
-      <details>
-        <summary>选项说明与可用值</summary>
-        <pre>{JSON.stringify(option, null, 2)}</pre>
-      </details>
-      <button disabled={disabled}>应用配置</button>
-    </form>
-  );
 }

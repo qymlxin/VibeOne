@@ -239,7 +239,11 @@ test(
     await page.getByRole("button", { name: "创建会话", exact: true }).click();
     await page.getByRole("textbox", { name: "发送任务" }).fill("手机新建会话");
     await page.getByRole("button", { name: "发送消息", exact: true }).click();
-    await page.getByText("本轮执行结束", { exact: true }).waitFor();
+    await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000}).catch(async error=>{
+      await page.screenshot({path:join(tmpdir(),'vibeone-remote-send-failure.png')});
+      const snapshot=await call('/snapshot');
+      throw Error(`${error.message}\n${(await page.locator('body').innerText()).slice(-5000)}\n${JSON.stringify(snapshot.sessions.map(session=>({title:session.title,status:session.status,error:session.error,queue:session.queue?.length})))}`);
+    });
     await call(`/devices/${operator.id}/revoke`, {});
     await page.getByRole("button", { name: "请求配对", exact: true }).waitFor();
     assert.deepEqual(errors, []);

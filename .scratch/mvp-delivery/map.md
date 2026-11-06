@@ -53,6 +53,8 @@
 
 - [46-prototype-navigation-actions](issues/46-prototype-navigation-actions.md)：补齐回答复制、执行记录定位、网页历史、面板扩大和当前工作区变更卡片，真实Host/iframe回归通过。
 
+- [47-composer-agent-config](issues/47-composer-agent-config.md)：输入区/侧栏共享ACP原生配置控件与失败回退，补齐Profile恢复默认入口和常规跳转，桌面与HTTPS手机回归通过。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。
