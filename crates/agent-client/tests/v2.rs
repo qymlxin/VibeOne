@@ -162,3 +162,191 @@ async fn permission_and_input_expire_and_reject_late_answers() {
     }
     session.shutdown().await;
 }
+
+#[tokio::test]
+async fn initialization_allows_human_input_beyond_the_startup_budget() {
+    let (tx, mut events) = mpsc::unbounded_channel();
+    let interactions = std::sync::Arc::new(vibeone_agent_client::AgentInteractions::default());
+    let control = interactions.clone();
+    let task = tokio::spawn(AgentSession::connect_with_interactions(
+        "node".into(),
+        vec![
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("fixtures/demo-agent.mjs")
+                .to_string_lossy()
+                .into_owned(),
+            "--input-before-session".into(),
+        ],
+        std::env::current_dir().unwrap(),
+        event_sink(move |event| {
+            let _ = tx.send(event);
+            async { Ok(()) }
+        }),
+        interactions,
+    ));
+    let request = until(&mut events, |event| event["type"] == "input").await;
+    tokio::time::pause();
+    tokio::task::yield_now().await;
+    tokio::time::advance(Duration::from_secs(45)).await;
+    tokio::task::yield_now().await;
+    let prematurely_finished = task.is_finished();
+    tokio::time::resume();
+    if prematurely_finished {
+        let error = task
+            .await
+            .unwrap()
+            .err()
+            .unwrap_or_else(|| "unexpected successful initialization".into());
+        panic!("startup interrupted a pending human request: {error}");
+    }
+    control
+        .answer(
+            request["id"].as_str().unwrap(),
+            serde_json::json!({"action":"accept","content":{"name":"patient-user"}}),
+        )
+        .unwrap();
+    let session = tokio::time::timeout(Duration::from_secs(5), task)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    session.shutdown().await;
+}
+
+fn start_initialization(
+    extra: &[&str],
+) -> (
+    tokio::task::JoinHandle<Result<AgentSession, String>>,
+    std::sync::Arc<vibeone_agent_client::AgentInteractions>,
+    mpsc::UnboundedReceiver<Value>,
+) {
+    let (tx, events) = mpsc::unbounded_channel();
+    let control = std::sync::Arc::new(vibeone_agent_client::AgentInteractions::default());
+    let mut args = vec![
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("fixtures/demo-agent.mjs")
+            .to_string_lossy()
+            .into_owned(),
+    ];
+    args.extend(extra.iter().map(|arg| arg.to_string()));
+    let task = tokio::spawn(AgentSession::connect_with_interactions(
+        "node".into(),
+        args,
+        std::env::current_dir().unwrap(),
+        event_sink(move |event| {
+            let _ = tx.send(event);
+            async { Ok(()) }
+        }),
+        control.clone(),
+    ));
+    (task, control, events)
+}
+
+#[tokio::test]
+async fn initialization_resumes_work_timeout_after_human_answer() {
+    let (task, control, mut events) =
+        start_initialization(&["--input-before-session", "--stall-session"]);
+    let request = until(&mut events, |event| event["type"] == "input").await;
+    tokio::time::pause();
+    tokio::time::advance(Duration::from_secs(45)).await;
+    tokio::time::resume();
+    control
+        .answer(
+            request["id"].as_str().unwrap(),
+            serde_json::json!({"action":"accept","content":{"name":"ready"}}),
+        )
+        .unwrap();
+    until(&mut events, |event| event["type"] == "input_resolved").await;
+    tokio::time::pause();
+    tokio::time::advance(Duration::from_secs(31)).await;
+    tokio::task::yield_now().await;
+    let finished = task.is_finished();
+    tokio::time::resume();
+    assert!(
+        finished,
+        "Agent stalled after the human answer must still time out"
+    );
+    assert_eq!(
+        task.await.unwrap().err().unwrap(),
+        "ACP v2 初始化失败或超时"
+    );
+}
+
+#[tokio::test]
+async fn initialization_human_request_still_expires_and_rejects_late_answers() {
+    let (task, control, mut events) = start_initialization(&["--input-before-session"]);
+    let request = until(&mut events, |event| event["type"] == "input").await;
+    tokio::time::pause();
+    tokio::time::advance(Duration::from_secs(601)).await;
+    tokio::task::yield_now().await;
+    tokio::time::resume();
+    until(&mut events, |event| event["type"] == "input_resolved").await;
+    assert!(
+        control
+            .answer(
+                request["id"].as_str().unwrap(),
+                serde_json::json!({"action":"cancel"})
+            )
+            .is_err()
+    );
+    let error = tokio::time::timeout(Duration::from_secs(5), task)
+        .await
+        .unwrap()
+        .unwrap()
+        .err()
+        .unwrap();
+    assert!(error.contains("Session input cancelled"), "{error}");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn aborting_initialization_invalidates_input_and_drains_owned_processes() {
+    let marker = format!("VIBEONE_INIT_{}", uuid::Uuid::new_v4());
+    let (task, control, mut events) =
+        start_initialization(&["--input-before-session", "--child-before-session", &marker]);
+    let request = until(&mut events, |event| event["type"] == "input").await;
+    let owned = || -> Vec<u32> {
+        let output = std::process::Command::new("ps")
+            .args(["-axo", "pid=,command="])
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter(|line| line.contains(&marker))
+            .filter_map(|line| line.split_whitespace().next()?.parse().ok())
+            .collect()
+    };
+    let processes = owned();
+    task.abort();
+    assert!(task.await.err().unwrap().is_cancelled());
+    assert!(
+        control
+            .validate_input(
+                request["id"].as_str().unwrap(),
+                &serde_json::json!({"action":"cancel"})
+            )
+            .is_err()
+    );
+    for _ in 0..100 {
+        if owned().is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let remaining = owned();
+    // Clean only fixture processes carrying this test's unique marker if the assertion fails.
+    for pid in &remaining {
+        let _ = std::process::Command::new("kill")
+            .args(["-KILL", &pid.to_string()])
+            .status();
+    }
+    assert_eq!(
+        processes.len(),
+        2,
+        "both parent and spawned child must exist before cancellation"
+    );
+    assert!(
+        remaining.is_empty(),
+        "cancelled initialization leaked its process tree"
+    );
+}

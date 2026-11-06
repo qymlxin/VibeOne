@@ -133,7 +133,9 @@ for await (const line of input) {
     const initialized={protocolVersion:process.argv.includes('--v1')?1:2,info:{name:'vibeone-demo-agent',version:'0.1.0'},capabilities:{session:{...(process.argv.includes('--no-media')?{}:{prompt:{image:{},embeddedContext:{}}})}}};
     send({id,result:initialized});
   } else if (method === 'session/new') {
+    if(process.argv.includes('--child-before-session'))spawn(process.execPath,['-e','setInterval(()=>{},1000)',process.argv.at(-1)],{stdio:'ignore'});
     const open=()=>{
+      if(process.argv.includes('--stall-session'))return;
       const sessionId=`demo:${++sequence}`;
       sessions.set(sessionId,{cwd:params.cwd,epoch:0});state(sessionId,'idle');
       send({id,result:{sessionId,configOptions:configOptions()}});

@@ -1,7 +1,9 @@
 //! ACP v2 only. Transport lifecycle is owned by the official SDK, independently of Plugin RPC.
+mod initialization;
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::v2::{ActiveSession, ConnectionTo, Responder, schema};
 use agent_client_protocol::{AcpAgent, AcpAgentConfig, Agent, Client, Error};
+use initialization::InitializationBudget;
 use serde_json::{Value, json};
 use std::{
     collections::{HashMap, HashSet},
@@ -38,10 +40,14 @@ pub struct AgentInteractions {
     permissions: Permissions,
     inputs: Inputs,
 }
-struct LaunchGuard(Option<tokio::task::JoinHandle<()>>);
+struct LaunchGuard {
+    task: Option<tokio::task::JoinHandle<()>>,
+    interactions: Arc<AgentInteractions>,
+}
 impl Drop for LaunchGuard {
     fn drop(&mut self) {
-        if let Some(task) = &self.0 {
+        if let Some(task) = &self.task {
+            self.interactions.cancel();
             task.abort();
         }
     }
@@ -77,6 +83,9 @@ impl AgentSession {
         sink: Sink,
         interactions: Arc<AgentInteractions>,
     ) -> Result<Self, String> {
+        let initialization = InitializationBudget::new(Duration::from_secs(30));
+        let permission_wait = initialization.clone();
+        let input_wait = initialization.clone();
         let permissions = interactions.permissions.clone();
         let inputs = interactions.inputs.clone();
         let input_pending = inputs.clone();
@@ -133,10 +142,13 @@ impl AgentSession {
                         .await
                         .map_err(|error| Error::internal_error().data(error))?;
                         let cancellation = responder.cancellation().clone();
-                        let selection = tokio::select! {
-                            result = rx => result.ok().flatten(),
-                            _ = cancellation.cancelled() => None,
-                            _ = tokio::time::sleep(Duration::from_secs(600)) => None,
+                        let selection = {
+                            let _waiting = permission_wait.waiting_for_human();
+                            tokio::select! {
+                                result = rx => result.ok().flatten(),
+                                _ = cancellation.cancelled() => None,
+                                _ = tokio::time::sleep(Duration::from_secs(600)) => None,
+                            }
                         };
                         pending.lock().expect("permissions poisoned").remove(&id);
                         permission_sink(
@@ -169,7 +181,7 @@ impl AgentSession {
                           pending.insert(id.clone(),Input{schema:requested,reply:tx}); }
                         input_sink(json!({"type":"input","id":id,"request":request})).await.map_err(|error|Error::internal_error().data(error))?;
                         let cancellation=responder.cancellation().clone();
-                        let answer=tokio::select! { value=rx=>value.unwrap_or_else(|_|json!({"action":"cancel"})), _=cancellation.cancelled()=>json!({"action":"cancel"}), _=tokio::time::sleep(Duration::from_secs(600))=>json!({"action":"cancel"}) };
+                        let answer={let _waiting=input_wait.waiting_for_human();tokio::select! { value=rx=>value.unwrap_or_else(|_|json!({"action":"cancel"})), _=cancellation.cancelled()=>json!({"action":"cancel"}), _=tokio::time::sleep(Duration::from_secs(600))=>json!({"action":"cancel"}) }};
                         input_pending.lock().expect("inputs poisoned").remove(&id);
                         input_sink(json!({"type":"input_resolved","id":id})).await.map_err(|error|Error::internal_error().data(error))?;
                         responder.respond(serde_json::from_value(answer).map_err(|error|Error::invalid_params().data(error.to_string()))?)
@@ -211,18 +223,18 @@ impl AgentSession {
             }
             let _ = sink(json!({"type": "disconnected", "error": error})).await;
         });
-        let mut launch = LaunchGuard(Some(task));
-        match tokio::time::timeout(Duration::from_secs(30), ready_rx).await {
-            Ok(Ok(Ok(session))) => Ok(Self {
+        let mut launch = LaunchGuard {
+            task: Some(task),
+            interactions: interactions.clone(),
+        };
+        match initialization.ready(ready_rx).await {
+            Ok(session) => Ok(Self {
                 session,
                 interactions,
                 stop: Mutex::new(Some(stop_tx)),
-                task: launch.0.take().expect("launch task"),
+                task: launch.task.take().expect("launch task"),
             }),
-            result => Err(match result {
-                Ok(Ok(Err(error))) => error,
-                _ => "ACP v2 初始化失败或超时".into(),
-            }),
+            Err(error) => Err(error),
         }
     }
 
