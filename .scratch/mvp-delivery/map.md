@@ -115,9 +115,11 @@
 
 - [78-composer-context-skills](issues/78-composer-context-skills.md)：`@` 补齐项目技能分组引用、筛选与键盘选择，正文实际进入消息；保持 `/` 指令、目录导航和权限边界，桌面/HTTPS 手机回归通过。
 
+- [77-upstream-context-resume](issues/77-upstream-context-resume.md)：显式选择原上下文、延迟连接、权限恢复及失败不降级已完成；跨进程夹具、正式页面及真实Codex原生记忆通过。
+
 ## Fog
 
-- 最终验收需核对core-functions.md的显式会话恢复要求与当前“新上下文继续”策略；协议能力声明不等于已实现上游上下文恢复。
+- 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。
 
 
 - 真实Claude认证及该工具的审批/取消仍由本机账号和实际工具能力决定；Codex路径和人工请求可控时间超时已有实测。

@@ -6,5 +6,5 @@ export function configChoices(option) {
   });
 }
 export function canConfigure(session,workbench) {
-  return workbench.phase==='online'&&!session.historyOnly&&!session.archived&&!(session.queue?.length)&&!['starting','running','requires_action','cancelling','disconnected'].includes(session.status)&&(!workbench.device||workbench.device.role==='operator');
+  return !['pending','restoring'].includes(session.agentState?.contextRestoreState)&&workbench.phase==='online'&&!session.historyOnly&&!session.archived&&!(session.queue?.length)&&!['starting','running','requires_action','cancelling','disconnected'].includes(session.status)&&(!workbench.device||workbench.device.role==='operator');
 }

@@ -62,7 +62,7 @@ UI 点击发送后为“提交中”，Host 受理后才插入可信运行记录
 
 Run completed 只表示该轮 Agent 执行结束，不代表代码已通过测试或已经合并。右侧变更区显示工作区当前 diff，并标记采集时刻；没有基线证据时不把所有差异归因于此 Run。
 
-Agent/Host 异常退出后标记 interrupted，保留历史；若上游支持恢复，用户显式选择继续，否则以历史为上下文创建新会话。禁止静默重放原 prompt。
+Agent/Host 异常退出后标记 interrupted，保留历史；若上游支持恢复，用户显式选择原上下文，下一轮通过 ACP v2 `session/resume` 连接并验证空闲状态与权限配置；否则用户可明确选择新上下文，本地旧历史保留但不自动作为任务发送。禁止静默重放原 prompt。详见[原上下文恢复](upstream-context-resume.md)。
 
 ### 4.4 下一轮队列
 

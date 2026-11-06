@@ -10,7 +10,10 @@ use std::{
     future::Future,
     path::PathBuf,
     pin::Pin,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 use tokio::sync::oneshot;
@@ -115,6 +118,32 @@ impl AgentSession {
         sink: Sink,
         interactions: Arc<AgentInteractions>,
     ) -> Result<Self, String> {
+        Self::connect_context(command, args, cwd, sink, interactions, None).await
+    }
+    pub async fn resume_with_interactions(
+        command: PathBuf,
+        args: Vec<String>,
+        cwd: PathBuf,
+        session_id: String,
+        sink: Sink,
+        interactions: Arc<AgentInteractions>,
+    ) -> Result<Self, String> {
+        Self::connect_context(command, args, cwd, sink, interactions, Some(session_id)).await
+    }
+    async fn connect_context(
+        command: PathBuf,
+        args: Vec<String>,
+        cwd: PathBuf,
+        sink: Sink,
+        interactions: Arc<AgentInteractions>,
+        resume_id: Option<String>,
+    ) -> Result<Self, String> {
+        let resuming = resume_id.is_some();
+        let setup_done = Arc::new(AtomicBool::new(false));
+        let notification_ready = setup_done.clone();
+        let resume_state = Arc::new(Mutex::new(None::<String>));
+        let notification_state = resume_state.clone();
+        let notification_session = resume_id.clone();
         let initialization = InitializationBudget::new(Duration::from_secs(30));
         let permission_wait = initialization.clone();
         let input_wait = initialization.clone();
@@ -137,6 +166,15 @@ impl AgentSession {
                 .on_receive_notification(
                     async move |update: schema::UpdateSessionNotification,
                                 _cx: ConnectionTo<Agent>| {
+                        if notification_session.is_some() && !notification_ready.load(Ordering::SeqCst) {
+                            let raw=serde_json::to_value(&update).map_err(|_|Error::internal_error())?;
+                            if raw["sessionId"].as_str()==notification_session.as_deref() && raw["update"]["sessionUpdate"]=="state_update" {
+                                *notification_state.lock().expect("resume state poisoned")=raw["update"]["state"].as_str().map(str::to_owned);
+                            }
+                            // Local durable history is authoritative. Resume requests no replay;
+                            // setup notifications must not complete the new Run or duplicate history.
+                            return Ok(());
+                        }
                         update_sink(json!({"type": "update", "notification": update}))
                             .await
                             .map_err(|error| Error::internal_error().data(error))
@@ -234,22 +272,44 @@ impl AgentSession {
                                 Error::invalid_params().data("Agent 未声明 ACP v2 session 能力")
                             );
                         }
-                        let opened = cx.build_session(cwd).start_session().block_task().await?;
-                        init_sink(json!({"type":"update","notification":{"sessionId":opened.session.session_id(),"update":{"sessionUpdate":"config_option_update","configOptions":opened.response.config_options,"initialCommands":opened.response.available_commands,"capabilities":init.capabilities,"upstreamSessionId":opened.session.session_id()}}})).await.map_err(|error|Error::internal_error().data(error))?;
+                        let (session,config_options,available_commands)=if let Some(id)=resume_id {
+                            let opened=cx.resume_session(schema::SessionId::new(id),cwd).start_session().block_task().await?;
+                            if resume_state.lock().expect("resume state poisoned").as_deref()!=Some("idle") {
+                                return Err(Error::invalid_params().data("原会话未确认空闲状态，未发送任务"));
+                            }
+                            (opened.session,opened.response.config_options,opened.response.available_commands)
+                        } else {
+                            let opened=cx.build_session(cwd).start_session().block_task().await?;
+                            (opened.session,opened.response.config_options,opened.response.available_commands)
+                        };
+                        setup_done.store(true,Ordering::SeqCst);
+                        init_sink(json!({"type":"update","notification":{"sessionId":session.session_id(),"update":{"sessionUpdate":"config_option_update","configOptions":config_options,"initialCommands":available_commands,"capabilities":init.capabilities,"upstreamSessionId":session.session_id()}}})).await.map_err(|error|Error::internal_error().data(error))?;
                         if let Some(tx) = task_ready.lock().expect("ready poisoned").take() {
-                            let _ = tx.send(Ok(opened.session.clone()));
+                            let _ = tx.send(Ok(session.clone()));
                         }
                         let _ = stop_rx.await;
                         let _ = tokio::time::timeout(
                             Duration::from_secs(2),
-                            opened.session.close().block_task(),
+                            session.close().block_task(),
                         )
                         .await;
                         Ok(())
                     },
                 )
                 .await;
-            let error = result.err().map(|error| error.to_string());
+            let error = result.err().map(|error| {
+                if resuming && ready.lock().expect("ready poisoned").is_some() {
+                    match error.code.value() {
+                        -32002 => "原Agent会话不存在或已过期，未创建替代会话".into(),
+                        -32601 => "Agent未实现会话恢复，未创建替代会话".into(),
+                        -32000 => "恢复原Agent会话需要先完成本机认证".into(),
+                        -32602 => "原Agent会话的参数或状态不兼容，未发送任务".into(),
+                        _ => "原Agent上下文连接失败，未创建替代会话".into(),
+                    }
+                } else {
+                    error.to_string()
+                }
+            });
             if let Some(tx) = ready.lock().expect("ready poisoned").take() {
                 let _ = tx.send(Err(error.clone().unwrap_or_else(|| "Agent 已断开".into())));
             }

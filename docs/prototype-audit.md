@@ -124,3 +124,7 @@
 75：主动环境探测及有界CLI状态已接设置页。全量check含51项Node、workspace Rust、19项Host与SQLite恢复；客户端13项、Workbench23项、Clippy和手机权限验证通过。最后对照SDK修正v2基础会话声明后，专门Host探测与最终桌面62.7秒通过，亮暗截图和SVG已查看。830.64MiB包及仓库外smoke通过。全量check和手机运行在最后能力显示字段修正之前，最终字段由专门Host和桌面回归覆盖。真实Codex/Claude只读握手通过，CLI分别已登录/未登录；CUA仍Mac locked。02、14和52继续保留未完成项。
 
 76：CLI配置摘要、按ID探测及创建会话已交付；02结合75完成实现验收。完整check含51项Node、workspace Rust、21项Host及SQLite恢复通过，CLI超时关闭连接也有虚拟时钟验证；Clippy、桌面62.0秒、手机23.7秒、831.59MiB包和仓库外smoke通过。新SVG已渲染核对。没有以CLI/浏览器检查替代原生及物理设备验收；14和52仍未完成。
+
+77：原上下文恢复已接正式页面与Host，保留新上下文选择。全量53项Node、workspace Rust、22项Host及SQLite恢复通过，Clippy通过；专门桌面20.3秒、HTTPS手机23.6秒通过。真实Codex两轮无工具验证保持同一上游身份、随机记忆及只读配置。已查看亮暗/手机/失败截图及SVG。原生检查仍Mac locked，14和52保持未完成。
+
+最终831.97MiB桌面包及仓库外smoke通过；包内Host SHA256：`057749b00ffb2f6dbc47a7d2b2453d4e901ba8a2f3ba784c31d22c0c8ab70afa`。未重启正在使用的用户Host。

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="450" viewBox="0 0 1000 450" role="img" aria-labelledby="title desc">
+<title id="title">Agent 原上下文恢复服务流程</title><desc id="desc">客户端保存恢复意图，下一轮由 Host 通过 ACP v2 恢复原身份，确认空闲和配置后发送任务，失败则暂停且不新建替代会话。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#555"/></marker></defs>
+<rect width="1000" height="450" rx="12" fill="#fafafa"/>
+<g font-family="system-ui,sans-serif" font-size="14" fill="#222">
+<text x="28" y="35" font-size="20" font-weight="600">原上下文：选择与执行分开，失败不自动新建</text>
+<g fill="#fff" stroke="#aaa"><rect x="28" y="85" width="210" height="100" rx="8"/><rect x="318" y="85" width="280" height="100" rx="8"/><rect x="700" y="85" width="272" height="100" rx="8"/><rect x="318" y="255" width="280" height="100" rx="8"/><rect x="700" y="255" width="272" height="100" rx="8"/></g>
+<text x="43" y="112" font-weight="600">桌面 / 获准手机</text><text x="43" y="140">选择「在原上下文继续」</text><text x="43" y="166">下一轮发送 / 手动恢复队列</text>
+<text x="334" y="112" font-weight="600">Host · 持久化恢复意图</text><text x="334" y="140">HTTP 回执：待连接，不启动 Agent</text><text x="334" y="166">固定 Profile、工作区、上游身份</text>
+<text x="715" y="112" font-weight="600">Agent · ACP v2</text><text x="715" y="140">initialize → session/resume</text><text x="715" y="166">不请求历史回放；返回当前状态</text>
+<text x="334" y="282" font-weight="600">Host · 验证后才发送任务</text><text x="334" y="310">确认 idle → 恢复权限 / 配置</text><text x="334" y="337">session/prompt → 持久化新事件</text>
+<text x="715" y="282" font-weight="600">失败 / 忙碌 / 状态缺失</text><text x="715" y="310">本轮失败；历史只读；队列暂停</text><text x="715" y="337">重试原上下文 / 明确选择新上下文</text>
+<g fill="none" stroke="#555" marker-end="url(#arrow)"><path d="M238 130H310"/><path d="M598 130H692"/><path d="M765 185V218H460V247"/><path d="M837 185V247"/><path d="M318 306H134V193"/></g>
+<text x="247" y="114" font-size="11">HTTP</text><text x="609" y="112" font-size="11">stdio RPC</text><text x="486" y="209" font-size="11">响应与状态同步</text><text x="145" y="288" font-size="11">WS 通知</text><text x="145" y="330" font-size="11">HTTP 游标读取</text>
+<text x="28" y="406" fill="#666">选择：一次 HTTP 请求；执行：后台异步 Run。旧历史与旧审批不重放，不以 session/new 静默替代恢复失败。</text>
+</g></svg>

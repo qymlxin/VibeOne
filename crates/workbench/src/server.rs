@@ -207,6 +207,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/sessions/{id}/attachments/{attachment}/remove",post(remove_attachment))
         .route("/v1/sessions/{id}/cancel",post(cancel))
         .route("/v1/sessions/{id}/queue",post(queue))
+        .route("/v1/sessions/{id}/context/resume",post(resume_context))
         .route("/v1/sessions/{id}/configure",post(configure_agent))
         .route("/v1/sessions/{id}/artifacts",get(artifacts).post(capture_artifact))
         .route("/v1/sessions/{id}/changes",get(changes))
@@ -728,6 +729,12 @@ async fn cancel(State(state): State<Server>, Path(id): Path<String>) -> ApiResul
         .await
         .map(|_| Json(json!({"cancelRequested":true})))
         .map_err(fail)
+}
+async fn resume_context(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
+    domain_command(async move { state.workbench.resume_context(&id).await })
+        .await
+        .map(|_| Json(json!({"resumeOnNextRun":true})))
+        .map_err(domain_fail)
 }
 async fn queue(
     State(state): State<Server>,

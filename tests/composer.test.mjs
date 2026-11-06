@@ -84,3 +84,8 @@ test('@ groups real files and skills without shadowing names or following links'
  assert.deepEqual(referenceOptions(undefined,'missing',skills),[]);
  assert.deepEqual(entries.map(item=>item.kind),['file','directory','symlink']);
 });
+
+test('original-context selection does not enable mode changes before the connection is restored',()=>{
+ assert.equal(canConfigure({status:'idle',agentState:{contextRestoreState:'pending'}},{phase:'online'}),false);
+ assert.equal(canConfigure({status:'idle',agentState:{contextRestoreState:'restored'}},{phase:'online'}),true);
+});

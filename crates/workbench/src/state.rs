@@ -13,6 +13,7 @@ use vibeone_agent_client::{AgentInteractions, AgentSession};
 mod artifacts;
 mod attachments;
 mod catalog;
+mod context;
 mod execution;
 mod history;
 mod operations;
@@ -326,6 +327,7 @@ impl Workbench {
                     "attachments",
                     "directoryReferences",
                     "providerProbe",
+                    "upstreamResume",
                     "conversationHistory",
                     "cursorSync",
                     "pluginOperations",

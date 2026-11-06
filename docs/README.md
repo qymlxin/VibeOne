@@ -6,6 +6,7 @@
 | --- | --- |
 | [桌面资源与打包](desktop-bundle.md) | 包内ACP桥接器/CLI、资源路径与包外验证 |
 | [共享请求与回执类型](client-contracts.md) | Rust单一来源、Schema/TypeScript生成、客户端构造器及漂移检查 |
+| [原上下文恢复](upstream-context-resume.md) | 显式选择原生上下文、下一轮连接、失败处理及 ACP v2 服务流程 |
 | [CLI配置选择](cli-profiles.md) | 列出配置、按ID检查环境和创建会话，共享Host修订与权限 |
 | [Agent环境探测](provider-probe.md) | 初始化握手、版本能力、CLI登录状态及认证引导 |
 | [HTTP错误契约](http-errors.md) | 统一错误信封、稳定错误码、响应身份和旧主机兼容 |

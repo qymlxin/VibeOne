@@ -334,6 +334,10 @@ impl Workbench {
             view.approvals.clear();
             view.inputs.clear();
             view.queue_paused = true;
+            if view.agent_state["contextRestoreState"] == "restoring" {
+                view.agent_state["contextRestoreState"] = json!("failed");
+                view.history_only = true;
+            }
             if *cancelled.borrow() {
                 view.status = "idle".into();
                 view.stop_reason = Some("cancelled".into());
@@ -361,6 +365,22 @@ impl Workbench {
         attachment_ids: &[String],
         cancelled: &mut watch::Receiver<bool>,
     ) -> Result<(), String> {
+        let resume_id = entry.view.lock().expect("view poisoned").agent_state["resumeSessionId"]
+            .as_str()
+            .map(str::to_owned);
+        if resume_id.is_some()
+            && entry
+                .connection
+                .lock()
+                .expect("connection poisoned")
+                .is_none()
+        {
+            let _gate = entry.gate.lock().await;
+            let mut view = entry.view.lock().expect("view poisoned").clone();
+            view.agent_state["contextRestoreState"] = json!("restoring");
+            self.commit(entry, view, "session.context_connecting", &json!({}))
+                .await?;
+        }
         let restore_options =
             entry.view.lock().expect("view poisoned").agent_state["reconnectConfigOptions"]
                 .as_array()
@@ -436,7 +456,11 @@ impl Workbench {
                 }
             });
             tokio::select! {
-                result = AgentSession::connect_with_interactions(descriptor.command, descriptor.args, PathBuf::from(workspace), sink,interactions) => Arc::new(result?),
+                result = async {
+                    if let Some(id)=resume_id.clone() {
+                        AgentSession::resume_with_interactions(descriptor.command,descriptor.args,PathBuf::from(workspace),id,sink,interactions).await
+                    }else{AgentSession::connect_with_interactions(descriptor.command,descriptor.args,PathBuf::from(workspace),sink,interactions).await}
+                } => Arc::new(result?),
                 _ = cancelled.changed() => return Err("启动已取消".into()),
             }
         };
@@ -461,6 +485,17 @@ impl Workbench {
                 .expect("Agent state object")
                 .remove("reconnectConfigOptions");
             self.commit(entry, view, "agent.configuration_restored", &json!({}))
+                .await?;
+        }
+        let context_connected = resume_id.is_some()
+            && entry.view.lock().expect("view poisoned").agent_state["contextRestoreState"]
+                == "restoring";
+        if context_connected {
+            let _gate = entry.gate.lock().await;
+            let mut view = entry.view.lock().expect("view poisoned").clone();
+            view.agent_state["contextRestoreState"] = json!("restored");
+            view.agent_state["contextResumedAt"] = json!(now());
+            self.commit(entry, view, "session.context_resumed", &json!({}))
                 .await?;
         }
         if *cancelled.borrow() || self.available().is_err() {
@@ -763,6 +798,12 @@ impl Workbench {
                 return Err("重启后需要明确同意在新 Agent 上下文中执行队列".into());
             }
             if fresh_context {
+                for key in ["resumeSessionId", "contextRestoreState", "contextResumedAt"] {
+                    view.agent_state
+                        .as_object_mut()
+                        .expect("agent state object")
+                        .remove(key);
+                }
                 view.history_only = false;
                 view.status = "idle".into();
                 view.error = None;

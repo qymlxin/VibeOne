@@ -3,6 +3,8 @@
 pub(crate) enum ErrorKind {
     InvalidInput,
     ProbeBusy,
+    SessionNotFound,
+    ContextConflict,
     ProfileNotFound,
     ProfileConflict,
     ProfileLimit,
@@ -17,6 +19,8 @@ impl ErrorKind {
         match self {
             Self::InvalidInput => "INVALID_INPUT",
             Self::ProbeBusy => "PROBE_BUSY",
+            Self::SessionNotFound => "SESSION_NOT_FOUND",
+            Self::ContextConflict => "CONTEXT_CONFLICT",
             Self::ProfileNotFound => "PROFILE_NOT_FOUND",
             Self::ProfileConflict => "PROFILE_CONFLICT",
             Self::ProfileLimit => "PROFILE_LIMIT_REACHED",
@@ -30,9 +34,12 @@ impl ErrorKind {
     pub(crate) fn status(self) -> u16 {
         match self {
             Self::InvalidInput => 400,
-            Self::ProfileNotFound | Self::WorkspaceNotFound => 404,
+            Self::ProfileNotFound | Self::WorkspaceNotFound | Self::SessionNotFound => 404,
             Self::WorkspaceForbidden => 403,
-            Self::ProfileConflict | Self::ProfileLimit | Self::ProbeBusy => 409,
+            Self::ProfileConflict
+            | Self::ProfileLimit
+            | Self::ProbeBusy
+            | Self::ContextConflict => 409,
             Self::StorageUnavailable | Self::HostUnavailable => 503,
             Self::Internal => 500,
         }

@@ -780,16 +780,21 @@ function Conversation({ session, workbench, online, act }) {
         </div>
       )}
       <div className="desktop-composer-wrap">
-        {session.historyOnly && !session.archived && canOperate && !(session.queue ?? []).length && (
+        {session.historyOnly && !session.archived && canOperate && (
           <div className="desktop-context-restart">
-            <span>历史记录仍在。继续会启动新 Agent 上下文，不恢复旧工具进程，也不会自动发送旧消息。</span>
+            <span>{session.agentState?.contextRestoreState==='failed'?'原上下文连接失败，本轮任务保留在失败记录，未自动改用新上下文。':'历史记录已保留。选择原上下文后，下一轮才连接 Agent；排队消息仍需手动恢复。'}</span>
+            {workbench.features?.includes('upstreamResume')&&session.agentState?.upstreamSessionId&&session.agentState?.capabilities?.session&&<button className="desktop-button" disabled={!online||sending} onClick={async()=>{
+              setSending(true);await act(()=>workbench.call(`/sessions/${session.id}/context/resume`,{}));setSending(false);
+            }}>在原上下文继续</button>}
+            {!(session.queue??[]).length&&
             <button className="desktop-button" disabled={!online || sending} onClick={async () => {
               setSending(true);
               await act(() => workbench.call(`/sessions/${session.id}/queue`, {resume:true,freshContext:true}));
               setSending(false);
-            }}>在新上下文继续</button>
+            }}>在新上下文继续</button>}
           </div>
         )}
+        {!session.historyOnly&&['pending','restoring','restored'].includes(session.agentState?.contextRestoreState)&&<p className="desktop-field-help">{session.agentState.contextRestoreState==='restored'?'已恢复 Agent 原上下文；本地历史不会重复回放。':session.agentState.contextRestoreState==='restoring'?'正在连接原上下文；确认空闲状态和上次配置后才发送任务。':'已选择原上下文；发送下一轮或手动恢复队列时连接，失败会停止，不自动新建替代会话。'}</p>}
         {!session.historyOnly && session.agentState?.contextRestartedAt && (
           <p className="desktop-field-help">正在新的 Agent 上下文中继续；上方旧消息仅作为本地历史保留。</p>
         )}
@@ -805,7 +810,7 @@ function Conversation({ session, workbench, online, act }) {
             onChange={text=>{setDraft(text);requestKey.current=null;}}
             files={fileReferences} onFiles={changeReferences} onSubmit={()=>void send()}
             onPanel={setTab} disabled={readOnly || sending} online={online}
-            placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档或在新上下文继续" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 引用文件…"}/>
+            placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档或选择继续使用的上下文" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 引用文件…"}/>
           <AgentConfigControls session={session} workbench={workbench} compact onOpen={()=>setTab('agent')}/>
           <div>
             <span>
@@ -835,7 +840,7 @@ function Conversation({ session, workbench, online, act }) {
             </button>
           </div>
         </div>
-        {['failed','interrupted'].includes(lastRun?.status)&&lastRun?.attachments?.length>0&&<button className="desktop-text-action" disabled={readOnly||sending||attachmentDraft.busy} onClick={()=>{setDraft(previous=>previous.trim()?previous+'\n\n'+lastRun.text:lastRun.text);changeReferences([...new Set([...fileReferences,...(lastRun.files??[])])].slice(0,5));attachmentDraft.replace([...new Map([...attachmentDraft.items,...lastRun.attachments].map(item=>[item.id,item])).values()].slice(0,5));}}>恢复失败任务到输入框（不会自动发送）</button>}
+        {['failed','interrupted'].includes(lastRun?.status)&&(lastRun.text||lastRun.files?.length||lastRun.attachments?.length)&&<button className="desktop-text-action" disabled={readOnly||sending||attachmentDraft.busy} onClick={()=>{setDraft(previous=>previous.trim()?previous+'\n\n'+lastRun.text:lastRun.text);changeReferences([...new Set([...fileReferences,...(lastRun.files??[])])].slice(0,5));attachmentDraft.replace([...new Map([...attachmentDraft.items,...(lastRun.attachments??[])].map(item=>[item.id,item])).values()].slice(0,5));}}>恢复失败任务到输入框（不会自动发送）</button>}
         <div className="desktop-composer-footer">
           <span>Enter 发送 · Shift+Enter 换行</span>
           {active ? (
