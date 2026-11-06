@@ -29,9 +29,10 @@ import { Management } from "./Management.jsx";
 import { ChatMessage, AgentResponse } from "./ChatTimeline.jsx";
 import { ConversationNav } from "./ConversationNav.jsx";
 import { buildTurns } from "./chat-timeline.js";
-import mark from "../../../assets/brand/vibeone-logo-mark.svg";
+import { Brand } from "./Brand.jsx";
 import "../../../prototype/src/theme.css";
 import "./workbench.css";
+import "./workspace-layout.css";
 
 const labels = {
   idle: "就绪",
@@ -111,8 +112,7 @@ function App() {
     <div className={`desktop-app ${showList ? "mobile-list" : ""}`}>
       <aside className="desktop-sidebar">
         <div className="desktop-brand">
-          <img src={mark} alt="" />
-          <span>VibeOne</span>
+          <Brand/>
         </div>
         <button
           className="desktop-nav active"
@@ -600,17 +600,10 @@ function Conversation({ session, workbench, online, act }) {
           </button>
         ))}
       </nav>
-      {tab !== "chat" && (
-        <SessionTools
-          session={session}
-          workbench={workbench}
-          tab={tab}
-          act={act}
-        />
-      )}
-      <div className="desktop-timeline-shell" hidden={tab !== "chat"}>
+      <div className="desktop-conversation-body">
+      <div className="desktop-chat-column">
+      <div className="desktop-timeline-shell">
       <div
-        hidden={tab !== "chat"}
         className="desktop-timeline"
         ref={timeline}
         onScroll={(event) => {
@@ -738,7 +731,7 @@ function Conversation({ session, workbench, online, act }) {
           </button>
         </div>
       )}
-      <div hidden={tab !== "chat"} className="desktop-composer-wrap">
+      <div className="desktop-composer-wrap">
         {session.historyOnly && !session.archived && canOperate && !(session.queue ?? []).length && (
           <div className="desktop-context-restart">
             <span>历史记录仍在。继续会启动新 Agent 上下文，不恢复旧工具进程，也不会自动发送旧消息。</span>
@@ -853,6 +846,9 @@ function Conversation({ session, workbench, online, act }) {
             </span>
           )}
         </div>
+      </div>
+      </div>
+      {tab!=="chat" && <aside className="desktop-right-panel" aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header><SessionTools key={tab} session={session} workbench={workbench} tab={tab} act={act}/></aside>}
       </div>
     </>
   );

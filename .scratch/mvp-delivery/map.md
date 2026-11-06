@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [39 三栏工作台](issues/39-workbench-phase.md)：正式三栏容器、新品牌与消息分段已接入，保留原 Host 与审批链路；完整回归由交付阶段统一核对。
+
 - [38 设置中心设计稿](issues/38-settings-design-review.md)：基于现有能力制作八分类设置，整合外观，Agent/插件用列表详情；搜索、配置、信任、设备授权等演示交互已检查。原型分支保持独立，正式重构待审阅。
 
 - [37 三栏工作台设计稿](issues/37-three-pane-design-review.md)：独立原型分支 `prototype/three-pane-review` 提供会话/对话/右侧工具面板与亮暗预览。仅完成设计稿，正式重构等待用户审阅批准。
