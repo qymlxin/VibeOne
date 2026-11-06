@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [38 设置中心设计稿](issues/38-settings-design-review.md)：基于现有能力制作八分类设置，整合外观，Agent/插件用列表详情；搜索、配置、信任、设备授权等演示交互已检查。原型分支保持独立，正式重构待审阅。
+
 - [37 三栏工作台设计稿](issues/37-three-pane-design-review.md)：独立原型分支 `prototype/three-pane-review` 提供会话/对话/右侧工具面板与亮暗预览。仅完成设计稿，正式重构等待用户审阅批准。
 
 - [36 对话导航与语义执行摘要](issues/36-chat-navigation-semantic-events.md)：侧边短线定位当前已加载轮次，提供摘录预览与键盘跳转；读取工具按真实 ACP 类型展示文件名/完整路径，命令保留 Shell 详情。模型、桌面、手机与原生导航验证通过。
