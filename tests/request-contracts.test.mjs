@@ -2,12 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {host} from './helpers/host.mjs';
 import {realpath} from 'node:fs/promises';
-import {createSession,submitMessage,updateSession,importWorkspace,decideApproval} from '@vibeone/client-contracts';
+import {createSession,submitMessage,updateSession,importWorkspace,decideApproval,saveProfile,removeProfile} from '@vibeone/client-contracts';
 
 test('generated-contract command builders control the actual Host and preserve receipt identity',{timeout:18000},async t=>{
  const {call,wait,directory}=await host(t);
  const workspace=await call(...importWorkspace(directory));assert.equal(workspace.path,await realpath(directory));
- const {id}=await call(...createSession('demo',directory));
+ const profile=await call(...saveProfile({name:'typed profile',provider:'demo'}));
+ assert.equal(profile.revision,1);assert.equal(Object.hasOwn(profile,'command'),false);assert.equal(Object.hasOwn(profile,'args'),false);
+ const updatedProfile=await call(...saveProfile({...profile,name:'updated profile'}));assert.equal(updatedProfile.revision,2);
+ await call(...saveProfile({...profile,name:'stale profile'}),false);
+ await call('/profiles',{...updatedProfile,revision:null},false);
+ await call('/profiles',{name:'invalid args',provider:'demo',args:null},false);
+ assert.equal((await call('/snapshot')).profiles.find(item=>item.id===profile.id).revision,2);
+ const {id}=await call(...createSession('demo',directory,profile.id));
  await call(...updateSession(id,{title:'typed commands'}));
  const command=submitMessage(id,'/approve',[],[],'generated-key');
  const accepted=await call(...command),duplicate=await call(...command);
@@ -17,6 +24,9 @@ test('generated-contract command builders control the actual Host and preserve r
  const approval=pending.approvals[0];
  await call(...decideApproval(id,approval.id,approval.options[0].optionId));
  const ended=await wait(id,session=>session.stopReason==='end_turn');
+ assert.equal(ended.profile.revision,2);
+ await call(...removeProfile(profile.id,updatedProfile.revision));
+ assert.equal((await call('/snapshot')).profiles.some(item=>item.id===profile.id),false);
  assert.equal(ended.title,'typed commands');assert.equal(ended.runs.length,1);
  assert.equal(ended.messages.filter(message=>message.role==='user').length,1);
 });

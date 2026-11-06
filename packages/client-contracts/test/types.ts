@@ -15,3 +15,18 @@ const wrongQueue:QueueRequest={fresh_context:true};
 // @ts-expect-error a receipt cannot silently omit durable identity
 const wrongReceipt:SubmitMessageReceipt={queued:false,duplicate:false};
 void [create,submit,queue,receipt,error,missing,wrongFiles,wrongWorkspace,wrongQueue,wrongReceipt];
+
+import type {ProfileRequest,ProfileRecord,ProfileResponse} from '../src/generated.js';
+import {saveProfile,removeProfile} from '../src/index.js';
+const profile:ProfileRecord={id:'profile',revision:1,name:'demo',provider:'demo'};
+const profileResponse:ProfileResponse=profile;
+saveProfile({name:'demo',provider:'demo',args:['one']});removeProfile('profile',1);
+// @ts-expect-error explicit null must not disable revision checking
+const nullRevision:ProfileRequest={revision:null};
+// @ts-expect-error args must contain only strings
+const wrongArgs:ProfileRequest={args:[1]};
+// @ts-expect-error saved records require a durable revision
+const missingRevision:ProfileRecord={id:'profile',name:'demo',provider:'demo'};
+// @ts-expect-error saves require provider and name even though remove requests do not
+saveProfile({id:'profile'});
+void [profileResponse,nullRevision,wrongArgs,missingRevision];

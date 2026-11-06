@@ -79,17 +79,17 @@
 | 检查 | 结果与具体范围 |
 | --- | --- |
 | `npm run check` | 通过：51项Node/SDK/打包器、生成契约比对/类型正反例、workspace Rust、16项Host集成与崩溃恢复；不包含真实模型请求 |
-| `npm run desktop:test` | 54.9秒完整回归通过：真实Host、目录路径导入、历史与重连的实际游标增量、通知桥接状态、插件React及200刻度组件及插件异步操作记录/结果 |
+| `npm run desktop:test` | 54.8秒完整回归通过：真实Host、目录路径导入、历史与重连的实际游标增量、通知桥接状态、插件React及200刻度组件及插件异步操作记录/结果 |
 | `npm run remote:test` | 23.4秒通过：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
 | `cargo clippy --workspace --all-targets -- -D warnings` | 通过 |
 | 原生Cargo测试 / Clippy | 5项测试通过；原生Clippy通过；系统回调的实际窗口观察仍未完成 |
-| `npm run desktop:bundle` | 通过，当前macOS调试包828.54MiB；包标识dev.vibeone.desktop，最低系统10.15 |
+| `npm run desktop:bundle` | 通过，当前macOS调试包828.82MiB；包标识dev.vibeone.desktop，最低系统10.15 |
 | `npm run bundle:smoke` | 通过：复制全部资源到仓库外，两个桥接器v2握手和原生CLI启动、可信HTTPS网页、Worker反向调用、插件Provider及历史 |
 | `npm run agent:smoke -- codex claude` | Codex目标文本/end_turn通过；Claude失败，Authentication required，未冒充双工具完成 |
 | `npm run agent:controls` / `-- --input-only` | 真实Codex批准/拒绝、取消待审批、旧请求失效、进程退出、只读恢复及结构化输入通过 |
 | `cargo test -p vibeone-agent-client` | 全13项通过，覆盖初始化45秒人工等待、独立600秒时限、工作预算恢复、迟到答案拒绝和父子进程清理；客户端Clippy通过 |
 
-包内Host SHA-256：`69c3d7c80861336b0432c16fe16c03488b5102203cd43c7e904e169625e6f342`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
+包内Host SHA-256：`b5735ff97f338027afe0a124308a0e704efa2c212d33beb5a42ad6503da9661e`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
 
 ## 解锁后的原生核对顺序
 
@@ -108,3 +108,5 @@
 2026-11-07：65HTTP错误信封已统一，并修复插件操作入口512KiB参数被通用限额提前拒绝的问题；同接口修复前红、修复后执行及超限拒绝通过。重建包外structuredErrors通过。业务DTO生成、完整领域错误分类和实际原生/外部设备条件仍待完成。
 
 2026-11-07：66以实际Rust请求/回执生成JSON Schema和TypeScript，正式创建/发送调用已接类型构造器；覆盖缺省/null兼容、幂等身份、产物漂移与类型反例。67补齐真实项目技能选择、引用正文及发送清空，桌面/HTTPS手机和重建包外验证通过。Profile、完整Session/Run响应与领域错误分类仍待继续；原生/Claude/物理设备项目保持未验收。
+
+2026-11-07：68继续补齐Profile保存/删除的实际请求/记录/响应和设置构造器。Schema/Serde与类型正反例、真实Host配置集成3项、51项Node、Workbench13项及Clippy通过；桌面54.8秒、HTTPS手机23.4秒、828.82MiB重建包及仓库外验证通过。表中16项Host和崩溃恢复是66全量检查的证据，本切片按改动范围复跑配置/构造器集成；不冒充已再次运行全部Host套件。CUA仍明确Mac locked，实际Host未切换。剩余业务响应类型和领域错误分类继续见14。

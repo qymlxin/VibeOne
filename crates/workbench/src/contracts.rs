@@ -81,6 +81,82 @@ pub struct HttpErrorResponse {
     pub request_id: String,
 }
 
+// An omitted optional command field differs from an explicitly invalid null.
+fn provided<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ProfileRequest {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "provided"
+    )]
+    #[schemars(with = "String")]
+    pub id: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "provided"
+    )]
+    #[schemars(with = "u64")]
+    pub revision: Option<u64>,
+    #[serde(default)]
+    pub remove: bool,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "provided"
+    )]
+    #[schemars(with = "String")]
+    pub name: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "provided"
+    )]
+    #[schemars(with = "String")]
+    pub provider: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "provided"
+    )]
+    #[schemars(with = "String")]
+    pub command: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "provided"
+    )]
+    #[schemars(with = "Vec<String>")]
+    pub args: Option<Vec<String>>,
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ProfileRecord {
+    pub id: String,
+    pub revision: u64,
+    pub name: String,
+    pub provider: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub args: Option<Vec<String>>,
+}
+
+#[derive(Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ProfileResponse {
+    Saved(ProfileRecord),
+    Removed { removed: bool },
+}
+
 /// Generated from the same types used by the HTTP extractors/serializers.
 pub fn schemas() -> Value {
     json!({
@@ -94,13 +170,44 @@ pub fn schemas() -> Value {
         "PluginTicketRequest":schema_for!(PluginTicketRequest),
         "CreateSessionResponse":schema_for!(CreateSessionResponse),
         "SubmitMessageReceipt":schema_for!(SubmitMessageReceipt),
-        "HttpErrorResponse":schema_for!(HttpErrorResponse)
+        "HttpErrorResponse":schema_for!(HttpErrorResponse),
+        "ProfileRequest":schema_for!(ProfileRequest),
+        "ProfileRecord":schema_for!(ProfileRecord),
+        "ProfileResponse":schema_for!(ProfileResponse)
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn profile_optional_fields_preserve_absence_and_reject_explicit_null() {
+        let schema = serde_json::to_value(schema_for!(ProfileRequest)).unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        for (value, accepted) in [
+            (json!({"name":"demo","provider":"demo"}), true),
+            (json!({"id":"one","revision":2,"remove":true}), true),
+            (json!({"revision":null}), false),
+            (json!({"args":null}), false),
+            (json!({"args":[1]}), false),
+            (json!({"revision":-1}), false),
+        ] {
+            assert_eq!(validator.is_valid(&value), accepted, "{value}");
+            assert_eq!(
+                serde_json::from_value::<ProfileRequest>(value).is_ok(),
+                accepted
+            );
+        }
+        let request: ProfileRequest =
+            serde_json::from_value(json!({"name":"demo","provider":"demo"})).unwrap();
+        assert!(
+            serde_json::to_value(request)
+                .unwrap()
+                .get("revision")
+                .is_none()
+        );
+    }
+
     #[test]
     fn exported_schemas_match_actual_missing_and_null_deserialization_rules() {
         let create = serde_json::to_value(schema_for!(CreateSessionRequest)).unwrap();

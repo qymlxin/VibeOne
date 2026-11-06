@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { enableNotifications } from "./notifications.js";
 import { chooseWorkspace } from "./api.js";
+import {saveProfile as saveProfileCommand,removeProfile as removeProfileCommand} from "@vibeone/client-contracts";
 
 export function Management({ workbench, section="all" }) {
   const [error, setError] = useState(""),
@@ -74,11 +75,7 @@ export function Management({ workbench, section="all" }) {
           <button
             onClick={() =>
               void run(() =>
-                workbench.call("/profiles", {
-                  id: profile.id,
-                  revision: profile.revision,
-                  remove: true,
-                }),
+                workbench.call(...removeProfileCommand(profile.id,profile.revision)),
               )
             }
           >
@@ -91,7 +88,7 @@ export function Management({ workbench, section="all" }) {
         onSubmit={(event) => {
           event.preventDefault();
           void run(async () => {
-            await workbench.call("/profiles", {
+            await workbench.call(...saveProfileCommand({
               name,
               provider,
               ...(editing
@@ -99,7 +96,7 @@ export function Management({ workbench, section="all" }) {
                 : {}),
               ...(command.trim() ? { command: command.trim() } : {}),
               ...(args.trim() ? { args: JSON.parse(args) } : {}),
-            });
+            }));
             setName("");
             setCommand("");
             setArgs("");

@@ -306,7 +306,7 @@ async fn import_workspace(
         .map(Json)
         .map_err(fail)
 }
-async fn profile(State(state): State<Server>, Json(body): Json<Value>) -> ApiResult {
+async fn profile(State(state): State<Server>, Json(body): Json<ProfileRequest>) -> ApiResult<ProfileResponse> {
     command(async move { state.workbench.save_profile(body).await })
         .await
         .map(Json)

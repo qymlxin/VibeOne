@@ -136,7 +136,11 @@ impl Workbench {
         self.changed(cursor);
         serde_json::to_value(workspace).map_err(|error| error.to_string())
     }
-    pub(crate) async fn save_profile(&self, mut value: Value) -> Result<Value, String> {
+    pub(crate) async fn save_profile(
+        &self,
+        request: crate::contracts::ProfileRequest,
+    ) -> Result<crate::contracts::ProfileResponse, String> {
+        let mut value = serde_json::to_value(request).map_err(|error| error.to_string())?;
         let _gate = self.catalog_gate.lock().await;
         if let Some(id) = value["id"].as_str() {
             let existing = self
@@ -158,7 +162,7 @@ impl Workbench {
                 return Err("配置不存在".into());
             }
             self.put_catalog_locked("profile", id, Value::Null).await?;
-            return Ok(json!({"removed":true}));
+            return Ok(crate::contracts::ProfileResponse::Removed { removed: true });
         }
 
         value = Value::Object(
@@ -216,9 +220,10 @@ impl Workbench {
             + 1;
         value["id"] = json!(id);
         value["revision"] = json!(revision);
-        self.put_catalog_locked("profile", &id, value.clone())
-            .await?;
-        Ok(value)
+        let profile: crate::contracts::ProfileRecord =
+            serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
+        self.put_catalog_locked("profile", &id, value).await?;
+        Ok(crate::contracts::ProfileResponse::Saved(profile))
     }
     pub(crate) async fn event_page(&self, after: u64) -> Result<Value, String> {
         if after > i64::MAX as u64 {

@@ -219,5 +219,143 @@
         "minimum": 0
       }
     }
+  },
+  "ProfileRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProfileRequest",
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "command": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "provider": {
+        "type": "string"
+      },
+      "remove": {
+        "default": false,
+        "type": "boolean"
+      },
+      "revision": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0
+      }
+    }
+  },
+  "ProfileRecord": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProfileRecord",
+    "type": "object",
+    "required": [
+      "id",
+      "name",
+      "provider",
+      "revision"
+    ],
+    "properties": {
+      "args": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        }
+      },
+      "command": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "provider": {
+        "type": "string"
+      },
+      "revision": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0
+      }
+    }
+  },
+  "ProfileResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProfileResponse",
+    "anyOf": [
+      {
+        "$ref": "#/definitions/ProfileRecord"
+      },
+      {
+        "type": "object",
+        "required": [
+          "removed"
+        ],
+        "properties": {
+          "removed": {
+            "type": "boolean"
+          }
+        }
+      }
+    ],
+    "definitions": {
+      "ProfileRecord": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "revision"
+        ],
+        "properties": {
+          "args": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      }
+    }
   }
 }

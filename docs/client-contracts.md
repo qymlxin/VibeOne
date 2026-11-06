@@ -15,8 +15,9 @@
 | AttachmentUploadRequest | 文件名、MIME类型与base64正文 |
 | PluginTicketRequest | 激活或丢弃已准备的插件候选 |
 | HttpErrorResponse | code/error/status/requestId错误信封 |
+| ProfileRequest / ProfileRecord / ProfileResponse | 配置保存/移除命令、实际保存记录及移除结果 |
 
-Profile、完整Session/Run/队列响应、插件包/操作记录与ACP动态字段尚未全部迁移到共享业务DTO。这里不把JsonValue或若干请求类型称为整个业务模型已经完成。
+Profile全量快照、完整Session/Run/队列响应、插件包/操作记录与ACP动态字段尚未全部迁移到共享业务DTO。这里不把JsonValue或若干请求类型称为整个业务模型已经完成。
 
 ![契约生成与调用](diagrams/client-contracts.svg)
 
@@ -43,3 +44,11 @@ workspace省略时由Host采用空字符串默认值，null仍无效；profileId
 Rust检查Schema与实际Serde对缺字段/null的判断一致；TypeScript正例与@ts-expect-error反例覆盖缺少Provider、错误数组、非法null、snake_case及缺失回执身份。实际故意改坏生成文件已被检查拒绝，随后恢复原文件。
 
 真实Host使用构造器导入工作区、创建/改名、幂等提交与审批，核对只有一个Run/用户输入及稳定回执；路径比较使用文件系统规范路径，适配macOS的/var与/private/var别名。完整桌面/HTTPS手机回归继续验证正式创建/发送链路及旧行为。
+
+## Agent Profile 保存与删除
+
+`ProfileRequest`直接由HTTP解析器使用；`ProfileRecord`在存储前验证实际将保存的记录，成功保存/移除返回类型化的`ProfileResponse`。设置页通过共享`saveProfile`和`removeProfile`构造器调用。保存构造器要求name/provider；移除构造器携带id/revision。Host仍校验名称长度、Provider、程序绝对路径、参数限制和修订冲突。
+
+请求可省略id/revision/command/args等字段；字段一旦提供必须为正确的非null类型。特别是revision:null不会当作“没有修订条件”而绕过并发保护；args:null或非字符串元素也会被解析器拒绝。空command和空参数列表仍支持。响应省略未设置的command/args，不引入多余null字段。旧存储数据及会话已固定配置的读取路径保持兼容；此处没有宣称整个Profile快照、Session和Run已经完成类型迁移。
+
+Schema与Serde对字段省略、显式null、负修订号和错误参数元素做一致性检查；真实Host验证保存、改名递增修订、旧修订拒绝、非法null拒绝、按配置建会话固定修订和删除。TypeScript反例保证缺少保存字段、null修订或错误参数无法通过作者类型检查。
