@@ -77,9 +77,11 @@
 
 - [57-composer-caret-race](issues/57-composer-caret-race.md)：修复引用入口和候选选择延迟恢复光标覆盖新输入的问题；延迟动画帧用例修复前红、修复后绿，桌面及HTTPS手机回归通过。
 
+- 58真实Codex审批/结构化输入与59取消进程排空已补齐，见[58](issues/58-real-agent-controls.md)、[59](issues/59-cancel-process-drain.md)。真实工具的批准、拒绝、取消待审批、进程退出及新上下文只读恢复均通过。
+
 ## Fog
 
-- 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。
+- 真实Claude认证及该工具的审批/取消仍由本机账号和实际工具能力决定；Codex路径已有实测。人工请求自然超时尚需可控时间回归。
 - 物理 iOS/Android 证书信任、弱网、锁屏及 macOS 托盘/系统通知仍待人工验收。
 - 客户端当前用 WS 通知加快照恢复；事件增量 reducer及完整 DTO 生成未完成；长历史已独立分页交付。
 - 公开 SDK 完整 semver/跨插件依赖、跨平台发行、签名公证后置。

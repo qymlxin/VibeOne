@@ -21,7 +21,7 @@
 | W07 | 用户输入与回复分段、复制回答 | `ChatTimeline.jsx` | 原始Markdown复制、正文间距及浏览器回归自动通过 |
 | W08 | 整轮过程、同类工具组、单工具详情 | `chat-timeline.js`、`ChatTimeline.jsx`、`ToolDetails.jsx` | 顺序、嵌套折叠、搜索/命令/文件解析、旧数据兼容自动通过 |
 | W09 | 运行摘要滚动、思考扫光、结束停止动画 | `ActivityFeed`、主题CSS | 最新3项、状态、减少动画与移动截图自动通过；静态检测的渐变提示属于已批准状态效果 |
-| W10 | 发送、停止、忙碌追加队列、撤回、暂停/继续 | `execution.rs`、`Queue` | 串行、幂等、取消宽限/子进程、失败暂停和手动暂停自动通过 |
+| W10 | 发送、停止、忙碌追加队列、撤回、暂停/继续 | `execution.rs`、`Queue` | 串行、幂等、进程排空、恢复配置失败停止及手动暂停自动通过；真实Codex进程退出通过 |
 | W11 | `/` 指令与 `@` 上下文引用 | `ComposerInput.jsx`、Host文件读取 | ACP真实命令列表、本地面板指令、目录筛选/刷新、键盘及正文传递自动通过 |
 | W12 | 附件按钮、图片/文件上下文 | `Attachments.jsx`、Host附件API | 真上传、粘贴/拖放、预览、下载字节、ACP内容块、失败恢复与重启自动通过 |
 | W13 | 输入区Agent/模型/权限配置 | `AgentConfigControls.jsx` | 只显示上游实际选项，select/boolean和失败回退自动通过；不冒充所有Agent都有同一权限模式 |
@@ -68,7 +68,7 @@
 ## 必须保留的未验收项
 
 - macOS当前锁屏。实际原生窗口的新版启动、Host空闲升级、目录选择/证书保存对话框、外部浏览器、托盘与系统通知仍未完成本轮实机核对。已只读确认用户Host没有活跃执行或排队消息，但未因此停止它或丢弃原生草稿。
-- 真实Codex只验证隔离工作区的握手、固定文本回复与完成；真实工具审批/执行中取消没有被演示进程替代验收。Claude复验仍为 `Authentication required`。
+- 真实Codex已验证隔离Host的握手、文本、真实批准/拒绝、旧请求失效、取消待审批、运行进程退出及新上下文只读配置恢复；计划模式结构化输入亦通过。Claude复验仍为Authentication required。
 - HTTPS手机浏览器测试通过，物理iOS/Android证书信任、软键盘、弱网/锁屏与系统提示仍需要设备。当前实现不是可靠后台WebPush或原生手机壳。
 - macOS包为本地调试产物，需Node22+及本机Agent认证，未做发行签名/公证或其他桌面平台实机验收。
 
@@ -78,16 +78,17 @@
 
 | 检查 | 结果与具体范围 |
 | --- | --- |
-| `npm run check` | 通过：Node/SDK/打包器、workspace Rust、10项Host集成、崩溃恢复；不包含真实模型请求 |
+| `npm run check` | 通过：Node/SDK/打包器、workspace Rust、11项Host集成、崩溃恢复；后增的配置恢复拒绝及最终6项执行测试另行通过；不包含真实模型请求 |
 | `npm run desktop:test` | 53秒完整回归通过：真实Host、目录路径导入、历史与重连、通知桥接状态、插件React及200刻度组件 |
 | `npm run remote:test` | 23秒通过：可信TLS/配对/撤销、手机操作和分页/通知状态、角色与工作区拒绝 |
 | `cargo clippy --workspace --all-targets -- -D warnings` | 通过 |
 | 原生Cargo测试 / Clippy | 4项测试通过；原生Clippy通过；系统回调的实际窗口观察仍未完成 |
-| `npm run desktop:bundle` | 通过，当前macOS调试包827.27MiB；包标识dev.vibeone.desktop，最低系统10.15 |
+| `npm run desktop:bundle` | 通过，当前macOS调试包827.29MiB；包标识dev.vibeone.desktop，最低系统10.15 |
 | `npm run bundle:smoke` | 通过：复制全部资源到仓库外，两个桥接器v2握手和原生CLI启动、可信HTTPS网页、Worker反向调用、插件Provider及历史 |
 | `npm run agent:smoke -- codex claude` | Codex目标文本/end_turn通过；Claude失败，Authentication required，未冒充双工具完成 |
+| `npm run agent:controls` / `-- --input-only` | 真实Codex批准/拒绝、取消待审批、旧请求失效、进程退出、只读恢复及结构化输入通过 |
 
-包内Host SHA-256：`df297d59703e77ff25107c50bc264be9bc0456bc673bb87bf9b384ac0002ec9c`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
+包内Host SHA-256：`7ca41a9a19c810c5134fd6d8c4afb11965d6e1a55c7738bdbfd93b6b119ecdbd`。桌面Web索引与最后生产构建一致，资源清单包含当前平台桥接器和运行依赖。SVG已检查XML有效性；截图覆盖桌面亮暗、文件/差异、长过程及手机通知/历史。
 
 ## 解锁后的原生核对顺序
 

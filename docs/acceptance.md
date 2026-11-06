@@ -62,7 +62,7 @@
 | 手机操作 | 移动尺寸浏览器经过真实 HTTPS、Secure/HttpOnly Cookie 和 WSS，完成新建会话、发送、审批、停止；越权拒绝、撤销退出 | 真机触控、切后台、锁屏及弱网 |
 | 桌面壳 | Tauri 编译、托盘、隐藏/退出/停止入口、主机升级、证书导出、本机通知接线 | 托盘与系统通知权限弹窗的真实 macOS 操作 |
 
-真实 Codex 隔离烟测已通过；Claude Code 当前返回 `Authentication required`，需要在用户本机完成工具认证后再验。演示 Agent、浏览器移动视口和 Node TLS 校验均不替代真实工具审批或物理手机验收。
+真实Codex隔离烟测及真实审批、结构化输入、进程取消和配置恢复已通过；Claude当前返回Authentication required，需要在用户本机完成工具认证后再验。浏览器移动视口和Node TLS校验不替代物理手机验收。停止语义、证据与流程SVG见 [停止执行与进程排空](cancellation.md)。
 
 ## 对话导航与语义事件验收
 
@@ -209,6 +209,6 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 ## 原型逐项审计与资源独立性（52/55/56）
 
-已按批准原型逐个核对工作台、工具面板及八类设置控件，遗漏的目录路径导入已补齐并通过桌面真实Host回归。桌面包增加完整锁定桥接器闭包，当前macOS调试产物827.27MiB；`npm run bundle:smoke`通过仓库外副本证明两个v2握手、CLI启动、可信HTTPS页面、Worker上下文、插件Provider及历史均不依赖开发目录。最终完整check通过，workspace/原生Clippy通过；SVG已做XML与浏览器渲染检查。
+已按批准原型逐个核对工作台、工具面板及八类设置控件，遗漏的目录路径导入已补齐并通过桌面真实Host回归。桌面包增加完整锁定桥接器闭包，当前macOS调试产物827.29MiB；`npm run bundle:smoke`通过仓库外副本证明两个v2握手、CLI启动、可信HTTPS页面、Worker上下文、插件Provider及历史均不依赖开发目录。最终完整check通过，workspace/原生Clippy通过；SVG已做XML与浏览器渲染检查。
 
 原生窗口仍被Mac锁屏阻止，尚未切换用户正在运行的旧Host；未终止其会话或丢弃草稿。真实Codex固定文本对话复验通过，Claude仍未认证。完整矩阵与待验步骤见[原型逐项验收](prototype-audit.md)，此处不把这些人工项改成通过。
