@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, copyFileSync, chmodSync, cpSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import {packageBridges} from './package-bridges.mjs';
 const root = fileURLToPath(new URL("..", import.meta.url));
 const release = process.argv.includes("--release");
 for (const args of [
@@ -12,7 +13,7 @@ for (const args of [
   if (build.status !== 0) process.exit(build.status ?? 1);
 }
 const resources = join(root, "apps/desktop/src-tauri");
-for (const name of ["runtime", "web", "examples"]) {
+for (const name of ["runtime", "web", "examples", "bridges"]) {
   rmSync(join(resources, name), { recursive: true, force: true });
   mkdirSync(join(resources, name), { recursive: true });
 }
@@ -42,6 +43,7 @@ cpSync(
   join(resources, "examples/workspace-tools"),
   { recursive: true, filter: (path) => !path.includes("node_modules") },
 );
+packageBridges(root,join(resources,"bridges"));
 const result = spawnSync(
   "cargo",
   ["build", "-p", "vibeone-host", ...(release ? ["--release"] : [])],

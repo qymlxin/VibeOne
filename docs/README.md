@@ -4,6 +4,11 @@
 
 | 文档 | 阅读目标 |
 | --- | --- |
+| [桌面资源与打包](desktop-bundle.md) | 包内ACP桥接器/CLI、资源路径与包外验证 |
+| [持久会话历史](conversation-history.md) | 完整档案、分页、旧数据回填与阅读位置 |
+| [通知与系统授权](notifications.md) | 本设备开关、实际权限查询与事件基线 |
+| [原型逐项验收](prototype-audit.md) | 每个批准原型操作的实现落点、自动证据与实机缺口 |
+| [原型补齐清单](prototype-completion.md) | 批准原型功能的实际交付与待验状态 |
 | [附件与图片](attachments.md) | 上传、持久附件、媒体能力与ACP内容块链路 |
 | [输入框指令与引用](composer-interactions.md) | `/` 指令、`@` 文件引用、键盘操作与发送链路 |
 | [体验与验收](acceptance.md) | 当前可体验功能、自动验证、实机清单与已知边界 |
@@ -25,6 +30,9 @@
 
 | 图 | 内容 |
 | --- | --- |
+| [桌面资源结构](diagrams/desktop-resources.svg) | Tauri、Host、包内桥接器/Worker与本机认证 |
+| [持久历史链路](diagrams/conversation-history.svg) | 事务保存、分页、重连合并与阅读锚点 |
+| [通知权限](diagrams/notification-permission.svg) | 本设备偏好、Tauri IPC与系统授权 |
 | [系统架构](diagrams/system-architecture.svg) | 客户端、Host、Agent、插件和存储 |
 | [核心工作闭环](diagrams/core-workflow.svg) | 工作区、Agent 配置、会话、执行、人工决定和结果检查 |
 | [执行与下一轮队列](diagrams/run-control.svg) | 单会话串行、忙碌输入、人工等待、取消及异常后的队列暂停 |

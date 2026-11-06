@@ -73,7 +73,9 @@ pub fn providers(data_dir: &Path) -> Vec<Provider> {
                 .into_owned(),
         ],
     }];
-    let root = std::env::var_os("VIBEONE_BRIDGES_DIR")
+    let explicit_bridges = std::env::var_os("VIBEONE_BRIDGES_DIR");
+    let root = explicit_bridges
+        .clone()
         .map(PathBuf::from)
         .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../node_modules/.bin"));
     for (id, name, binary, version) in [
@@ -81,7 +83,11 @@ pub fn providers(data_dir: &Path) -> Vec<Provider> {
         ("claude", "Claude Code", "claude-agent-acp", "0.101.0"),
     ] {
         let script = root.join(binary);
-        let global = find_on_path(binary);
+        let global = explicit_bridges
+            .is_none()
+            .then(|| find_on_path(binary))
+            .flatten();
+        let using_global = !script.is_file() && global.is_some();
         let (command, args, available) = if script.is_file() {
             (
                 node.clone().unwrap_or_default(),
@@ -97,7 +103,11 @@ pub fn providers(data_dir: &Path) -> Vec<Provider> {
             id: id.into(),
             name: name.into(),
             available,
-            description: format!("ACP v2 · 桥接器 {version} · 使用本机已有认证"),
+            description: if using_global {
+                "ACP v2 · 本机桥接器（版本由本机安装项决定）· 需 Node 22+及本机已有认证".into()
+            } else {
+                format!("ACP v2 · 桥接器 {version} · 需 Node 22+及本机已有认证")
+            },
             command,
             args,
         });

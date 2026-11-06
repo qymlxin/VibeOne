@@ -1,0 +1,28 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,writeFile,readFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {packageBridges} from '../scripts/package-bridges.mjs';
+test('bridge packaging retains nested runtime versions, skips development and tolerates missing optional packages',async t=>{
+ const root=await mkdtemp(join(tmpdir(),'vibeone-bridge-tree-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const pkg=async(path,manifest,source='')=>{await mkdir(path,{recursive:true});await writeFile(join(path,'package.json'),JSON.stringify(manifest));if(source)await writeFile(join(path,'index.js'),source);};
+ await writeFile(join(root,'package.json'),'{}');
+ const modules=join(root,'node_modules');
+ await pkg(join(modules,'sample'),{name:'sample',version:'1.0.0',type:'module',bin:{'sample-cli':'index.js'},dependencies:{dep:'2'},peerDependencies:{shared:'1'},devDependencies:{'dev-only':'1'},optionalDependencies:{'absent-native':'1'}},"import dep from 'dep'; console.log(dep);");
+ await pkg(join(modules,'dep'),{name:'dep',version:'1.0.0',type:'module',main:'index.js'},"export default 'wrong root version';");
+ await pkg(join(modules,'sample/node_modules/dep'),{name:'dep',version:'2.0.0',type:'module',main:'index.js'},"export default 'nested runtime';");
+ await pkg(join(modules,'shared'),{name:'shared',version:'1.0.0'});
+ await writeFile(join(modules,'sample','LICENSE'),'Fixture license');
+ await pkg(join(modules,'dev-only'),{name:'dev-only',version:'1.0.0'});
+ const destination=join(root,'output');const manifest=packageBridges(root,destination,[['sample-cli','sample']]);
+ assert.deepEqual(manifest.packages.map(pkg=>[pkg.name,pkg.version]),[['sample','1.0.0'],['dep','2.0.0'],['shared','1.0.0']]);
+ assert.equal(execFileSync(process.execPath,[join(destination,'sample-cli')],{cwd:destination,encoding:'utf8'}).trim(),'nested runtime');
+ assert.equal(await readFile(join(destination,'node_modules/sample/LICENSE'),'utf8'),'Fixture license');
+ assert.match(await readFile(join(destination,'sample-cli'),'utf8'),/\.\/node_modules\/sample\/index.js/);
+ await rm(join(modules,'sample/node_modules/dep'),{recursive:true});await rm(join(modules,'dep'),{recursive:true});
+ assert.throws(()=>packageBridges(root,join(root,'missing'),[['sample-cli','sample']]),/Missing bridge runtime dependency dep/);
+ await writeFile(join(root,'package-lock.json'),JSON.stringify({packages:{'node_modules/sample':{version:'2.0.0'}}}));
+ assert.throws(()=>packageBridges(root,join(root,'wrong-lock'),[['sample-cli','sample']]),/differs from package-lock/);
+});

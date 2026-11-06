@@ -24,3 +24,5 @@ __pycache__/
 apps/desktop/src-tauri/runtime/
 apps/desktop/src-tauri/web/
 apps/desktop/src-tauri/examples/
+
+apps/desktop/src-tauri/bridges/

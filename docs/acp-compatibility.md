@@ -49,3 +49,7 @@ npm run desktop
 会话、Run、队列、人工决定、Profile、插件目录和事件已接入 SQLite；重启中断未完成执行，旧审批失效，队列不自动继续。支持显式在新上下文执行暂停队列，旧消息 ID 按连接隔离。桌面已接入文件引用、差异、产物、配置和 App 插件；手机已接入 HTTPS/WSS、配对、角色和撤销。客户端仍通过通知后获取快照恢复；完整消息/工具历史已增加独立档案与分页，客户端仍未使用事件增量 reducer。详见 [持久历史](conversation-history.md)。
 
 真实 Codex 隔离烟测通过，Claude Code 仍返回 Authentication required。真实工具审批、复杂输入和配置差异仍需各工具实测，不由演示 Agent 替代。物理手机的 CA 信任、网络、锁屏/弱网，以及托盘、系统通知和正式签名分发保持待验。详细步骤、证据区分和限制见 [验收清单](acceptance.md)。
+
+## 本轮完整原型补齐后的真实工具复验
+
+在新持久历史实现和通知修复提交后，再次通过 `npm run agent:smoke -- codex claude` 于独立临时工作区复验。Codex返回目标文本并以 `end_turn` 结束；Claude仍以 `error` 结束，错误为 `Authentication required`。没有修改现有认证或项目文件，也没有把脚本退出码0当成两个工具都成功。真实审批/模型执行中取消仍未增加新实机证据。

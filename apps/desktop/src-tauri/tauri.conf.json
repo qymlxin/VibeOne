@@ -30,6 +30,7 @@
       "app"
     ],
     "resources": {
+      "bridges/": "bridges/",
       "bin/vibeone-host": "bin/vibeone-host",
       "runtime/": "runtime/",
       "web/": "web/",

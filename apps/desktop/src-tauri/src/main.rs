@@ -161,6 +161,16 @@ async fn launch_host(app: &tauri::AppHandle) -> Result<Value, String> {
         .resource_dir()
         .map_err(|error| error.to_string())?;
     let mut command = Command::new(binary);
+    let bridges = resources.join("bridges");
+    let bridges = if !bridges.join("bridge-manifest.json").is_file()
+        && !resources.join("web/index.html").is_file()
+        && cfg!(debug_assertions)
+    {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("bridges")
+    } else {
+        bridges
+    };
+    command.env("VIBEONE_BRIDGES_DIR", bridges);
     if resources
         .join("runtime/plugin-runtime/dist/main.js")
         .is_file()

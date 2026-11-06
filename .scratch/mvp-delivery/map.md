@@ -71,6 +71,8 @@
 
 - [55-workspace-path-import](issues/55-workspace-path-import.md)：补齐设置原型的绝对路径输入与导入，目录选择改为填入后明确提交；真实Host验证相对拒绝、空格目录、幂等与成功反馈。
 
+- [56-packaged-acp-bridges](issues/56-packaged-acp-bridges.md)：移除桌面包对开发仓库桥接器的隐式依赖，随包复制锁定适配器/生产闭包/本平台CLI；仓库外两个v2握手、CLI、网页、Worker、插件Provider与历史验证通过。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。
