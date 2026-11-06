@@ -355,16 +355,14 @@ fn main() {
                         tauri::async_runtime::spawn(async move {
                             if let Ok(data) = data::current(&app)
                                 && let Some(connection) = healthy(&data.join("host.json")).await
-                            {
-                                if let (Some(url), Some(token)) =
+                                && let (Some(url), Some(token)) =
                                     (connection["url"].as_str(), connection["token"].as_str())
-                                {
-                                    let _ = reqwest::Client::new()
-                                        .post(format!("{url}/v1/host/stop"))
-                                        .bearer_auth(token)
-                                        .send()
-                                        .await;
-                                }
+                            {
+                                let _ = reqwest::Client::new()
+                                    .post(format!("{url}/v1/host/stop"))
+                                    .bearer_auth(token)
+                                    .send()
+                                    .await;
                             }
                             app.exit(0);
                         });
@@ -393,11 +391,11 @@ fn main() {
         .expect("VibeOne 桌面应用启动失败")
         .run(|app, event| {
             #[cfg(target_os = "macos")]
-            if matches!(event, tauri::RunEvent::Reopen { .. }) {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+            if matches!(event, tauri::RunEvent::Reopen { .. })
+                && let Some(window) = app.get_webview_window("main")
+            {
+                let _ = window.show();
+                let _ = window.set_focus();
             }
             #[cfg(not(target_os = "macos"))]
             let _ = (app, event);

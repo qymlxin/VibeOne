@@ -11,15 +11,15 @@ npm ci
 npm run desktop
 ```
 
-需要 Rust 工具链和 Xcode Command Line Tools。启动后选择工作目录和 Agent，创建会话后发送第一条消息。默认“本地演示”不调用模型，可发送 `/approve` 体验审批、`/wait` 体验停止；Codex 和 Claude Code 使用本机已有认证。桥接器启动入口可用不代表已认证，缺少认证或网络失败会显示在会话中。
+需要 Rust 工具链和 Xcode Command Line Tools。启动后选择 Agent 即可创建会话；目录留空会在 `~/.vibeone/projects/` 自动创建新项目，也可选择已有目录。默认“本地演示”不调用模型，可发送 `/approve` 体验审批、`/wait` 体验停止；Codex 和 Claude Code 使用本机已有认证。桥接器启动入口可用不代表已认证，缺少认证或网络失败会显示在会话中。
 
 构建不依赖 Vite 开发服务器的本地 `.app`：`npm run desktop:bundle`。产物位于 `apps/desktop/src-tauri/target/debug/bundle/macos/VibeOne.app`；这是本地开发包，尚未做正式签名、公证和分发验收。`npm run desktop:build` 构建 release 包。
 
-桌面通过 loopback HTTP/WS 与 Host 通信；手机使用另行开启的私有地址 HTTPS/WSS 入口和可撤销设备凭据。关闭窗口隐藏到托盘，退出桌面与停止 Host 分开。会话、消息、审批决定、队列、配置、插件目录和通知 outbox 保存在本机 SQLite 中。正常执行结束后继续下一条，失败或取消后暂停；重启不自动续跑旧任务。历史默认只读，恢复队列需要明确选择新的 Agent 上下文。
+桌面通过 loopback HTTP/WS 与 Host 通信；手机使用另行开启的私有地址 HTTPS/WSS 入口和可撤销设备凭据。关闭窗口隐藏到托盘，退出桌面与停止 Host 分开。会话、消息、审批决定、队列、配置、插件目录和通知 outbox 保存在本机 SQLite 中。正常执行结束后继续下一条，失败或取消后暂停；重启不自动续跑旧任务。历史可显式点击“在新上下文继续”后发送，恢复队列也需明确选择新的 Agent 上下文；不冒充原 Agent 的上下文恢复。
 
 工作台提供对话、文件、只读变更、执行记录、文本产物和 Agent 当前配置；设置中管理工作区、Profile、可信本地插件、设备与通知。手机按工作区和角色共享会话事实，支持新建、发送、审批、补充输入、停止、查看变更和重连。UI 继续沿用紧凑布局、系统字体及亮暗模式。
 
-旧主机不会被自动停止。打开新版桌面后，如提示主机版本较旧，请结束执行并在设置中重启；旧内存版会先保存快照再升级。数据库位于应用数据目录的 `vibeone.sqlite3`，macOS 默认为 `~/Library/Application Support/dev.vibeone.desktop/`。
+统一数据根目录优先为 `~/.vibeone`（主目录不可写时，桌面自动使用现有可写的 `~/.config/vibeone` 或 `~/.local/share/vibeone`，实际路径显示于设置），数据库为 `~/.vibeone/vibeone.sqlite3`，插件与托管项目也位于此处。首次升级会在旧 Host 空闲后停止它，将旧应用数据目录原子迁移到此处，并保留旧目录的兼容别名；有执行时先附着旧 Host，待空闲后重启迁移，不覆盖已有目标目录。已有工程目录不会被搬动。可通过 `VIBEONE_DATA_DIR` 或 Host `--data-dir` 覆盖数据位置。
 
 插件可用 JS/TS/TSX 开发，构建为 JS ESM；支持 App 面板、命令、设置、声明式 ACP Provider、通知渠道和 Node Worker。安装与更新经过候选准备和发布，已有 Provider 会话保留代次租约。SDK 与插件均为仓库内预览 API，未开放插件市场与跨插件依赖解析。
 

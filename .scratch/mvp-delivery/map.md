@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [31 统一存储与免选目录项目](issues/31-managed-projects.md)：托管项目、历史新上下文续聊、空闲迁移与只读主目录回退已实现并验证；不冒充原生 Agent 上下文恢复。
+
 - [30 旧会话升级启动失败](issues/30-legacy-startup.md)：兼容缺失/null 执行列表，保留会话历史；回归覆盖连续重启与旧导出导入。
 
 - [06-app-plugin-sdk](issues/06-app-plugin-sdk.md)：AppRuntime 提供候选激活、面板/命令/设置、Scope 与服务/Hook；共享宿主 React、React DOM、SDK，支持 JS 与 TS/TSX 编译的 ESM。SDK 生命周期测试及真实 Host 的浏览器动态面板测试通过。
