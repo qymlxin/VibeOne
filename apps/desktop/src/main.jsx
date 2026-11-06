@@ -29,6 +29,7 @@ import { Management } from "./Management.jsx";
 import { ChatMessage, AgentResponse } from "./ChatTimeline.jsx";
 import { ConversationNav } from "./ConversationNav.jsx";
 import { buildTurns } from "./chat-timeline.js";
+import {SettingsCenter} from "./SettingsCenter.jsx";
 import {SplitHandle} from "./SplitHandle.jsx";
 import {PreviewContext} from "./PreviewLinks.jsx";
 import {BrowserPreview} from "./BrowserPreview.jsx";
@@ -112,7 +113,7 @@ function App() {
     }
   };
   return (
-    <div className={`desktop-app ${showList ? "mobile-list" : ""}`}>
+    <div className={`desktop-app ${showList ? "mobile-list" : ""} ${settings?"settings-open":""}`}>
       <aside className="desktop-sidebar">
         <div className="desktop-brand">
           <Brand/>
@@ -285,7 +286,7 @@ function App() {
           </div>
         )}
         {settings ? (
-          <Settings workbench={workbench} plugins={plugins} />
+          <SettingsCenter workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)}/>
         ) : creating || !session ? (
           <NewSession
             workbench={workbench}
@@ -861,79 +862,6 @@ function Conversation({ session, workbench, online, act }) {
       {tab!=="chat" && <><SplitHandle onResize={setPanelWidth}/><aside style={panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className="desktop-right-panel" aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',browser:'网址浏览',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl}/>:<SessionTools key={tab} session={session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget}/>}</aside></>}
       </div>
     </PreviewContext.Provider>
-  );
-}
-
-function Settings({ workbench, plugins }) {
-  return (
-    <div className="desktop-settings">
-      <h1>连接与工具</h1>
-      {!workbench.device && workbench.dataDirectory && <p>统一数据目录：<code>{workbench.dataDirectory}</code></p>}
-      {workbench.migrationPending && <p>有任务正在使用旧数据目录。结束执行后重启工作主机，将自动迁移到统一数据目录。</p>}
-      {workbench.migrationWarning && <p>数据迁移尚未完成，当前继续使用原目录：{workbench.migrationWarning}</p>}
-      <p>
-        {workbench.persistent
-          ? "会话与工作区保存在本机 SQLite 数据库中。重启后可查看历史，未结束的执行会标记为中断，旧审批失效。"
-          : "当前连接的主机仅在运行期间保留会话，请升级主机以启用本地历史。"}
-        {workbench.device
-          ? "此设备已通过主机授权。"
-          : "可在下方配置 HTTPS 手机入口与设备授权。"}
-      </p>
-      <button
-        className="desktop-button"
-        hidden={!!workbench.device}
-        disabled={
-          workbench.phase !== "online" ||
-          workbench.sessions.some((session) =>
-            ["starting", "running", "requires_action", "cancelling"].includes(
-              session.status,
-            ),
-          )
-        }
-        onClick={() => void workbench.restart()}
-      >
-        {workbench.persistent ? "重启工作主机" : "保存会话并升级主机"}
-      </button>
-      <p>请先结束所有执行。升级会保存旧版会话，重启后可查看历史。</p>
-      <h2>Agent 接入</h2>
-      {workbench.providers.map((provider) => (
-        <div className="desktop-provider" key={provider.id}>
-          <div>
-            <strong>{provider.name}</strong>
-            <p>{provider.description}</p>
-          </div>
-          <span>{provider.available ? "启动入口可用" : "未找到启动入口"}</span>
-        </div>
-      ))}
-      <p>
-        入口可用不代表已认证。Codex 与 Claude Code
-        使用本机已有的工具认证；认证失败会在会话中显示原因。
-      </p>
-      {!workbench.device && workbench.apiVersion >= 3 && (
-        <>
-          <Management workbench={workbench} />
-          <PluginManager workbench={workbench} plugins={plugins} />
-          <RemoteSettings workbench={workbench} />
-        </>
-      )}
-      {workbench.device && (
-        <p>此设备权限：{workbench.device.role}。工作区与设备授权由电脑管理。</p>
-      )}
-      <h2>协议</h2>
-      <dl>
-        <dt>Agent 通信</dt>
-        <dd>ACP v2 Draft · Rust SDK 5.0.0</dd>
-        <dt>插件通信</dt>
-        <dd>独立的 Plugin RPC v1</dd>
-      </dl>
-      <button
-        className="desktop-button"
-        onClick={() => void workbench.reconnect()}
-      >
-        <RefreshCw size={14} />
-        重新连接主机
-      </button>
-    </div>
   );
 }
 

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { enableNotifications } from "./notifications.js";
 import { chooseWorkspace } from "./api.js";
 
-export function Management({ workbench }) {
+export function Management({ workbench, section="all" }) {
   const [error, setError] = useState(""),
     [name, setName] = useState(""),
     [editing, setEditing] = useState(null),
@@ -20,7 +20,7 @@ export function Management({ workbench }) {
   }
   return (
     <>
-      <h2>工作区</h2>
+      {(section==='all'||section==='workspaces') && <section className="desktop-settings-group"><h2>工作区</h2>
       <button
         className="desktop-button"
         onClick={() =>
@@ -37,7 +37,8 @@ export function Management({ workbench }) {
           {workspace.name} · {workspace.path}
         </p>
       ))}
-      <h2>Agent 配置</h2>
+      </section>}
+      {(section==='all'||section==='agents') && <section className="desktop-settings-group"><h2>Agent 配置</h2>
       <p>会话创建时固定配置版本；后续修改配置不改变已有会话。</p>
       {(workbench.profiles ?? []).map((profile) => (
         <p key={profile.id}>
@@ -144,7 +145,8 @@ export function Management({ workbench }) {
           </button>
         )}
       </form>
-      <h2>本机通知</h2>
+      </section>}
+      {(section==='all'||section==='notifications') && <section className="desktop-settings-group"><h2>本机通知</h2>
       <button
         className="desktop-button"
         onClick={() =>
@@ -155,7 +157,8 @@ export function Management({ workbench }) {
       >
         开启审批与执行结束通知
       </button>
-      <h2>诊断</h2>
+      </section>}
+      {(section==='all'||section==='diagnostics') && <section className="desktop-settings-group"><h2>诊断</h2>
       <button
         className="desktop-button"
         onClick={() =>
@@ -184,6 +187,7 @@ export function Management({ workbench }) {
           </button>
         </>
       )}
+      </section>}
       {error && <p role="alert">{error}</p>}
     </>
   );

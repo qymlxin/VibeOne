@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [41 统一设置](issues/41-workbench-phase.md)：八分类设置接回真实业务，Agent 和插件采用列表详情；保留本机/远程管理权限边界。
+
 - [40 侧边工具与预览](issues/40-workbench-phase.md)：真实文件/差异/产物、只读终端、工作区文件链接与隔离网页预览接入，可调整面板宽度。
 
 - [39 三栏工作台](issues/39-workbench-phase.md)：正式三栏容器、新品牌与消息分段已接入，保留原 Host 与审批链路；完整回归由交付阶段统一核对。

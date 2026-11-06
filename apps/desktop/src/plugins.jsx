@@ -240,6 +240,7 @@ export function PluginManager({ workbench, plugins }) {
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [result, setResult] = useState(null);
+  const [installOpen,setInstallOpen]=useState(false),[selectedPlugin,setSelectedPlugin]=useState(null);
   async function run(action) {
     setBusy(true);
     setError("");
@@ -257,6 +258,7 @@ export function PluginManager({ workbench, plugins }) {
       <p>
         JS 插件作为可信本机代码运行。支持安装、更新、停用、动态面板与后台命令。
       </p>
+      <details className="desktop-plugin-install" open={installOpen} onToggle={event=>setInstallOpen(event.currentTarget.open)}><summary>安装 / 更新本地插件</summary>
       <button
         onClick={() => {
           setPath(workbench.examplePluginPath);
@@ -372,7 +374,9 @@ export function PluginManager({ workbench, plugins }) {
           </>
         )}
       </div>
-      {(workbench.plugins ?? []).map((plugin) => (
+      </details>
+      <div className="desktop-settings-object-layout"><aside className="desktop-settings-object-list"><header>已安装插件</header>{(workbench.plugins??[]).map(plugin=><button key={plugin.id} className={(selectedPlugin??workbench.plugins?.[0]?.id)===plugin.id?'selected':''} onClick={()=>setSelectedPlugin(plugin.id)}><span><strong>{plugin.name??plugin.id}</strong><small>{plugin.version} · {plugin.enabled?'已启用':'已停用'}</small></span></button>)}{!workbench.plugins?.length&&<p>尚未安装本地插件。</p>}</aside><div className="desktop-settings-object-detail">
+      {(workbench.plugins ?? []).filter(plugin=>plugin.id===(selectedPlugin??workbench.plugins?.[0]?.id)).map((plugin) => (
         <article className="desktop-plugin-card" key={plugin.id}>
           <strong>{plugin.name ?? plugin.id}</strong> · {plugin.version} ·{" "}
           {plugin.enabled ? "已启用" : "已停用"}
@@ -389,6 +393,7 @@ export function PluginManager({ workbench, plugins }) {
           <button
             disabled={busy}
             onClick={() => {
+              setInstallOpen(true);
               setPath(plugin.path);
               setInspection(plugin.manifest);
               setSelected(plugin.workspaces);
@@ -425,6 +430,7 @@ export function PluginManager({ workbench, plugins }) {
               ))}
         </article>
       ))}
+      </div></div>
       {plugins.registrations.map((app) => (
         <PluginBoundary
           key={`${app.identity.pluginId}:${app.identity.generation}`}

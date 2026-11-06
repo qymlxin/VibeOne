@@ -1,0 +1,20 @@
+import React,{useEffect,useState} from 'react';
+import {Plus,Terminal} from 'lucide-react';
+const empty=()=>({name:'',provider:'demo',command:'',args:'',revision:null});
+export function AgentSettings({workbench}){
+ const [selected,setSelected]=useState(null),[draft,setDraft]=useState(empty),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const profiles=workbench.profiles??[];
+ const select=profile=>{setSelected(profile?.id??'new');setDraft(profile?{...profile,command:profile.command??'',args:profile.args?JSON.stringify(profile.args,null,2):''}:empty());setError('');setNotice('');};
+ useEffect(()=>{if(selected===null && profiles.length)select(profiles[0]);},[profiles,selected]);
+ const provider=workbench.providers.find(item=>item.id===draft.provider);
+ const change=patch=>{setDraft(previous=>({...previous,...patch}));setNotice('');};
+ async function save(event){event.preventDefault();setError('');setBusy(true);try{
+  let args;if(draft.args.trim()){args=JSON.parse(draft.args);if(!Array.isArray(args)||!args.every(arg=>typeof arg==='string'))throw Error('启动参数必须是字符串 JSON 数组。');}
+  if(draft.command.trim()&&!/^(\/|[A-Za-z]:[\\/])/.test(draft.command.trim()))throw Error('自定义启动程序需要绝对路径。');
+  const result=await workbench.call('/profiles',{name:draft.name.trim(),provider:draft.provider,...(selected&&selected!=='new'?{id:selected,revision:draft.revision}:{}),...(draft.command.trim()?{command:draft.command.trim()}:{}),...(args?{args}:{})});
+  if(result?.id){setSelected(result.id);setDraft({...result,command:result.command??'',args:result.args?JSON.stringify(result.args,null,2):''});}else select(null);
+  setNotice('配置已保存。已有会话继续使用原修订，新建会话可使用新配置。');
+ }catch(error){setError(error instanceof SyntaxError?'启动参数不是有效 JSON。':error.message);}finally{setBusy(false);}}
+ async function remove(){setBusy(true);setError('');try{await workbench.call('/profiles',{id:selected,revision:draft.revision,remove:true});select(null);setNotice('配置已移除，已有会话的历史配置保留。');}catch(error){setError(error.message);}finally{setBusy(false);}}
+ return <div className="desktop-settings-object-layout"><aside className="desktop-settings-object-list"><header><span>启动配置</span><button aria-label="新建 Agent 配置" disabled={busy} onClick={()=>select(null)}><Plus size={14}/></button></header>{profiles.map(profile=><button key={profile.id} disabled={busy} className={selected===profile.id?'selected':''} onClick={()=>select(profile)}><Terminal size={16}/><span><strong>{profile.name}</strong><small>{profile.provider} · r{profile.revision}</small></span></button>)}{!profiles.length&&<p>尚未保存配置，选择 Agent 后创建。</p>}</aside><section className="desktop-settings-object-detail"><h2>{selected==='new'||selected===null?'新建配置':draft.name}</h2><p>{provider?.description}</p><div className="desktop-settings-row"><span>启动入口</span><span>{provider?.available?'启动入口可用':'未找到启动入口'}</span></div><p className="desktop-settings-help">入口可用不代表已经认证。工具使用本机现有认证，连接时由 Agent 返回结果。</p><form className="desktop-management-form" onSubmit={save}><label>配置名称<input aria-label="配置名称" required maxLength={80} value={draft.name} onChange={event=>change({name:event.target.value})}/></label><label>Agent<select aria-label="配置 Agent" value={draft.provider} onChange={event=>change({provider:event.target.value})}>{workbench.providers.map(provider=><option key={provider.id} value={provider.id}>{provider.name}</option>)}</select></label><label>自定义 ACP 启动程序（可选）<input aria-label="自定义 ACP 启动程序" value={draft.command} placeholder="可执行程序的绝对路径；留空使用内置入口" onChange={event=>change({command:event.target.value})}/></label><label>完整启动参数（可选，覆盖默认值）<textarea aria-label="启动参数 JSON" value={draft.args} placeholder={'["/path/to/adapter.js"]'} onChange={event=>change({args:event.target.value})}/></label><div className="desktop-settings-form-actions"><button type="button" disabled={busy||!selected||selected==='new'} onClick={()=>void remove()}>移除配置</button><button disabled={busy||!draft.name.trim()}>{busy?'正在保存…':selected&&selected!=='new'?'保存修订':'保存配置'}</button></div></form>{error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}</section></div>;
+}
