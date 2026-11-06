@@ -1,3 +1,4 @@
+import {FileText,Folder} from "lucide-react";
 import {describeTool} from "./tool-presentation.js";
 import {ToolDetails} from "./ToolDetails.jsx";
 import React, { useEffect, useRef, useState } from "react";
@@ -149,7 +150,7 @@ export function SessionTools({ session, workbench, tab, act, fileTarget }) {
       {(result?.files ?? result?.entries ?? []).map((file) => (
         <div className="desktop-file-row" key={file.path}>
           <button onClick={() => void inspect(file)}>
-            {file.status ?? file.kind} · {file.path}
+            {file.kind==='directory'?<Folder size={12}/>:<FileText size={12}/>}<span title={file.path}>{file.path.split('/').at(-1) || file.path}</span>{file.status&&<small>{file.status}</small>}
           </button>
           {file.staged && (
             <button onClick={() => void inspect(file, true)}>已暂存差异</button>

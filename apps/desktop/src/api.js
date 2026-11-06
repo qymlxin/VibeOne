@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
+export const openExternal = url => invoke("open_external", {url});
+
 export const restartHost = () => invoke("restart_host");
 export const isNative = () => !!window.__TAURI_INTERNALS__;
 export const connectHost = () =>

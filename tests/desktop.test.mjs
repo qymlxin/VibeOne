@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -10,9 +10,10 @@ import { chromium } from "@playwright/test";
 
 test(
   "desktop React view controls the live Host: messages, approvals, stop, themes and reconnect",
-  { timeout: 60_000 },
+  { timeout: 90_000 },
   async (t) => {
     const directory = await mkdtemp(join(tmpdir(), "vibeone-desktop-test-"));
+    await writeFile(join(directory,'preview.txt'),'workspace preview text\n');
     const child = spawn(
       resolve("target/debug/vibeone-host"),
       ["serve", "--data-dir", directory],
@@ -57,6 +58,7 @@ test(
         : undefined);
     const browser = await chromium.launch({ executablePath });
     t.after(async () => {
+      await page.screenshot({path:join(tmpdir(),"vibeone-desktop-final-state.png")}).catch(()=>{});
       await browser.close();
       await fetch(`${connection.url}/v1/host/stop`, {
         method: "POST",
@@ -383,7 +385,55 @@ test(
     await page.getByRole('button',{name:'回到最新消息',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('.desktop-conversation-marks button:last-child')?.getAttribute('aria-current')==='location');
 
+    await page.getByRole('button',{name:'设置会话头像：已保存的桌面会话',exact:true}).click();
+    await page.getByRole('button',{name:'头像颜色 #8055CF',exact:true}).click();
+    await page.getByRole('button',{name:'六边形',exact:true}).click();
+    await page.getByRole('button',{name:'关闭头像设置',exact:true}).click();
+    await page.route('https://example.com/**',route=>route.fulfill({contentType:'text/html; charset=utf-8',body:'<meta charset="utf-8"><h1>隔离网页预览测试</h1>'}));
+    await page.getByRole('textbox',{name:'发送任务'}).fill('/preview');
+    await page.getByRole('button',{name:'发送消息',exact:true}).click();
+    await page.getByRole('link',{name:'工作区文件',exact:true}).waitFor();
+    await page.getByRole('link',{name:'工作区文件',exact:true}).click();
+    await page.locator('.desktop-file-preview pre').getByText('workspace preview text',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('textbox',{name:'发送任务'}).isVisible(),true,'opening files retains the conversation and composer');
+    const paneWidth=await page.locator('.desktop-right-panel').evaluate(node=>node.clientWidth);
+    await page.getByRole('separator',{name:'调整右侧预览宽度'}).press('ArrowLeft');
+    assert.ok(await page.locator('.desktop-right-panel').evaluate(node=>node.clientWidth)>paneWidth);
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-live-workbench-files.png')});
+    await page.getByRole('link',{name:'网页预览',exact:true}).click();
+    assert.equal(await page.locator('iframe[title="网页预览"]').getAttribute('sandbox'),'allow-scripts allow-forms');
+    await page.frameLocator('iframe[title="网页预览"]').getByRole('heading',{name:'隔离网页预览测试'}).waitFor({timeout:5000}).catch(async error=>{await page.screenshot({path:join(tmpdir(),'vibeone-browser-failure.png')});throw Error(`${error.message}\nframes: ${page.frames().map(frame=>frame.url()).join(',')}\nsrc: ${await page.locator('iframe').getAttribute('src')}\n${await page.locator('.desktop-browser').innerText()}`);});
+    await page.getByRole('button',{name:'收起右侧面板',exact:true}).click();
+    await page.getByRole('button',{name:'终端',exact:true}).click();
+    await page.getByRole('heading',{name:'Agent 终端输出（只读）',exact:true}).waitFor();
+    await page.getByRole('button',{name:'收起右侧面板',exact:true}).click();
     await page.getByRole("button", { name: "连接与设置", exact: true }).click();
+    const settingsNav=page.getByRole('navigation',{name:'设置分类'});
+    await settingsNav.getByRole('button',{name:'常规',exact:true}).waitFor();
+    assert.equal(await settingsNav.getByRole('button').count(),8);
+    await page.getByRole('textbox',{name:'搜索设置'}).fill('配对');
+    assert.equal(await settingsNav.getByRole('button').count(),1);
+    await page.getByRole('textbox',{name:'搜索设置'}).fill('');
+    await settingsNav.getByRole('button',{name:'Agent',exact:true}).click();
+    await page.getByRole('button',{name:'新建 Agent 配置',exact:true}).click();
+    await page.getByRole('textbox',{name:'配置名称',exact:true}).fill('桌面审阅配置');
+    await page.getByRole('textbox',{name:'启动参数 JSON',exact:true}).fill('{bad');
+    await page.getByRole('button',{name:'保存配置',exact:true}).click();
+    await page.getByText('启动参数不是有效 JSON。',{exact:true}).waitFor();
+    await page.getByRole('textbox',{name:'启动参数 JSON',exact:true}).fill('');
+    await page.getByRole('button',{name:'保存配置',exact:true}).click();
+    await page.locator('.desktop-settings-object-list').getByRole('button').filter({hasText:'桌面审阅配置'}).waitFor();
+    await settingsNav.getByRole('button',{name:'外观',exact:true}).click();
+    await page.getByLabel('背景颜色',{exact:true}).fill('#151515');
+    await page.getByRole('button',{name:'亮色',exact:true}).click();
+    await page.getByLabel('背景颜色',{exact:true}).fill('#f4f1eb');
+    await page.getByRole('button',{name:'暗色',exact:true}).click();
+    assert.equal(await page.getByLabel('背景颜色',{exact:true}).inputValue(),'#151515');
+    await page.getByRole('button',{name:'恢复默认配色',exact:true}).click();
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-live-settings-appearance.png')});
+    await settingsNav.getByRole('button',{name:'插件',exact:true}).click();
+    await page.getByText('安装 / 更新本地插件',{exact:true}).click();
+
     await page
       .getByRole("button", { name: "选择内置示例插件", exact: true })
       .click();
@@ -420,12 +470,17 @@ test(
       true,
     );
 
+    await page.getByRole('navigation',{name:'设置分类'}).getByRole('button',{name:'数据与诊断',exact:true}).click();
     await page.getByRole('button',{name:'重启工作主机',exact:true}).click();
     await page.getByText('正在重启工作主机',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'重新连接',exact:true}).isDisabled(),true);
     assert.equal((await page.locator('body').innerText()).includes('Load failed'),false);
     await page.getByText('工作主机 · 本机已连接',{exact:true}).waitFor();
 
+    await page.reload();
+    await page.getByText('工作主机 · 本机已连接',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('vibeone-appearance-v1')).light.background),'#f4f1eb');
+    assert.ok(await page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('vibeone-avatar:')).some(key=>JSON.parse(localStorage.getItem(key)).shape==='hexagon')));
     assert.deepEqual(errors, []);
     assert.equal(
       await page.evaluate(

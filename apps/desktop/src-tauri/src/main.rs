@@ -306,6 +306,44 @@ async fn export_remote_certificate(app: tauri::AppHandle) -> Result<Option<Strin
     .map_err(|error| error.to_string())?
 }
 
+fn external_url(value: &str) -> Result<String, String> {
+    let url = reqwest::Url::parse(value).map_err(|_| "网址无效".to_string())?;
+    if !matches!(url.scheme(), "http" | "https")
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err("仅允许不含凭据的 HTTP(S) 网址".into());
+    }
+    Ok(url.to_string())
+}
+
+#[tauri::command]
+async fn open_external(url: String) -> Result<(), String> {
+    let url = external_url(&url)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(target_os = "macos")]
+        let status = Command::new("open").arg(&url).status();
+        #[cfg(target_os = "linux")]
+        let status = Command::new("xdg-open").arg(&url).status();
+        #[cfg(target_os = "windows")]
+        let status = Command::new("rundll32.exe")
+            .arg("url.dll,FileProtocolHandler")
+            .arg(&url)
+            .status();
+        status
+            .map_err(|error| error.to_string())
+            .and_then(|status| {
+                if status.success() {
+                    Ok(())
+                } else {
+                    Err("无法启动系统浏览器".into())
+                }
+            })
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[tauri::command]
 async fn choose_workspace(app: tauri::AppHandle) -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -385,6 +423,7 @@ fn main() {
             host_connection,
             restart_host,
             choose_workspace,
+            open_external,
             export_remote_certificate
         ])
         .build(tauri::generate_context!())
@@ -405,6 +444,21 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn external_links_only_allow_web_urls_without_embedded_credentials() {
+        assert_eq!(
+            external_url("https://example.com/path").unwrap(),
+            "https://example.com/path"
+        );
+        for value in [
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "https://name:secret@example.com",
+            "not a URL",
+        ] {
+            assert!(external_url(value).is_err());
+        }
+    }
     #[test]
     fn upgrade_export_is_durable_and_failed_replacement_preserves_previous_export() {
         let unique = std::time::SystemTime::now()

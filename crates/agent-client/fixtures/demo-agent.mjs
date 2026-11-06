@@ -15,6 +15,7 @@ async function run(sessionId, prompt, userId, epoch) {
   const session = sessions.get(sessionId);
   const active = () => session?.epoch === epoch;
   let response = `已通过 ACP v2 收到：${prompt}\n\n这是本地演示 Agent，不调用模型或读写项目文件。你可以发送 /approve 体验审批，发送 /wait 后点击停止体验取消。`;
+  if (prompt.includes('/preview')) response='预览演示：[工作区文件](preview.txt)\n\n[网页预览](https://example.com/docs)。';
   if (prompt.includes('/long')) response = '这是一段用于验证流式消息滚动位置的演示内容。\n'.repeat(90);
   try {
     if (prompt.includes('/thought')) {

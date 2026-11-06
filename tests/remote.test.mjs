@@ -211,6 +211,21 @@ test(
       ),
       false,
     );
+    await page.getByRole('button',{name:'文件',exact:true}).click();
+    await page.getByRole('complementary',{name:'工作区预览'}).waitFor();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-live-tools-mobile.png')});
+    await page.getByRole('button',{name:'收起右侧面板',exact:true}).click();
+    await page.getByRole('button',{name:'会话列表',exact:true}).click();
+    await page.getByRole('button',{name:'连接与设置',exact:true}).click();
+    const settingsNav=page.getByRole('navigation',{name:'设置分类'});
+    await settingsNav.getByRole('button',{name:'常规',exact:true}).waitFor();
+    assert.equal(await settingsNav.getByRole('button').count(),3,'remote devices cannot manage host profiles/plugins/devices');
+    await settingsNav.getByRole('button',{name:'外观',exact:true}).click();
+    await page.getByRole('button',{name:'亮色',exact:true}).click();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-live-settings-mobile.png')});
+    await page.getByRole('button',{name:'返回工作台',exact:true}).click();
     await page.getByRole("button", { name: "会话列表", exact: true }).click();
     await page.getByRole("button", { name: "新建会话", exact: true }).click();
     await page
