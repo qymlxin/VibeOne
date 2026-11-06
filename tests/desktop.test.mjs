@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
 import { chromium } from "@playwright/test";
@@ -96,6 +96,12 @@ test(
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(frontend);
     await page.getByText("工作主机 · 本机已连接", { exact: true }).waitFor();
+    // Optional workspace must work through the actual form, without a native picker.
+    await page.getByRole('button',{name:'创建会话',exact:true}).click();
+    await page.getByRole('textbox',{name:'发送任务'}).waitFor();
+    const managed=await (await fetch(`${connection.url}/v1/snapshot`,{headers:{Authorization:`Bearer ${connection.token}`}})).json();
+    assert.ok(managed.sessions.some(s=>s.workspace.includes('/projects/project-')));
+    await page.getByRole('button',{name:'新建会话',exact:true}).click();
     await page.getByRole("button", { name: "选择工作区目录" }).click();
     await page
       .waitForFunction(
@@ -272,7 +278,7 @@ test(
       .getByRole("button", { name: "选择内置示例插件", exact: true })
       .click();
     await page.getByRole("button", { name: "检查插件", exact: true }).click();
-    await page.getByLabel(/允许访问/).check();
+    await page.getByLabel(`允许访问 ${basename(directory)}`, {exact:true}).check();
     await page.getByLabel("信任此本地插件及上述权限").check();
     await page
       .getByRole("button", { name: "安装 / 更新并启用", exact: true })

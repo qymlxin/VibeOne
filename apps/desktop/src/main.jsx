@@ -338,10 +338,10 @@ function NewSession({ workbench, online, act, onCreated }) {
       <div className="desktop-setup-heading">
         <MessageSquare size={23} />
         <h1>新会话</h1>
-        <p>选择工作区和 Agent，开始一次任务。</p>
+        <p>选择 Agent 即可开始，也可以关联已有项目。</p>
       </div>
       <form className="desktop-setup-form" onSubmit={create}>
-        <label htmlFor="workspace">工作区</label>
+        <label htmlFor="workspace">工作区{!workbench.device && "（可选）"}</label>
         {isNative() ? (
           <div className="desktop-path">
             <input
@@ -349,8 +349,7 @@ function NewSession({ workbench, online, act, onCreated }) {
               list="saved-workspaces"
               value={workspace}
               onChange={(event) => setWorkspace(event.target.value)}
-              placeholder="选择或输入项目目录"
-              required
+              placeholder="留空，自动创建新项目"
             />
             <button
               type="button"
@@ -368,9 +367,9 @@ function NewSession({ workbench, online, act, onCreated }) {
             id="workspace"
             value={workspace}
             onChange={(event) => setWorkspace(event.target.value)}
-            required
+            required={!!workbench.device}
           >
-            <option value="">选择已授权工作区</option>
+            <option value="">{workbench.device ? "选择已授权工作区" : "自动创建新项目"}</option>
             {(workbench.workspaces ?? []).map((item) => (
               <option key={item.id} value={item.path}>
                 {item.name}
@@ -414,7 +413,7 @@ function NewSession({ workbench, online, act, onCreated }) {
           className="desktop-button primary"
           disabled={
             !online ||
-            !workspace.trim() ||
+            (!!workbench.device && !workspace.trim()) ||
             busy ||
             !(selected?.available || profile?.command)
           }
@@ -824,6 +823,19 @@ function Conversation({ session, workbench, online, act }) {
         </div>
       )}
       <div hidden={tab !== "chat"} className="desktop-composer-wrap">
+        {session.historyOnly && !session.archived && canOperate && !(session.queue ?? []).length && (
+          <div className="desktop-context-restart">
+            <span>历史记录仍在。继续会启动新 Agent 上下文，不恢复旧工具进程，也不会自动发送旧消息。</span>
+            <button className="desktop-button" disabled={!online || sending} onClick={async () => {
+              setSending(true);
+              await act(() => workbench.call(`/sessions/${session.id}/queue`, {resume:true,freshContext:true}));
+              setSending(false);
+            }}>在新上下文继续</button>
+          </div>
+        )}
+        {!session.historyOnly && session.agentState?.contextRestartedAt && (
+          <p className="desktop-field-help">正在新的 Agent 上下文中继续；上方旧消息仅作为本地历史保留。</p>
+        )}
         <div className="desktop-composer">
           <label className="desktop-file-reference">
             引用工作区文件（可选）
@@ -856,7 +868,7 @@ function Conversation({ session, workbench, online, act }) {
               !canOperate
                 ? "此设备仅可查看或审批，不能发送任务"
                 : readOnly
-                  ? "历史或归档会话仅供查看，请新建会话开始执行"
+                  ? "先取消归档或点击“在新上下文继续”以发送消息"
                   : active
                     ? "当前正在执行，发送后加入下一轮队列…"
                     : "描述任务，或发送新的指令…"
@@ -918,7 +930,7 @@ function Conversation({ session, workbench, online, act }) {
           ) : (
             <span>
               {session.historyOnly
-                ? "历史会话 · 新建会话开始新的执行"
+                ? "历史已保留 · Agent 上下文尚未恢复"
                 : workbench.persistent
                   ? "会话已保存到本机"
                   : "本次主机运行期间保留会话"}
@@ -967,6 +979,9 @@ function Settings({ workbench, plugins }) {
   return (
     <div className="desktop-settings">
       <h1>连接与工具</h1>
+      {!workbench.device && workbench.dataDirectory && <p>统一数据目录：<code>{workbench.dataDirectory}</code></p>}
+      {workbench.migrationPending && <p>有任务正在使用旧数据目录。结束执行后重启工作主机，将自动迁移到统一数据目录。</p>}
+      {workbench.migrationWarning && <p>数据迁移尚未完成，当前继续使用原目录：{workbench.migrationWarning}</p>}
       <p>
         {workbench.persistent
           ? "会话与工作区保存在本机 SQLite 数据库中。重启后可查看历史，未结束的执行会标记为中断，旧审批失效。"

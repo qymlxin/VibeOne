@@ -102,5 +102,5 @@ export function useWorkbench() {
     },
     [connection, phase],
   );
-  return { ...snapshot, phase, error, call, reconnect, restart };
+  return { ...snapshot, dataDirectory:connection?.dataDirectory, migrationPending:!!connection?.migrationPending, migrationWarning:connection?.migrationWarning, phase, error, call, reconnect, restart };
 }

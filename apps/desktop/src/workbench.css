@@ -1144,3 +1144,15 @@ p {
 .desktop-session-tabs button {
   flex: none;
 }
+.desktop-context-restart {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.desktop-context-restart .desktop-button { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .desktop-context-restart { align-items: flex-start; flex-direction: column; gap: 6px; }
+}
