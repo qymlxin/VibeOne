@@ -738,11 +738,34 @@ async fn history_page(
         .map(Json)
         .map_err(domain_fail)
 }
-async fn cancel(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
-    domain_command(async move { state.workbench.cancel(&id).await })
-        .await
-        .map(|_| Json(json!({"cancelRequested":true})))
-        .map_err(domain_fail)
+async fn cancel(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    body: axum::body::Bytes,
+) -> ApiResult<CancelResponse> {
+    let body: CancelRequest = if body.is_empty() {
+        CancelRequest::default()
+    } else {
+        serde_json::from_slice(&body).map_err(|_| {
+            domain_fail(crate::domain_error::DomainError::new(
+                crate::domain_error::ErrorKind::InvalidInput,
+                "停止请求格式无效",
+            ))
+        })?
+    };
+    domain_command(async move {
+        state
+            .workbench
+            .cancel_with_receipt(&id, body.key.as_deref(), body.run_id.as_deref())
+            .await
+    })
+    .await
+    .map(|_| {
+        Json(CancelResponse {
+            cancel_requested: true,
+        })
+    })
+    .map_err(domain_fail)
 }
 async fn resume_context(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
     domain_command(async move { state.workbench.resume_context(&id).await })

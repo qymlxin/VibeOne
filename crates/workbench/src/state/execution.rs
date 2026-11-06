@@ -744,30 +744,106 @@ impl Workbench {
         Ok(())
     }
 
+    #[cfg(test)]
     pub(crate) async fn cancel(&self, id: &str) -> Result<(), DomainError> {
+        self.cancel_with_receipt(id, None, None).await
+    }
+    pub(crate) async fn cancel_with_receipt(
+        &self,
+        id: &str,
+        key: Option<&str>,
+        run_id: Option<&str>,
+    ) -> Result<(), DomainError> {
         self.command_available()?;
         let entry = self.command_entry(id)?;
         let _gate = entry.gate.lock().await;
         self.command_available()?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
+        use sha2::{Digest, Sha256};
+        let hash = |value: &Value| {
+            Sha256::digest(serde_json::to_vec(value).expect("JSON serializes"))
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        };
+        if key.is_some_and(|key| key.is_empty() || key.len() > 128)
+            || run_id.is_some_and(|id| id.is_empty() || id.len() > 128)
+        {
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "停止请求身份无效",
+            ));
+        }
+        let receipt_key = key.map(|key| hash(&json!([id, key])));
+        let fingerprint = hash(&json!({"runId":run_id}));
+        if let Some(key) = &receipt_key {
+            let saved = self
+                .catalog
+                .lock()
+                .expect("catalog poisoned")
+                .get("stop-command")
+                .and_then(|items| items.get(key))
+                .cloned();
+            if let Some(saved) = saved {
+                if saved["fingerprint"] != fingerprint {
+                    return Err(DomainError::new(
+                        ErrorKind::IdempotencyConflict,
+                        "同一停止幂等键的目标不同",
+                    ));
+                }
+                return Ok(());
+            }
+        }
+        let active_run = view
+            .runs
+            .iter()
+            .rev()
+            .find(|run| {
+                run.finished_at.is_none()
+                    && matches!(
+                        run.status.as_str(),
+                        "starting" | "running" | "requires_action" | "cancelling"
+                    )
+            })
+            .map(|run| run.id.as_str());
+        if let Some(expected) = run_id
+            && (!view.active || active_run != Some(expected))
+        {
+            return Err(DomainError::new(
+                ErrorKind::ContextConflict,
+                "目标执行已结束或已切换，请查看当前状态",
+            ));
+        }
+        let receipt = json!({"sessionId":id,"fingerprint":fingerprint,"runId":active_run,"cancelRequested":true});
+        let receipt = receipt_key.as_deref().map(|key| (key, &receipt));
         if !view.active {
             if !view.queue.is_empty() {
                 view.queue_paused = true;
                 view.stop_reason = Some("cancelled".into());
-                self.commit(&entry, view, "queue.stop_requested", &json!({}))
-                    .await
-                    .map_err(|_| DomainError::storage())?;
+                self.commit_with_stop_receipt(
+                    &entry,
+                    view,
+                    "queue.stop_requested",
+                    &json!({}),
+                    receipt,
+                )
+                .await
+                .map_err(|_| DomainError::storage())?;
                 self.leases
                     .lock()
                     .expect("leases poisoned")
                     .retain(|_, owner| owner != id);
                 entry.wake.notify_one();
+            } else if receipt.is_some() {
+                self.commit_with_stop_receipt(&entry, view, "run.stop_noop", &json!({}), receipt)
+                    .await
+                    .map_err(|_| DomainError::storage())?;
             }
             return Ok(());
         }
         view.queue_paused = true;
         view.status = "cancelling".into();
-        self.commit(&entry, view, "run.cancel_requested", &json!({}))
+        self.commit_with_stop_receipt(&entry, view, "run.cancel_requested", &json!({}), receipt)
             .await
             .map_err(|_| DomainError::storage())?;
         if let Some(control) = entry

@@ -29,6 +29,8 @@ test(
       workspace: hidden,
       provider: "demo",
     });
+    await call(`/sessions/${visible.id}/cancel`,{key:'visible-stop-receipt'});
+    await call(`/sessions/${invisible.id}/cancel`,{key:'hidden-stop-receipt'});
     const remote = await call("/remote", {
       enabled: true,
       ip: "127.0.0.1",
@@ -139,6 +141,7 @@ test(
     assert.equal((await request("/v1/providers/demo/probe", {}, cookie)).status, 403);
     assert.equal((await request("/v1/profiles", undefined, cookie)).status, 403);
     assert.equal((await request('/v1/profiles',privateProfileCommand,cookie)).status,403,'known configuration receipts remain owner-only');
+    assert.equal((await request(`/v1/sessions/${visible.id}/cancel`,{key:'visible-stop-receipt'},cookie)).status,403,'stop receipts do not grant viewer execution rights');
     assert.equal((await request('/v1/plugin-lifecycle/operations',{key:'remote-denied',action:'inspect',input:{path:directory}},cookie)).status,403);
     assert.equal((await request(`/v1/sessions/${visible.id}/attachments`,{name:'forbidden.txt',mimeType:'text/plain',data:'dGV4dA=='},cookie)).status,403);
     assert.equal((await request(`/v1/sessions/${visible.id}/context/resume`,{},cookie)).status,403);
@@ -202,6 +205,7 @@ test(
     });
     await page.getByText("本机 · 已连接", { exact: true }).waitFor();
     assert.equal(await page.evaluate(async body=>(await fetch('/v1/profiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).status,privateProfileCommand),403,'operator devices cannot replay Owner configuration commands');
+    assert.equal(await page.evaluate(async id=>(await fetch(`/v1/sessions/${id}/cancel`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'hidden-stop-receipt'})})).status,invisible.id),403,'operator stop receipts remain scoped to authorized workspaces');
     const replays=await page.evaluate(async({directory,hidden})=>{
       const replay=async(workspace,key)=>{const response=await fetch('/v1/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'demo',workspace,key})});return {status:response.status,body:await response.json()};};
       return [await replay(directory,'visible-creation'),await replay(hidden,'hidden-creation')];
@@ -278,7 +282,9 @@ test(
     await page.getByRole("textbox", { name: "发送任务" }).fill("/wait");
     await page.getByRole("button", { name: "发送消息", exact: true }).click();
     const waitingRun=await wait(visible.id,session=>session.status==='running'&&session.runs.at(-1)?.text==='/wait');
+    const stopRequest=page.waitForRequest(request=>new URL(request.url()).pathname.endsWith('/cancel'));
     await page.getByRole("button", { name: "停止执行", exact: true }).click();
+    const stopBody=(await stopRequest).postDataJSON();assert.equal(typeof stopBody.key,'string');assert.equal(stopBody.runId,waitingRun.runs.at(-1).id);
     await page.getByText("本轮已停止", { exact: true }).waitFor();
     const stoppedRun=await wait(visible.id,session=>session.stopReason==='cancelled'&&session.runs.at(-1)?.id===waitingRun.runs.at(-1).id&&session.runs.at(-1)?.status==='cancelled');
     assert.equal(stoppedRun.queuePaused,true);

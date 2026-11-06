@@ -316,9 +316,20 @@ impl Workbench {
     async fn commit(
         &self,
         entry: &Entry,
+        view: SessionView,
+        kind: &str,
+        event: &Value,
+    ) -> Result<(), String> {
+        self.commit_with_stop_receipt(entry, view, kind, event, None)
+            .await
+    }
+    async fn commit_with_stop_receipt(
+        &self,
+        entry: &Entry,
         mut view: SessionView,
         kind: &str,
         event: &Value,
+        receipt: Option<(&str, &Value)>,
     ) -> Result<(), String> {
         let _sync = self.sync_gate.lock().await;
         if let Some(error) = self
@@ -344,12 +355,25 @@ impl Workbench {
         };
         let cursor = self
             .store
-            .save(&record, kind, event)
+            .save_with_receipt(
+                &record,
+                kind,
+                event,
+                receipt.map(|(id, value)| ("stop-command", id, value)),
+            )
             .await
             .map_err(|error| self.fail_storage(error))?;
         let _publication = self.publication.lock().expect("publication poisoned");
         *entry.view.lock().expect("view poisoned") = view;
         entry.revision.store(revision, Ordering::SeqCst);
+        if let Some((id, value)) = receipt {
+            self.catalog
+                .lock()
+                .expect("catalog poisoned")
+                .entry("stop-command".into())
+                .or_default()
+                .insert(id.into(), value.clone());
+        }
         self.changed(cursor);
         Ok(())
     }
@@ -387,6 +411,7 @@ impl Workbench {
                     "pluginLifecycleOperations",
                     "sessionCreationIdempotency",
                     "profileCommandIdempotency",
+                    "stopCommandIdempotency",
                     "structuredErrors",
                 ]
                 .into_iter()

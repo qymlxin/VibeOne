@@ -518,7 +518,9 @@ test(
       animations: "disabled",
       path: join(tmpdir(), "vibeone-desktop-waiting.png"),
     });
+    const stopRequest=page.waitForRequest(request=>new URL(request.url()).pathname.endsWith('/cancel'));
     await page.getByRole("button", { name: "停止执行", exact: true }).click();
+    const stopBody=(await stopRequest).postDataJSON();assert.equal(typeof stopBody.key,'string');assert.equal(typeof stopBody.runId,'string');
     await page.getByText("本轮已停止", { exact: true }).waitFor();
     assert.equal(await page.locator(".desktop-live-status").count(), 0);
     await page.getByRole("button", { name: "重命名", exact: true }).click();

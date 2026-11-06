@@ -2,6 +2,8 @@
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type ApprovalDecisionRequest = { "option": string; };
 export type AttachmentUploadRequest = { "data": string; "mimeType": string; "name": string; };
+export type CancelRequest = { "key"?: string | null; "runId"?: string | null; };
+export type CancelResponse = { "cancelRequested": boolean; };
 export type CreateSessionRequest = { "key"?: string | null; "profileId"?: string | null; "provider": string; "workspace"?: string; };
 export type CreateSessionResponse = { "id": string; };
 export type DecisionRecord = { "answer"?: JsonValue; "createdAt"?: number | null; "delivery": string; "id": string; "option"?: string | null; "requestId": string; [key: string]: JsonValue | undefined; };

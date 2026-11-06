@@ -123,6 +123,18 @@ pub struct QueueRequest {
     pub fresh_context: bool,
 }
 
+#[derive(Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelRequest {
+    pub key: Option<String>,
+    pub run_id: Option<String>,
+}
+#[derive(Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelResponse {
+    pub cancel_requested: bool,
+}
+
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UpdateSessionRequest {
     pub title: Option<String>,
@@ -530,6 +542,8 @@ pub fn schemas() -> Value {
         "CreateSessionRequest":schema_for!(CreateSessionRequest),
         "SubmitMessageRequest":schema_for!(SubmitMessageRequest),
         "QueueRequest":schema_for!(QueueRequest),
+        "CancelRequest":schema_for!(CancelRequest),
+        "CancelResponse":schema_for!(CancelResponse),
         "UpdateSessionRequest":schema_for!(UpdateSessionRequest),
         "WorkspaceImportRequest":schema_for!(WorkspaceImportRequest),
         "ApprovalDecisionRequest":schema_for!(ApprovalDecisionRequest),

@@ -23,7 +23,7 @@
 | W07 | 用户输入与回复分段、复制回答 | `ChatTimeline.jsx` | 原始Markdown复制、正文间距及浏览器回归自动通过 |
 | W08 | 整轮过程、同类工具组、单工具详情 | `chat-timeline.js`、`ChatTimeline.jsx`、`ToolDetails.jsx` | 顺序、嵌套折叠、搜索/命令/文件解析、旧数据兼容自动通过 |
 | W09 | 运行摘要滚动、思考扫光、结束停止动画 | `ActivityFeed`、主题CSS | 最新3项、状态、减少动画与移动截图自动通过；静态检测的渐变提示属于已批准状态效果 |
-| W10 | 发送、停止、忙碌追加队列、撤回、暂停/继续 | `execution.rs`、`Queue` | 串行、幂等、进程排空、恢复配置失败停止及手动暂停自动通过；真实Codex进程退出通过 |
+| W10 | 发送、停止、忙碌追加队列、撤回、暂停/继续 | `execution.rs`、`Queue` | 串行、进程排空、恢复配置失败停止及手动暂停自动通过；100补齐[停止持久回执与Run保护](stop-command-receipts.md)，旧请求不停止后续Run；队列写操作的重复回执仍继续核对 |
 | W11 | `/` 指令与 `@` 上下文引用 | `ComposerInput.jsx`、Host文件读取 | ACP真实命令列表、本地面板指令、项目技能发现/正文引用、目录筛选/刷新和键盘自动通过 |
 | W12 | 附件按钮、图片/文件上下文 | `Attachments.jsx`、Host附件API | 真上传、粘贴/拖放、预览、下载字节、ACP内容块、失败恢复与重启自动通过 |
 | W13 | 输入区Agent/模型/权限配置 | `AgentConfigControls.jsx` | 只显示上游实际选项，select/boolean和失败回退自动通过；不冒充所有Agent都有同一权限模式 |

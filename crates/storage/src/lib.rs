@@ -83,6 +83,22 @@ impl Store {
         event: &Value,
         receipt: Option<(&str, &Value)>,
     ) -> Result<u64> {
+        self.save_with_receipt(
+            session,
+            kind,
+            event,
+            receipt.map(|(id, value)| ("session-create", id, value)),
+        )
+        .await
+    }
+    /// Projection, event and command receipt share one transaction.
+    pub async fn save_with_receipt(
+        &self,
+        session: &SavedSession,
+        kind: &str,
+        event: &Value,
+        receipt: Option<(&str, &str, &Value)>,
+    ) -> Result<u64> {
         if session.snapshot["id"] != session.id
             || session.snapshot["workspace"] != session.workspace
         {
@@ -136,8 +152,9 @@ impl Store {
                 .await?;
         }
         history::save_projection(&mut tx, session, kind).await?;
-        if let Some((id, value)) = receipt {
-            sqlx::query("INSERT INTO catalog(kind,id,value) VALUES('session-create',?,?)")
+        if let Some((kind, id, value)) = receipt {
+            sqlx::query("INSERT INTO catalog(kind,id,value) VALUES(?,?,?)")
+                .bind(kind)
                 .bind(id)
                 .bind(serde_json::to_string(value)?)
                 .execute(&mut *tx)
@@ -488,6 +505,36 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].0, "profile-command");
         assert_eq!(rows[0].2["result"]["removed"], true);
+        store.close().await;
+    }
+    #[tokio::test]
+    async fn stop_projection_and_receipt_fail_atomically() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).await.unwrap();
+        store
+            .save(&record(1, "running"), "created", &json!({}))
+            .await
+            .unwrap();
+        let cursor = store.cursor().await.unwrap();
+        sqlx::query("CREATE TRIGGER fail_stop_receipt BEFORE INSERT ON catalog WHEN NEW.kind='stop-command' BEGIN SELECT RAISE(ABORT,'injected stop receipt failure'); END").execute(&store.pool).await.unwrap();
+        assert!(
+            store
+                .save_with_receipt(
+                    &record(2, "cancelling"),
+                    "run.cancel_requested",
+                    &json!({}),
+                    Some(("stop-command", "intent", &json!({"cancelRequested":true})))
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            store.sessions().await.unwrap()[0].snapshot["status"],
+            "running"
+        );
+        assert_eq!(store.sessions().await.unwrap()[0].revision, 1);
+        assert!(store.catalog().await.unwrap().is_empty());
+        assert_eq!(store.cursor().await.unwrap(), cursor);
         store.close().await;
     }
     #[tokio::test]

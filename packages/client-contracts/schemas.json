@@ -760,6 +760,38 @@
       }
     }
   },
+  "CancelRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "CancelRequest",
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "runId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    }
+  },
+  "CancelResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "CancelResponse",
+    "type": "object",
+    "required": [
+      "cancelRequested"
+    ],
+    "properties": {
+      "cancelRequested": {
+        "type": "boolean"
+      }
+    }
+  },
   "UpdateSessionRequest": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "UpdateSessionRequest",

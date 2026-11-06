@@ -8,6 +8,7 @@ export function submitMessage(sessionId:string,text:string,files:string[],attach
  return [`/sessions/${encodeURIComponent(sessionId)}/messages`,{text,files,attachments,key}];
 }
 export function controlQueue(sessionId:string,body:QueueRequest):Command<QueueRequest>{return [`/sessions/${encodeURIComponent(sessionId)}/queue`,body];}
+export function cancelSession(sessionId:string,key?:string,runId?:string):Command<import('./generated.js').CancelRequest>{return [`/sessions/${encodeURIComponent(sessionId)}/cancel`,{...(key===undefined?{}:{key}),...(runId===undefined?{}:{runId})}];}
 export function updateSession(sessionId:string,body:UpdateSessionRequest):Command<UpdateSessionRequest>{return [`/sessions/${encodeURIComponent(sessionId)}/metadata`,body];}
 export function importWorkspace(path:string):Command<WorkspaceImportRequest>{return ['/workspaces',{path}];}
 export function decideApproval(sessionId:string,requestId:string,option:string):Command<ApprovalDecisionRequest>{return [`/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(requestId)}`,{option}];}

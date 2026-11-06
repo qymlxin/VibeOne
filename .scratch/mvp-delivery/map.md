@@ -6,6 +6,9 @@
 
 ## Decisions-so-far
 
+- [100 停止请求对账](issues/100-stop-command-receipts.md)：修复旧停止请求影响后续Run，增加持久受理、原子投影与目标保护，桌面/手机接入；并发、重启、SQLite故障、权限及完整回归通过。
+- 后续已直接复现：[101 队列控制](issues/101-queue-command-receipts.md)同键撤回重试报冲突；[102 产物保存](issues/102-artifact-capture-receipts.md)同键重复生成快照。保持整体目标，依次实现并验证。
+
 - [99 Agent 配置操作回执](issues/99-profile-command-receipts.md)：新建、修订、移除接持久幂等与原子目录事务；设置页丢失响应可手动同键重试，异常移除保留重试入口，真实并发/重启/SQLite故障/HTTPS权限及桌面验证通过。
 
 - [97 会话创建对账](issues/97-session-creation-idempotency.md)：原子持久创建回执与正式表单同键重试接入；真实并发、重启、丢失响应、存储故障和HTTPS权限通过，文档/SVG及桌面包同步更新。
