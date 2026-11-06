@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 export function SessionTools(props) {
   return ['files','changes'].includes(props.tab)?<FileExplorer {...props}/>:<SessionToolsDetail {...props}/>;
 }
-function SessionToolsDetail({ session, workbench, tab, act }) {
+function SessionToolsDetail({ session, workbench, tab, act, onLocateRun, availableRunIds=[] }) {
   const [result,setResult]=useState(null);
   const listRequest=useRef(0);
   async function load(){
@@ -18,7 +18,7 @@ function SessionToolsDetail({ session, workbench, tab, act }) {
   if(tab==='terminal'){
     const tools=session.tools.filter(tool=>tool.kind==='execute'||describeTool(tool).kind==='command');
     const terminals=session.agentState?.terminals ?? [];
-    return <section className="desktop-inspector desktop-terminal"><h2>Agent 终端输出（只读）</h2><p>来自当前会话的实际执行记录，不启动交互 Shell。</p>{!tools.length&&!terminals.length&&<p>尚未收到命令或终端输出。</p>}{tools.map(tool=><details key={tool.toolCallId}><summary>{tool.title ?? tool.name ?? '命令'} · {tool.status}</summary><ToolDetails tool={tool}/></details>)}{terminals.map((terminal,index)=><pre key={terminal.id??index}>{terminal.data?decode(terminal.data):JSON.stringify(terminal,null,2)}</pre>)}</section>;
+    return <section className="desktop-inspector desktop-terminal"><h2>Agent 终端输出（只读）</h2><p>来自当前会话的实际执行记录，不启动交互 Shell。</p>{!tools.length&&!terminals.length&&<p>尚未收到命令或终端输出。</p>}{tools.map(tool=><details key={tool.toolCallId}><summary>{tool.title ?? tool.name ?? '命令'} · {tool.status}</summary><ToolDetails tool={tool}/>{availableRunIds.includes(tool.runId)&&<button onClick={()=>onLocateRun(tool.runId)}>定位到对应对话</button>}</details>)}{terminals.map((terminal,index)=><pre key={terminal.id??index}>{terminal.data?decode(terminal.data):JSON.stringify(terminal,null,2)}</pre>)}</section>;
   }
   if (tab === "agent")
     return (
@@ -88,6 +88,7 @@ function SessionToolsDetail({ session, workbench, tab, act }) {
             <time>{new Date(run.createdAt).toLocaleString()}</time>
             <p>{run.text}</p>
             {run.error && <p role="status">{run.error}</p>}
+            {availableRunIds.includes(run.id)&&<button onClick={()=>onLocateRun(run.id)}>定位到对应对话</button>}
           </article>
         ))}
       </section>

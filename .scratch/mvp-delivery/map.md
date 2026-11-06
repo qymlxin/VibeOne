@@ -51,6 +51,8 @@
 
 - [45-prototype-file-explorer](issues/45-prototype-file-explorer.md)：补齐真实目录树/筛选/行号、Git差异着色统计与暂存切换，Host端到端验证通过；完整原型缺口列入 docs/prototype-completion.md。
 
+- [46-prototype-navigation-actions](issues/46-prototype-navigation-actions.md)：补齐回答复制、执行记录定位、网页历史、面板扩大和当前工作区变更卡片，真实Host/iframe回归通过。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。

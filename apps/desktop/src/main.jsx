@@ -2,6 +2,8 @@ import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo
 import { createRoot } from "react-dom/client";
 import {
   ArrowUp,
+  Maximize2,
+  Minimize2,
   Check,
   FolderOpen,
   LoaderCircle,
@@ -457,8 +459,13 @@ function Conversation({ session, workbench, online, act }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [tab, setTab] = useState("chat");
   const [panelWidth,setPanelWidth]=useState(null);
-  const [browserUrl,setBrowserUrl]=useState(null),[fileTarget,setFileTarget]=useState(null);
-  const openUrl=useCallback(url=>{setBrowserUrl(url);setTab('browser');},[]);
+  const [browserHistory,setBrowserHistory]=useState({urls:[],index:-1}),[fileTarget,setFileTarget]=useState(null);
+  const browserUrl=browserHistory.urls[browserHistory.index]??null;
+  const openUrl=useCallback(url=>{setBrowserHistory(previous=>{if(previous.urls[previous.index]===url)return previous;const urls=[...previous.urls.slice(0,previous.index+1),url].slice(-100);return {urls,index:urls.length-1};});setTab('browser');},[]);
+  const [expandedPanel,setExpandedPanel]=useState(false);
+  const [changeSummary,setChangeSummary]=useState(null);
+  const lastRun=session.runs?.at(-1);
+  useEffect(()=>{let stale=false;setChangeSummary(null);if(online&&lastRun?.finishedAt)workbench.call(`/sessions/${session.id}/changes`).then(value=>{if(!stale)setChangeSummary(value);}).catch(()=>{});return()=>{stale=true;};},[session.id,lastRun?.id,lastRun?.finishedAt,online,workbench.call]);
   const openFile=useCallback(path=>{setFileTarget({path,key:crypto.randomUUID()});setTab('files');},[]);
   const previewContext=useMemo(()=>({workspace:session.workspace,openUrl,openFile}),[session.workspace,openUrl,openFile]);
   const requestKey = useRef(null);
@@ -485,6 +492,13 @@ function Conversation({ session, workbench, online, act }) {
     "requires_action",
     "cancelling",
   ].includes(session.status);
+  const locateRun=runId=>{
+    const target=[...timeline.current.querySelectorAll('[data-turn-id]')].find(node=>node.dataset.turnId===runId);
+    if(!target)return;
+    followLatest.current=false;setFollowing(false);
+    if(matchMedia('(max-width:800px)').matches)setTab('chat');
+    requestAnimationFrame(()=>{const root=timeline.current;root.scrollTop+=target.getBoundingClientRect().top-root.getBoundingClientRect().top-16;target.focus({preventScroll:true});});
+  };
   const contentLength = session.messages.reduce(
     (length, message) => length + message.text.length,
     0,
@@ -634,9 +648,9 @@ function Conversation({ session, workbench, online, act }) {
           </div>
         )}
         {turns.map(turn => (
-          <div className="desktop-turn" key={turn.id} data-turn-id={turn.user?turn.id:undefined}>
+          <div className="desktop-turn" tabIndex={-1} key={turn.id} data-turn-id={turn.user?turn.id:undefined}>
             {turn.user && <ChatMessage message={turn.user} name={name}/>}
-            <AgentResponse turn={turn} name={name} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
+            <AgentResponse onChanges={()=>setTab('changes')} changeCount={turn.id===lastRun?.id&&changeSummary?.isGit?changeSummary.files.length:0} turn={turn} name={name} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
           </div>
         ))}
         {(session.inputs ?? []).map((request) => (
@@ -819,7 +833,7 @@ function Conversation({ session, workbench, online, act }) {
         </div>
       </div>
       </div>
-      {tab!=="chat" && <><SplitHandle onResize={setPanelWidth}/><aside style={panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className="desktop-right-panel" aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',browser:'网址浏览',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl}/>:<SessionTools key={tab} session={session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget}/>}</aside></>}
+      {tab!=="chat" && <><SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}}/><aside style={expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className={`desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',browser:'网址浏览',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon desktop-expand-preview" aria-label={expandedPanel?'恢复面板宽度':'扩大预览'} onClick={()=>setExpandedPanel(!expandedPanel)}>{expandedPanel?<Minimize2 size={15}/>:<Maximize2 size={15}/>}</button><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl} canBack={browserHistory.index>0} canForward={browserHistory.index<browserHistory.urls.length-1} onBack={()=>setBrowserHistory(previous=>({...previous,index:Math.max(0,previous.index-1)}))} onForward={()=>setBrowserHistory(previous=>({...previous,index:Math.min(previous.urls.length-1,previous.index+1)}))}/>:<SessionTools key={tab} session={session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget} onLocateRun={locateRun} availableRunIds={turns.filter(turn=>turn.user).map(turn=>turn.id)}/>}</aside></>}
       </div>
     </PreviewContext.Provider>
   );

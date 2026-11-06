@@ -1,7 +1,7 @@
 import React, {memo, useEffect, useMemo, useRef, useState} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {BookOpen, Brain, Check, ChevronDown, FileText, LoaderCircle, MessageSquare, Search, Terminal, Wrench, X} from 'lucide-react';
+import {BookOpen, Brain, Check, Copy, ChevronDown, FileText, LoaderCircle, MessageSquare, Search, Terminal, Wrench, X} from 'lucide-react';
 import {activityTail, formatDuration, groupProcess, toolFamily} from './chat-timeline.js';
 import {ToolDetails} from './ToolDetails.jsx';
 import {describeAction,describeTool} from './tool-presentation.js';
@@ -114,11 +114,17 @@ export function ActivityFeed({turn,status,hasInput,onReadHistory}) {
   </section>;
 }
 
-export function AgentResponse({turn,name,status,hasInput,onReadHistory}) {
+function AnswerActions({text}) {
+  const [state,setState]=useState(''),[busy,setBusy]=useState(false);
+  useEffect(()=>setState(''),[text]);
+  return <div className="desktop-answer-actions"><button type="button" aria-label="复制回答" disabled={busy} onClick={async()=>{setBusy(true);try{if(!navigator.clipboard?.writeText)throw Error('当前环境不支持剪贴板');await navigator.clipboard.writeText(text);setState('已复制');}catch{setState('复制失败，请选择正文复制');}finally{setBusy(false);}}}><Copy size={13}/>复制</button>{state&&<span role="status">{state}</span>}</div>;
+}
+export function AgentResponse({turn,name,status,hasInput,onReadHistory,onChanges,changeCount}) {
   if (!turn.process.length && !turn.answer && !turn.live && !turn.run?.finishedAt) return null;
   return <section className="desktop-agent-turn" aria-label={`${name} 的回复`}>
     <div className="desktop-agent-identity"><span className="desktop-avatar"><MessageSquare size={14}/></span><strong>{name}</strong></div>
     <ActivityFeed turn={{...turn,activity:turn.process}} status={status} hasInput={hasInput} onReadHistory={onReadHistory}/>
-    {turn.answer && <article className="desktop-message assistant desktop-agent-reply"><div><MarkdownBody text={turn.answer.text}/></div></article>}
+    {turn.answer && <article className="desktop-message assistant desktop-agent-reply"><div><MarkdownBody text={turn.answer.text}/>{!turn.live&&<AnswerActions text={turn.answer.text}/>}</div></article>}
+    {changeCount>0&&!turn.live&&<button className="desktop-change-summary" onClick={onChanges}><FileText size={15}/><span>查看工作区当前变更<small>{changeCount} 个文件 · 包含用户和其他工具的修改</small></span><ChevronDown size={14}/></button>}
   </section>;
 }
