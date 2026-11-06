@@ -126,7 +126,7 @@ pub async fn serve(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error + 
             let _ = stop.send(true);
         })
         .await?;
-    state.remote.stop();
+    state.remote.stop().await;
     workbench.stop().await;
     tokio::time::sleep(Duration::from_secs(6)).await;
     workbench.close().await;

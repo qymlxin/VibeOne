@@ -56,3 +56,5 @@ Blocked by: 50, 51
 82已完成资源/历史领域错误与文件/Git/产物一致性，83继续补齐插件资源读取。本轮再通过CUA获取dev.vibeone.desktop，仍明确返回Mac locked，已结束该次原生检查；未停止或重启用户Host。原生、真实Claude及物理设备项继续保留，52保持claimed。
 
 84/85/86完成插件生命周期/操作错误、CLI关闭断言及查询故障/缓存重置；最后全量、桌面/手机与重建包外检查通过。最终再次CUA获取dev.vibeone.desktop，仍明确Mac locked；未停止或重启用户Host或操作其草稿。14远程管理/动态响应及原生、真实Claude和物理设备项继续，52保持claimed。
+
+87完成远程错误和状态一致性，完整check/桌面/HTTPS手机/包外检查通过。最终CUA仍Mac locked，官方Claude CLI只读登录状态loggedIn=false/authMethod=none；未操作用户Host/草稿或认证。配置保存回显缺口由88继续，52保持claimed，物理设备及原生项目不冒充完成。

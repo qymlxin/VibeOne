@@ -1,6 +1,19 @@
 //! Business failures carry identity independently from their human-readable copy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ErrorKind {
+    RemoteAlreadyRunning,
+    RemoteAddressForbidden,
+    RemoteAddressInUse,
+    RemoteUnavailable,
+    RemoteTlsInvalid,
+    RemoteTlsUnavailable,
+    RemoteWebUnavailable,
+    RemoteDisabled,
+    PairingInvalid,
+    PairingExpired,
+    PairingConflict,
+    PairingRateLimited,
+    DeviceNotFound,
     InvalidInput,
     ProbeBusy,
     SessionNotFound,
@@ -73,6 +86,19 @@ pub(crate) enum ErrorKind {
 impl ErrorKind {
     pub(crate) fn code(self) -> &'static str {
         match self {
+            Self::RemoteAlreadyRunning => "REMOTE_ALREADY_RUNNING",
+            Self::RemoteAddressForbidden => "REMOTE_ADDRESS_FORBIDDEN",
+            Self::RemoteAddressInUse => "REMOTE_ADDRESS_IN_USE",
+            Self::RemoteUnavailable => "REMOTE_UNAVAILABLE",
+            Self::RemoteTlsInvalid => "REMOTE_TLS_INVALID",
+            Self::RemoteTlsUnavailable => "REMOTE_TLS_UNAVAILABLE",
+            Self::RemoteWebUnavailable => "REMOTE_WEB_UNAVAILABLE",
+            Self::RemoteDisabled => "REMOTE_DISABLED",
+            Self::PairingInvalid => "PAIRING_INVALID",
+            Self::PairingExpired => "PAIRING_EXPIRED",
+            Self::PairingConflict => "PAIRING_CONFLICT",
+            Self::PairingRateLimited => "PAIRING_RATE_LIMITED",
+            Self::DeviceNotFound => "DEVICE_NOT_FOUND",
             Self::InvalidInput => "INVALID_INPUT",
             Self::ProbeBusy => "PROBE_BUSY",
             Self::SessionNotFound => "SESSION_NOT_FOUND",
@@ -145,6 +171,19 @@ impl ErrorKind {
     }
     pub(crate) fn status(self) -> u16 {
         match self {
+            Self::RemoteAlreadyRunning => 409,
+            Self::RemoteAddressForbidden => 403,
+            Self::RemoteAddressInUse => 409,
+            Self::RemoteUnavailable => 503,
+            Self::RemoteTlsInvalid => 409,
+            Self::RemoteTlsUnavailable => 503,
+            Self::RemoteWebUnavailable => 503,
+            Self::RemoteDisabled => 409,
+            Self::PairingInvalid => 403,
+            Self::PairingExpired => 409,
+            Self::PairingConflict => 409,
+            Self::PairingRateLimited => 429,
+            Self::DeviceNotFound => 404,
             Self::PluginTrustRequired => 403,
             Self::PluginCandidateLimit => 409,
             Self::PluginLimit => 409,

@@ -142,3 +142,5 @@
 84：插件公共生命周期和后台操作接明确领域错误，配置/Worker错误不回显输入。实际候选验证发布容量/过期，实际SQLite验证发布/受理失败不假成功，有界复制验证超限清理及可执行位。旧CLI关闭RST断言由85单独修复。最终check含53项Node、workspace Rust（Workbench38项）、34项Host及恢复通过；Clippy/格式、桌面62.7秒、HTTPS手机23.6秒通过；833.10MiB包及仓库外检查通过，Host SHA256为`bc625df7ec5b7677ae766e76228a798bd0520b0e63b34a30c36c675bced785b4`。SVG已查看，用户Host未动。14事件/同步错误和动态响应及52最终原生/外部设备验收继续。
 
 86：事件/增量查询采用明确错误及固定故障提示，真实SQLite验证首次读取故障和下一次缓存storage重置，Host验证整数游标。通用中文状态猜测器已删除；远程管理子模块仍保留固定400的临时String适配，未宣称全部领域迁移完成。最终check含53项Node、workspace Rust（Workbench40项）、34项Host及恢复通过；Clippy/格式、桌面62.8秒、HTTPS手机23.7秒通过，833.09MiB包及仓库外检查通过。Host SHA256为`56cfc79793208aa34aefa3839d78a260208ba77de21b7fef150c0ce85073e9e5`。SVG已查看；CUA仍Mac locked，用户Host未动，14/52继续。
+
+87：远程错误和状态锁接正式启停/配对/授权/撤销，重复批准HTTPS红例转绿；SQLite故障验证无未保存凭据交付及无遗留候选监听，端口/证书失败保护通过。完整check含53项Node、workspace Rust（Workbench45项）、36项Host及恢复通过；TLS测试写法调整后两项重跑及Clippy通过。桌面62.8秒、HTTPS手机23.7秒、833.66MiB包及仓库外检查通过，Host SHA256为`361a5ef1829cf83f918ab14e0e12760a74a2790fbe3dc4bfb0ef509847fb80f4`。SVG已查看；CUA仍Mac locked，Claude只读登录状态仍false/none，未改变用户Host或认证。配置保存/回显由88继续，14动态类型及52实机未完成。

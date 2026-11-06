@@ -186,6 +186,10 @@ impl Workbench {
             storage_error: Mutex::default(),
         }))
     }
+    #[cfg(test)]
+    pub(crate) async fn close_storage_for_test(&self) {
+        self.store.close().await;
+    }
     fn available(&self) -> Result<(), String> {
         if let Some(error) = self
             .storage_error

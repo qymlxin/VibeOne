@@ -133,6 +133,8 @@
 
 - [86-query-domain-errors](issues/86-query-domain-errors.md)：事件/增量查询错误、存储故障公开提示及缓存storage重置完成；全量、桌面/手机及包外验证通过。远程管理仍有固定400适配，后续迁移；14/52继续。
 
+- [87-remote-domain-errors](issues/87-remote-domain-errors.md)：远程HTTP适配已移除，状态锁/重复决定/撤销与启动失败、TLS身份保护完成；全量、桌面/手机及包外检查通过。配置保存/回显缺口由88继续，14动态类型和52实机未完成。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

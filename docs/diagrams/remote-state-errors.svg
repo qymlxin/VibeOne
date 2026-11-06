@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="450" viewBox="0 0 1060 450">
+ <rect width="1060" height="450" rx="12" fill="#fafafa"/>
+ <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#666"/></marker></defs>
+ <g font-family="system-ui,sans-serif" fill="#222">
+  <text x="30" y="35" font-size="21" font-weight="600">远程启停、配对与撤销</text>
+  <text x="30" y="62" font-size="13" fill="#666">本机 HTTP 管理请求等待最终结果；手机使用 HTTPS 轮询，WS/WSS 仅通知状态变化。状态操作共用同一锁。</text>
+  <g fill="white" stroke="#aaa">
+   <rect x="30" y="95" width="210" height="75" rx="8"/><rect x="290" y="95" width="280" height="75" rx="8"/><rect x="620" y="95" width="410" height="75" rx="8"/>
+   <rect x="30" y="210" width="210" height="80" rx="8"/><rect x="290" y="210" width="280" height="80" rx="8"/><rect x="620" y="210" width="410" height="80" rx="8"/>
+   <rect x="30" y="330" width="210" height="75" rx="8"/><rect x="290" y="330" width="280" height="75" rx="8"/><rect x="620" y="330" width="410" height="75" rx="8"/>
+  </g>
+  <g font-size="14">
+   <text x="48" y="125">电脑 POST /remote</text><text x="48" y="150">明确开启或关闭入口</text>
+   <text x="308" y="125">验证本机地址 / 预留端口 / TLS</text><text x="308" y="150">端口失败不改证书；关闭先停止运行</text>
+   <text x="638" y="125">开启候选监听 → 保存设置 → HTTP 200</text><text x="638" y="150">保存失败关闭候选并返回 503，不冒充已保存</text>
+   <text x="48" y="240">手机 HTTPS claim</text><text x="48" y="266">配对码 + 私有请求凭据</text>
+   <text x="308" y="234">临时请求有效 5 分钟</text><text x="308" y="257">电脑 HTTP 批准角色及工作区</text><text x="308" y="280">先保存 SQLite 设备与凭据摘要</text>
+   <text x="638" y="240">手机 HTTPS poll：pending / denied / approved</text><text x="638" y="266">保存后才交付 Secure Cookie；相同决定不换凭据</text>
+   <text x="48" y="360">电脑 POST revoke</text><text x="48" y="385">明确撤销设备</text>
+   <text x="308" y="360">先持久保存 revoked</text><text x="308" y="385">再禁止旧请求继续交付 Cookie</text>
+   <text x="638" y="360">成功：已有凭据失效，WSS 连接关闭</text><text x="638" y="385">保存失败：关闭整个入口，返回 503，撤销未确认</text>
+  </g>
+  <g fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)">
+   <path d="M240 133H287"/><path d="M570 133H617"/><path d="M240 250H287"/><path d="M570 250H617"/><path d="M240 367H287"/><path d="M570 367H617"/>
+  </g>
+  <text x="30" y="434" font-size="12" fill="#666">运行入口关闭不等于持久设置或授权已改变；503 后需核对最后保存状态。主机重启不恢复临时配对请求。</text>
+ </g>
+</svg>

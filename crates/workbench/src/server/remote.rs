@@ -1,13 +1,6 @@
 use super::*;
-// Temporary adapter for legacy remote-management String errors. It never guesses
-// status from translated copy; these endpoints migrate to DomainError separately.
-fn fail(message: impl Into<String>) -> (StatusCode, Json<Value>) {
-    (
-        StatusCode::BAD_REQUEST,
-        Json(json!({"error":message.into()})),
-    )
-}
-
+use crate::domain_error::{DomainError, ErrorKind};
+mod tls;
 use axum::extract::ConnectInfo;
 use sha2::{Digest, Sha256};
 use std::{
@@ -17,6 +10,7 @@ use std::{
     sync::Mutex,
     time::{SystemTime, UNIX_EPOCH},
 };
+use tls::{load_certificate, tls_invalid, write_private};
 
 fn now() -> u64 {
     SystemTime::now()
@@ -42,11 +36,13 @@ struct Claim {
     denied: bool,
 }
 struct Running {
+    id: String,
     url: String,
     handle: axum_server::Handle<SocketAddr>,
 }
 pub(super) struct Remote {
     directory: PathBuf,
+    web: PathBuf,
     running: Mutex<Option<Running>>,
     code: Mutex<Option<(String, u64)>>,
     claims: Mutex<HashMap<String, Claim>>,
@@ -57,6 +53,11 @@ impl Remote {
     pub fn new(directory: PathBuf) -> Self {
         Self {
             directory,
+            web: std::env::var_os("VIBEONE_WEB_DIR")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| {
+                    FsPath::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/desktop/dist")
+                }),
             running: Mutex::default(),
             code: Mutex::default(),
             claims: Mutex::default(),
@@ -71,7 +72,11 @@ impl Remote {
             .as_ref()
             .map(|running| running.url.clone())
     }
-    pub fn stop(&self) {
+    pub async fn stop(&self) {
+        let _gate = self.gate.lock().await;
+        self.stop_locked();
+    }
+    fn stop_locked(&self) {
         if let Some(running) = self.running.lock().expect("remote poisoned").take() {
             running.handle.shutdown();
         }
@@ -88,10 +93,22 @@ impl Remote {
         entry.1 = entry.1.saturating_add(1);
         entry.1 <= 12
     }
-    pub async fn start(&self, state: Server, ip: IpAddr, port: u16) -> Result<Value, String> {
+    pub async fn start(&self, state: Server, ip: IpAddr, port: u16) -> Result<Value, DomainError> {
         let _gate = self.gate.lock().await;
+        self.start_locked(state, ip, port).await
+    }
+    async fn start_locked(
+        &self,
+        state: Server,
+        ip: IpAddr,
+        port: u16,
+    ) -> Result<Value, DomainError> {
+        state.workbench.command_available()?;
         if self.url().is_some() {
-            return Err("远程入口已开启，请先关闭再修改地址".into());
+            return Err(remote_error(
+                ErrorKind::RemoteAlreadyRunning,
+                "远程入口已开启，请先关闭再修改地址",
+            ));
         }
         let private = match ip {
             IpAddr::V4(ip) => {
@@ -102,135 +119,119 @@ impl Remote {
             IpAddr::V6(ip) => ip.is_unique_local() || ip.is_loopback(),
         };
         if !private {
-            return Err("请选择本机局域网或可信网络地址，不允许通配或公网地址".into());
+            return Err(remote_error(
+                ErrorKind::RemoteAddressForbidden,
+                "请选择本机局域网或可信网络地址，不允许通配或公网地址",
+            ));
         }
-        let tls_path = self.directory.join("remote-tls.json");
-        let saved = std::fs::read(&tls_path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
-            .filter(|value| value["ip"] == ip.to_string());
-        let tls = match saved {
-            Some(value) => value,
-            None => certificate(ip)?,
-        };
-        write_private(
-            &tls_path,
-            &serde_json::to_vec(&tls).map_err(|error| error.to_string())?,
-        )?;
-        std::fs::write(
-            self.directory.join("VibeOne-Root-CA.crt"),
-            tls["ca"].as_str().ok_or("CA 证书无效")?,
-        )
-        .map_err(|error| error.to_string())?;
+        if !self.web.join("index.html").is_file() {
+            return Err(remote_error(
+                ErrorKind::RemoteWebUnavailable,
+                "手机页面未构建，请先构建桌面网页资源",
+            ));
+        }
+        // Reserve the requested address before changing any certificate files.
+        let listener = std::net::TcpListener::bind(SocketAddr::new(ip, port)).map_err(|error| {
+            remote_error(
+                if error.kind() == std::io::ErrorKind::AddrInUse {
+                    ErrorKind::RemoteAddressInUse
+                } else {
+                    ErrorKind::RemoteUnavailable
+                },
+                "无法监听该本机地址或端口，请检查网络设置",
+            )
+        })?;
+        listener
+            .set_nonblocking(true)
+            .map_err(|_| remote_error(ErrorKind::RemoteUnavailable, "无法设置远程监听器"))?;
+        let address = listener
+            .local_addr()
+            .map_err(|_| remote_error(ErrorKind::RemoteUnavailable, "无法读取远程监听地址"))?;
+        let directory = self.directory.clone();
+        let tls = tokio::task::spawn_blocking(move || load_certificate(&directory, ip))
+            .await
+            .map_err(|_| {
+                remote_error(ErrorKind::RemoteTlsUnavailable, "远程证书读取任务未完成")
+            })??;
         let _ = rustls::crypto::ring::default_provider().install_default();
         let config = axum_server::tls_rustls::RustlsConfig::from_pem(
-            tls["chain"].as_str().ok_or("证书无效")?.as_bytes().to_vec(),
+            tls["chain"]
+                .as_str()
+                .ok_or_else(tls_invalid)?
+                .as_bytes()
+                .to_vec(),
             tls["key"]
                 .as_str()
-                .ok_or("证书密钥无效")?
+                .ok_or_else(tls_invalid)?
                 .as_bytes()
                 .to_vec(),
         )
         .await
-        .map_err(|error| error.to_string())?;
-        let listener = std::net::TcpListener::bind(SocketAddr::new(ip, port))
-            .map_err(|error| error.to_string())?;
-        listener
-            .set_nonblocking(true)
-            .map_err(|error| error.to_string())?;
-        let address = listener.local_addr().map_err(|error| error.to_string())?;
+        .map_err(|_| tls_invalid())?;
+        let directory = self.directory.clone();
+        let saved = tls.clone();
+        tokio::task::spawn_blocking(move || {
+            write_private(
+                &directory.join("remote-tls.json"),
+                &serde_json::to_vec(&saved).map_err(|_| tls_invalid())?,
+            )?;
+            write_private(
+                &directory.join("VibeOne-Root-CA.crt"),
+                saved["ca"].as_str().ok_or_else(tls_invalid)?.as_bytes(),
+            )
+        })
+        .await
+        .map_err(|_| remote_error(ErrorKind::RemoteTlsUnavailable, "远程证书保存任务未完成"))??;
         let url = format!("https://{address}");
+        let qr = qrcode::QrCode::new(url.as_bytes())
+            .map_err(|_| remote_error(ErrorKind::Internal, "无法生成远程入口二维码"))?
+            .render::<qrcode::render::svg::Color>()
+            .min_dimensions(200, 200)
+            .build();
         let handle = axum_server::Handle::new();
         let remote_state = Server {
             is_remote: true,
             ..state.clone()
         };
-        let web = std::env::var_os("VIBEONE_WEB_DIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| {
-                FsPath::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/desktop/dist")
-            });
-        if !web.join("index.html").is_file() {
-            return Err("手机页面未构建，请先运行 npm run build:web -w @vibeone/desktop".into());
-        }
         let app = routes(remote_state).fallback_service(
-            tower_http::services::ServeDir::new(&web)
-                .not_found_service(tower_http::services::ServeFile::new(web.join("index.html"))),
+            tower_http::services::ServeDir::new(&self.web).not_found_service(
+                tower_http::services::ServeFile::new(self.web.join("index.html")),
+            ),
         );
         let server = axum_server::from_tcp_rustls(listener, config)
-            .map_err(|error| error.to_string())?
+            .map_err(|_| remote_error(ErrorKind::RemoteUnavailable, "无法启动远程监听器"))?
             .handle(handle.clone())
             .serve(app.into_make_service_with_connect_info::<SocketAddr>());
-        let mut stopped = state.stop.subscribe();
-        let shutdown = handle.clone();
-        tokio::spawn(async move {
-            tokio::select! {result=server=>{if let Err(error)=result{eprintln!("remote listener stopped: {error}");}},_=stopped.changed()=>shutdown.shutdown()}
-        });
+        let id = uuid::Uuid::new_v4().to_string();
         *self.running.lock().expect("remote poisoned") = Some(Running {
+            id: id.clone(),
             url: url.clone(),
-            handle,
+            handle: handle.clone(),
         });
-        let code = qrcode::QrCode::new(url.as_bytes())
-            .map_err(|error| error.to_string())?
-            .render::<qrcode::render::svg::Color>()
-            .min_dimensions(200, 200)
-            .build();
-        Ok(
-            json!({"url":url,"qr":code,"certificatePath":self.directory.join("VibeOne-Root-CA.crt")}),
-        )
+        let mut stopped = state.stop.subscribe();
+        let remote = Arc::downgrade(&state.remote);
+        let events = state.workbench.events.clone();
+        tokio::spawn(async move {
+            tokio::select! { _=server=>{}, _=stopped.changed()=>handle.shutdown() }
+            if let Some(remote) = remote.upgrade() {
+                let _gate = remote.gate.lock().await;
+                let current = remote
+                    .running
+                    .lock()
+                    .expect("remote poisoned")
+                    .as_ref()
+                    .is_some_and(|running| running.id == id);
+                if current {
+                    remote.stop_locked();
+                    let _ = events.send(0);
+                }
+            }
+        });
+        Ok(json!({"url":url,"qr":qr,"certificatePath":self.directory.join("VibeOne-Root-CA.crt")}))
     }
 }
-fn write_private(path: &FsPath, bytes: &[u8]) -> Result<(), String> {
-    use std::io::Write;
-    let temporary = path.with_extension("tmp");
-    let mut options = OpenOptions::new();
-    options.write(true).create(true).truncate(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options
-        .open(&temporary)
-        .map_err(|error| error.to_string())?;
-    file.write_all(bytes).map_err(|error| error.to_string())?;
-    file.sync_all().map_err(|error| error.to_string())?;
-    std::fs::rename(temporary, path).map_err(|error| error.to_string())
-}
-fn certificate(ip: IpAddr) -> Result<Value, String> {
-    use rcgen::{
-        BasicConstraints, CertificateParams, DnType, ExtendedKeyUsagePurpose, IsCa, Issuer,
-        KeyPair, KeyUsagePurpose,
-    };
-    let mut ca = CertificateParams::new(Vec::<String>::new()).map_err(|error| error.to_string())?;
-    ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-    ca.distinguished_name
-        .push(DnType::CommonName, "VibeOne Local Root");
-    ca.key_usages = vec![
-        KeyUsagePurpose::KeyCertSign,
-        KeyUsagePurpose::CrlSign,
-        KeyUsagePurpose::DigitalSignature,
-    ];
-    ca.not_before = time::OffsetDateTime::now_utc() - time::Duration::days(1);
-    ca.not_after = time::OffsetDateTime::now_utc() + time::Duration::days(3650);
-    let key = KeyPair::generate().map_err(|error| error.to_string())?;
-    let root = ca.self_signed(&key).map_err(|error| error.to_string())?;
-    let issuer = Issuer::new(ca, key);
-    let mut leaf =
-        CertificateParams::new(vec![ip.to_string()]).map_err(|error| error.to_string())?;
-    leaf.distinguished_name
-        .push(DnType::CommonName, "VibeOne Host");
-    leaf.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
-    leaf.key_usages = vec![KeyUsagePurpose::DigitalSignature];
-    leaf.not_before = time::OffsetDateTime::now_utc() - time::Duration::days(1);
-    leaf.not_after = time::OffsetDateTime::now_utc() + time::Duration::days(730);
-    let key = KeyPair::generate().map_err(|error| error.to_string())?;
-    let cert = leaf
-        .signed_by(&key, &issuer)
-        .map_err(|error| error.to_string())?;
-    Ok(
-        json!({"ip":ip.to_string(),"ca":root.pem(),"chain":format!("{}{}",cert.pem(),root.pem()),"key":key.serialize_pem()}),
-    )
+fn remote_error(kind: ErrorKind, message: &str) -> DomainError {
+    DomainError::new(kind, message)
 }
 
 #[derive(Clone)]
@@ -341,46 +342,58 @@ pub(super) fn filter_snapshot(
 }
 
 pub(super) async fn configure(State(state): State<Server>, Json(body): Json<Value>) -> ApiResult {
+    domain_command(async move { configure_remote(&state, body).await })
+        .await
+        .map(Json)
+        .map_err(domain_fail)
+}
+async fn configure_remote(state: &Server, body: Value) -> Result<Value, DomainError> {
+    let _gate = state.remote.gate.lock().await;
     if body["enabled"] == false {
-        state.remote.stop();
+        state.remote.stop_locked();
         state
             .workbench
-            .put_catalog("setting", "remote", json!({"id":"remote","enabled":false}))
-            .await
-            .map_err(fail)?;
-        return Ok(Json(json!({"enabled":false})));
+            .save_catalog("setting", "remote", json!({"id":"remote","enabled":false}))
+            .await?;
+        return Ok(json!({"enabled":false}));
+    }
+    if body["enabled"] != true {
+        return Err(remote_error(
+            ErrorKind::InvalidInput,
+            "请选择远程入口启停状态",
+        ));
     }
     let ip: IpAddr = body["ip"]
         .as_str()
-        .ok_or_else(|| fail("请输入本机局域网 IP"))?
+        .ok_or_else(|| remote_error(ErrorKind::InvalidInput, "请输入本机局域网IP"))?
         .parse()
-        .map_err(|_| fail("IP 地址无效"))?;
-    let port = body["port"].as_u64().unwrap_or(0);
-    if port > 65535 {
-        return Err(fail("端口无效"));
-    }
-    let status = state
-        .remote
-        .start(state.clone(), ip, port as u16)
-        .await
-        .map_err(fail)?;
-    let actual = reqwest_free_port(&status["url"])?;
-    state
+        .map_err(|_| remote_error(ErrorKind::InvalidInput, "IP地址无效"))?;
+    let port = match body.get("port") {
+        None | Some(Value::Null) => 0,
+        Some(value) => value
+            .as_u64()
+            .and_then(|value| u16::try_from(value).ok())
+            .ok_or_else(|| remote_error(ErrorKind::InvalidInput, "端口必须为0至65535的整数"))?,
+    };
+    let status = state.remote.start_locked(state.clone(), ip, port).await?;
+    let actual = status["url"]
+        .as_str()
+        .and_then(|url| url.rsplit(':').next())
+        .and_then(|value| value.parse::<u16>().ok())
+        .ok_or_else(|| remote_error(ErrorKind::Internal, "无法确认远程监听端口"))?;
+    if let Err(error) = state
         .workbench
-        .put_catalog(
+        .save_catalog(
             "setting",
             "remote",
             json!({"id":"remote","enabled":true,"ip":ip.to_string(),"port":actual}),
         )
         .await
-        .map_err(fail)?;
-    Ok(Json(status))
-}
-fn reqwest_free_port(url: &Value) -> Result<u16, (StatusCode, Json<Value>)> {
-    url.as_str()
-        .and_then(|url| url.rsplit(':').next())
-        .and_then(|port| port.parse().ok())
-        .ok_or_else(|| fail("监听地址无效"))
+    {
+        state.remote.stop_locked();
+        return Err(error);
+    }
+    Ok(status)
 }
 fn suggested_ip() -> Option<String> {
     let socket = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
@@ -414,8 +427,13 @@ pub(super) async fn status(State(state): State<Server>) -> Json<Value> {
     )
 }
 pub(super) async fn pairing_code(State(state): State<Server>) -> ApiResult {
+    let _gate = state.remote.gate.lock().await;
+    state.workbench.command_available().map_err(domain_fail)?;
     if state.remote.url().is_none() {
-        return Err(fail("请先开启 HTTPS 远程入口"));
+        return Err(domain_fail(remote_error(
+            ErrorKind::RemoteDisabled,
+            "请先开启HTTPS远程入口",
+        )));
     }
     let code = format!("{:08}", uuid::Uuid::new_v4().as_u128() % 100_000_000);
     let expires = now() + 300;
@@ -427,22 +445,39 @@ pub(super) async fn claim(
     ConnectInfo(address): ConnectInfo<SocketAddr>,
     Json(body): Json<Value>,
 ) -> ApiResult {
+    let _gate = state.remote.gate.lock().await;
+    state.workbench.command_available().map_err(domain_fail)?;
+    if state.remote.url().is_none() {
+        return Err(domain_fail(remote_error(
+            ErrorKind::RemoteDisabled,
+            "远程入口已关闭",
+        )));
+    }
+    if !body.is_object()
+        || body
+            .get("name")
+            .is_some_and(|value| !value.is_null() && !value.is_string())
+    {
+        return Err(domain_fail(remote_error(
+            ErrorKind::InvalidInput,
+            "设备名称或请求类型无效",
+        )));
+    }
     if !state.remote.attempts(address.ip()) {
-        return Err((
-            StatusCode::TOO_MANY_REQUESTS,
-            Json(json!({"error":"配对尝试过多，请稍后重试"})),
-        ));
+        return Err(domain_fail(remote_error(
+            ErrorKind::PairingRateLimited,
+            "配对尝试过多，请稍后重试",
+        )));
     }
     let name = body["name"].as_str().unwrap_or("手机").trim();
     let claim_secret = body["secret"]
         .as_str()
-        .ok_or_else(|| fail("设备请求缺少凭据"))?;
-    if name.is_empty()
-        || name.chars().count() > 80
-        || claim_secret.len() < 32
-        || claim_secret.len() > 128
-    {
-        return Err(fail("设备名称或请求无效"));
+        .ok_or_else(|| domain_fail(remote_error(ErrorKind::InvalidInput, "设备请求缺少凭据")))?;
+    if name.is_empty() || name.chars().count() > 80 || !(32..=128).contains(&claim_secret.len()) {
+        return Err(domain_fail(remote_error(
+            ErrorKind::InvalidInput,
+            "设备名称或请求无效",
+        )));
     }
     {
         let mut code = state.remote.code.lock().expect("pairing poisoned");
@@ -450,7 +485,10 @@ pub(super) async fn claim(
             .as_ref()
             .is_some_and(|(code, expires)| body["code"] == *code && *expires > now())
         {
-            return Err(fail("配对码无效或已过期"));
+            return Err(domain_fail(remote_error(
+                ErrorKind::PairingInvalid,
+                "配对码无效或已过期",
+            )));
         }
         code.take();
     }
@@ -476,63 +514,118 @@ pub(super) async fn approve(
     Path(id): Path<String>,
     Json(body): Json<Value>,
 ) -> ApiResult {
+    domain_command(async move { approve_claim(&state, &id, body).await })
+        .await
+        .map(Json)
+        .map_err(domain_fail)
+}
+fn grant_workspaces(values: &[Value]) -> Option<Vec<String>> {
+    let mut ids = values
+        .iter()
+        .map(|value| value.as_str().map(str::to_owned))
+        .collect::<Option<Vec<_>>>()?;
+    ids.sort();
+    ids.dedup();
+    Some(ids)
+}
+async fn approve_claim(state: &Server, id: &str, body: Value) -> Result<Value, DomainError> {
+    if !body.is_object()
+        || body
+            .get("deny")
+            .is_some_and(|value| !value.is_null() && !value.is_boolean())
+    {
+        return Err(remote_error(
+            ErrorKind::InvalidInput,
+            "配对决定必须使用布尔拒绝标记",
+        ));
+    }
     let _gate = state.remote.gate.lock().await;
+    let (name, claim_hash, token, denied) = {
+        let claims = state.remote.claims.lock().expect("pairing poisoned");
+        let claim = claims
+            .get(id)
+            .filter(|claim| claim.expires > now())
+            .ok_or_else(|| remote_error(ErrorKind::PairingExpired, "配对请求已失效"))?;
+        (
+            claim.name.clone(),
+            claim.hash.clone(),
+            claim.token.clone(),
+            claim.denied,
+        )
+    };
     if body["deny"] == true {
-        if let Some(claim) = state
+        if token.is_some() {
+            return Err(remote_error(
+                ErrorKind::PairingConflict,
+                "此请求已批准，请通过撤销设备收回权限",
+            ));
+        }
+        state
             .remote
             .claims
             .lock()
             .expect("pairing poisoned")
-            .get_mut(&id)
-        {
-            claim.denied = true;
-        }
-        return Ok(Json(json!({"denied":true})));
+            .get_mut(id)
+            .expect("claim is protected by remote gate")
+            .denied = true;
+        return Ok(json!({"denied":true}));
+    }
+    if denied {
+        return Err(remote_error(
+            ErrorKind::PairingConflict,
+            "此请求已被拒绝，请重新配对",
+        ));
     }
     let role = body["role"]
         .as_str()
-        .ok_or_else(|| fail("请选择设备权限"))?;
-    if !matches!(role, "viewer" | "operator" | "approver") {
-        return Err(fail("设备角色无效"));
-    }
+        .filter(|role| matches!(*role, "viewer" | "operator" | "approver"))
+        .ok_or_else(|| remote_error(ErrorKind::InvalidInput, "请选择有效的设备权限"))?;
     let workspaces = body["workspaces"]
         .as_array()
         .filter(|items| !items.is_empty())
-        .ok_or_else(|| fail("请至少授权一个工作区"))?;
-    let known = state.workbench.snapshot()["workspaces"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
+        .and_then(|values| grant_workspaces(values))
+        .ok_or_else(|| remote_error(ErrorKind::InvalidInput, "请至少授权一个有效工作区"))?;
+    let known = state.workbench.snapshot_view().metadata.workspaces;
     if !workspaces
         .iter()
-        .all(|id| known.iter().any(|workspace| workspace["id"] == *id))
+        .all(|id| known.iter().any(|workspace| workspace.id == *id))
     {
-        return Err(fail("工作区授权无效"));
+        return Err(remote_error(ErrorKind::ResourceForbidden, "工作区授权无效"));
     }
-    let (name, claim_hash) = {
-        let claims = state.remote.claims.lock().expect("pairing poisoned");
-        let claim = claims
-            .get(&id)
-            .filter(|claim| claim.expires > now() && !claim.denied && claim.token.is_none())
-            .ok_or_else(|| fail("配对请求已失效"))?;
-        (claim.name.clone(), claim.hash.clone())
-    };
+    if let Some(token) = token {
+        let same = state.workbench.catalog("device").iter().any(|device| {
+            device["id"] == id
+                && device["revoked"] != true
+                && device["tokenHash"] == hash(&token)
+                && device["role"] == role
+                && device["workspaces"]
+                    .as_array()
+                    .and_then(|values| grant_workspaces(values))
+                    .as_ref()
+                    == Some(&workspaces)
+        });
+        if same {
+            return Ok(json!({"approved":true}));
+        }
+        return Err(remote_error(
+            ErrorKind::PairingConflict,
+            "设备授权已变化，请核对已保存决定或重新配对",
+        ));
+    }
+    state.workbench.command_available()?;
     let token = secret();
     let device = json!({"id":id,"name":name,"role":role,"workspaces":workspaces,"tokenHash":hash(&token),"createdAt":now(),"expiresAt":now()+90*86400,"revoked":false});
-    state
-        .workbench
-        .put_catalog("device", &id, device)
-        .await
-        .map_err(fail)?;
+    state.workbench.save_catalog("device", id, device).await?;
     let mut claims = state.remote.claims.lock().expect("pairing poisoned");
     let claim = claims
-        .get_mut(&id)
+        .get_mut(id)
         .filter(|claim| claim.hash == claim_hash)
-        .ok_or_else(|| fail("配对请求已失效"))?;
+        .expect("claim is protected by remote gate");
     claim.token = Some(token);
-    Ok(Json(json!({"approved":true})))
+    Ok(json!({"approved":true}))
 }
 pub(super) async fn poll(State(state): State<Server>, Json(body): Json<Value>) -> Response {
+    let _gate = state.remote.gate.lock().await;
     let mut claims = state.remote.claims.lock().expect("pairing poisoned");
     let Some(claim) = body["id"]
         .as_str()
@@ -544,12 +637,27 @@ pub(super) async fn poll(State(state): State<Server>, Json(body): Json<Value>) -
                 && claim.expires > now()
         })
     else {
-        return fail("配对请求无效或已过期").into_response();
+        return domain_fail(remote_error(
+            ErrorKind::PairingInvalid,
+            "配对请求无效或已过期",
+        ))
+        .into_response();
     };
     if claim.denied {
         return Json(json!({"status":"denied"})).into_response();
     }
     if let Some(token) = claim.token.as_ref() {
+        let valid = state.workbench.catalog("device").iter().any(|device| {
+            device["id"] == claim.id
+                && device["tokenHash"] == hash(token)
+                && device["revoked"] != true
+                && device["expiresAt"]
+                    .as_u64()
+                    .is_some_and(|expires| expires > now())
+        });
+        if !valid {
+            return Json(json!({"status":"denied"})).into_response();
+        }
         let cookie = format!(
             "vibeone_device={token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age={}",
             90 * 86400
@@ -563,19 +671,37 @@ pub(super) async fn poll(State(state): State<Server>, Json(body): Json<Value>) -
     Json(json!({"status":"pending"})).into_response()
 }
 pub(super) async fn revoke(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
+    domain_command(async move { revoke_device(&state, &id).await })
+        .await
+        .map(Json)
+        .map_err(domain_fail)
+}
+async fn revoke_device(state: &Server, id: &str) -> Result<Value, DomainError> {
+    let _gate = state.remote.gate.lock().await;
     let mut device = state
         .workbench
         .catalog("device")
         .into_iter()
         .find(|device| device["id"] == id)
-        .ok_or_else(|| fail("设备不存在"))?;
-    device["revoked"] = json!(true);
-    state
-        .workbench
-        .put_catalog("device", &id, device)
-        .await
-        .map_err(fail)?;
-    Ok(Json(json!({"revoked":true})))
+        .ok_or_else(|| remote_error(ErrorKind::DeviceNotFound, "设备不存在"))?;
+    if device["revoked"] != true {
+        device["revoked"] = json!(true);
+        if let Err(error) = state.workbench.save_catalog("device", id, device).await {
+            state.remote.stop_locked();
+            return Err(error);
+        }
+    }
+    if let Some(claim) = state
+        .remote
+        .claims
+        .lock()
+        .expect("pairing poisoned")
+        .get_mut(id)
+    {
+        claim.denied = true;
+        claim.token = None;
+    }
+    Ok(json!({"revoked":true}))
 }
 
 #[cfg(test)]
@@ -654,5 +780,178 @@ mod snapshot_contract_tests {
         };
         assert!(filter_snapshot(original, &denied).sessions.is_empty());
         workbench.close().await;
+    }
+}
+
+#[cfg(test)]
+mod remote_failure_tests {
+    use super::*;
+    async fn fixture() -> (tempfile::TempDir, Server, String) {
+        let directory = tempfile::tempdir().unwrap();
+        let web = directory.path().join("web");
+        std::fs::create_dir(&web).unwrap();
+        std::fs::write(web.join("index.html"), "fixture").unwrap();
+        let workbench = Workbench::open(directory.path(), vec![]).await.unwrap();
+        let workspace = workbench
+            .import_workspace(directory.path().to_str().unwrap())
+            .await
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let mut remote = Remote::new(directory.path().to_owned());
+        remote.web = web;
+        let (stop, _) = watch::channel(false);
+        (
+            directory,
+            Server {
+                workbench,
+                token: "fixture".into(),
+                stop,
+                remote: Arc::new(remote),
+                is_remote: false,
+            },
+            workspace,
+        )
+    }
+    fn pending(state: &Server) {
+        *state.remote.running.lock().unwrap() = Some(Running {
+            id: "fixture".into(),
+            url: "https://127.0.0.1:1".into(),
+            handle: axum_server::Handle::new(),
+        });
+        state.remote.claims.lock().unwrap().insert(
+            "claim".into(),
+            Claim {
+                id: "claim".into(),
+                name: "Fixture".into(),
+                hash: hash("private-fixture"),
+                expires: now() + 300,
+                token: None,
+                denied: false,
+            },
+        );
+    }
+    #[tokio::test]
+    async fn storage_failure_never_releases_an_unsaved_credential_and_revoke_closes_the_entry() {
+        for action in ["approve", "revoke", "disable"] {
+            let (_directory, state, workspace) = fixture().await;
+            pending(&state);
+            if action == "revoke" {
+                approve_claim(
+                    &state,
+                    "claim",
+                    json!({"role":"viewer","workspaces":[workspace]}),
+                )
+                .await
+                .unwrap();
+            }
+            if action == "disable" {
+                state
+                    .workbench
+                    .save_catalog("setting", "remote", json!({"id":"remote","enabled":true}))
+                    .await
+                    .unwrap();
+            }
+            state.workbench.close_storage_for_test().await;
+            let error = match action {
+                "approve" => approve_claim(
+                    &state,
+                    "claim",
+                    json!({"role":"viewer","workspaces":[workspace]}),
+                )
+                .await
+                .unwrap_err(),
+                "revoke" => revoke_device(&state, "claim").await.unwrap_err(),
+                _ => configure_remote(&state, json!({"enabled":false}))
+                    .await
+                    .unwrap_err(),
+            };
+            assert_eq!(error.kind, ErrorKind::StorageUnavailable);
+            if action == "approve" {
+                assert!(state.workbench.catalog("device").is_empty());
+                assert!(state.remote.claims.lock().unwrap()["claim"].token.is_none());
+            } else {
+                assert!(state.remote.url().is_none());
+                assert!(state.remote.claims.lock().unwrap().is_empty());
+            }
+            if action == "revoke" {
+                assert_eq!(state.workbench.catalog("device")[0]["revoked"], false);
+            }
+            if action == "disable" {
+                assert_eq!(
+                    state
+                        .workbench
+                        .catalog("setting")
+                        .into_iter()
+                        .find(|record| record["id"] == "remote")
+                        .unwrap()["enabled"],
+                    true
+                );
+            }
+            state.remote.stop().await;
+            state.workbench.close().await;
+        }
+    }
+    #[tokio::test]
+    async fn failed_enable_persistence_removes_the_live_listener() {
+        let (_directory, state, _workspace) = fixture().await;
+        let reserved = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = reserved.local_addr().unwrap();
+        drop(reserved);
+        state.workbench.close_storage_for_test().await;
+        let error = configure_remote(
+            &state,
+            json!({"enabled":true,"ip":"127.0.0.1","port":address.port()}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.kind, ErrorKind::StorageUnavailable);
+        assert!(state.remote.url().is_none());
+        assert!(state.workbench.catalog("setting").is_empty());
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                match std::net::TcpListener::bind(address) {
+                    Ok(listener) => {
+                        drop(listener);
+                        break;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                        tokio::time::sleep(Duration::from_millis(10)).await
+                    }
+                    Err(error) => panic!("unexpected listener error: {error}"),
+                }
+            }
+        })
+        .await
+        .expect("failed enable must release its TCP listener");
+        state.workbench.close().await;
+    }
+    #[tokio::test]
+    async fn expired_claim_cannot_write_a_device() {
+        let (_directory, state, workspace) = fixture().await;
+        pending(&state);
+        state
+            .remote
+            .claims
+            .lock()
+            .unwrap()
+            .get_mut("claim")
+            .unwrap()
+            .expires = now() - 1;
+        assert_eq!(
+            approve_claim(
+                &state,
+                "claim",
+                json!({"role":"viewer","workspaces":[workspace]})
+            )
+            .await
+            .unwrap_err()
+            .kind,
+            ErrorKind::PairingExpired
+        );
+        assert!(state.workbench.catalog("device").is_empty());
+        state.remote.stop().await;
+        state.workbench.close().await;
     }
 }
