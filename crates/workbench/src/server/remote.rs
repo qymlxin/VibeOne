@@ -308,24 +308,21 @@ pub(super) fn filter_snapshot(
         .sessions
         .retain(|session| paths.contains(&session.workspace));
     for session in &mut snapshot.sessions {
-        if let Some(profile) = session.profile.as_mut().and_then(Value::as_object_mut) {
-            profile.remove("command");
-            profile.remove("args");
+        if let Some(profile) = session.profile.as_mut() {
+            profile.details.redact();
         }
     }
     if snapshot.metadata.storage_error.is_some() {
         snapshot.metadata.storage_error = Some("主机本地存储不可用，请在电脑检查诊断".into());
     }
     snapshot.metadata.example_plugin_path = None;
+    snapshot.metadata.profile_issues.clear();
     snapshot.metadata.plugin_events.clear();
     snapshot.metadata.plugins.clear();
     snapshot.metadata.notifications.clear();
     snapshot.metadata.operations.clear();
     for profile in &mut snapshot.metadata.profiles {
-        if let Some(profile) = profile.as_object_mut() {
-            profile.remove("command");
-            profile.remove("args");
-        }
+        profile.details.redact();
     }
     snapshot.metadata.device = Some(crate::contracts::DeviceView {
         id: device["id"].as_str().map(str::to_owned),
@@ -593,11 +590,17 @@ mod snapshot_contract_tests {
             },
         ];
         for (id, workspace) in [("s-one", "/one"), ("s-two", "/two")] {
-            original.sessions.push(serde_json::from_value(json!({"id":id,"title":"Session","workspace":workspace,"provider":"demo","status":"idle","messages":[],"tools":[],"approvals":[],"profile":{"id":"profile","command":"/private/program","args":["private"]}})).unwrap());
+            original.sessions.push(serde_json::from_value(json!({"id":id,"title":"Session","workspace":workspace,"provider":"demo","status":"idle","messages":[],"tools":[],"approvals":[],"profile":{"id":"profile","command":"/private/program","args":["private"],"futureSecret":"private"}})).unwrap());
         }
         original.metadata.storage_error = Some("/private/storage.db".into());
         original.metadata.profiles =
-            vec![json!({"id":"profile","command":"/private/program","args":["private"]})];
+            vec![serde_json::from_value(json!({"id":"profile","name":"Profile","provider":"demo","command":"/private/program","args":["private"],"futureSecret":"private"})).unwrap()];
+        original.metadata.profile_issues = vec![crate::contracts::ProfileIssue {
+            id: "bad".into(),
+            error: "private".into(),
+            revision: None,
+            record_hash: "private".into(),
+        }];
         original.metadata.plugins = vec![json!({"private":"plugin"})];
         original.metadata.plugin_events = vec![json!({"private":"event"})];
         original.metadata.notifications = vec![json!({"private":"notification"})];
@@ -614,6 +617,13 @@ mod snapshot_contract_tests {
         assert_eq!(remote["workspaces"].as_array().unwrap().len(), 1);
         assert!(remote["sessions"][0]["profile"].get("command").is_none());
         assert!(remote["profiles"][0].get("args").is_none());
+        assert!(remote["profiles"][0].get("futureSecret").is_none());
+        assert!(
+            remote["sessions"][0]["profile"]
+                .get("futureSecret")
+                .is_none()
+        );
+        assert_eq!(remote["profileIssues"], json!([]));
         assert!(remote["examplePluginPath"].is_null());
         for key in ["plugins", "pluginEvents", "notifications", "operations"] {
             assert_eq!(remote[key], json!([]));

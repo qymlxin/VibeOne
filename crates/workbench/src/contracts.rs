@@ -81,6 +81,67 @@ pub struct HttpErrorResponse {
     pub request_id: String,
 }
 
+#[derive(Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileDetails {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub args: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generation: Option<u64>,
+    #[serde(flatten)]
+    pub extensions: std::collections::BTreeMap<String, Value>,
+}
+impl ProfileDetails {
+    pub(crate) fn redact(&mut self) {
+        self.command = None;
+        self.args = None;
+        self.extensions.clear();
+    }
+}
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ProfileView {
+    pub id: String,
+    pub name: String,
+    pub provider: String,
+    #[serde(flatten)]
+    pub details: ProfileDetails,
+}
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct PinnedProfile {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(flatten)]
+    pub details: ProfileDetails,
+}
+impl From<ProfileView> for PinnedProfile {
+    fn from(value: ProfileView) -> Self {
+        Self {
+            id: Some(value.id),
+            name: Some(value.name),
+            provider: Some(value.provider),
+            details: value.details,
+        }
+    }
+}
+#[derive(Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileIssue {
+    pub id: String,
+    pub error: String,
+    pub revision: Option<u64>,
+    pub record_hash: String,
+}
+
 #[derive(Clone, Serialize, JsonSchema)]
 pub struct WorkspaceView {
     pub id: String,
@@ -118,7 +179,8 @@ pub struct SnapshotMetadata {
     pub operations: Vec<Value>,
     pub plugins: Vec<Value>,
     pub notifications: Vec<Value>,
-    pub profiles: Vec<Value>,
+    pub profiles: Vec<ProfileView>,
+    pub profile_issues: Vec<ProfileIssue>,
     pub providers: Vec<crate::providers::Provider>,
     pub workspaces: Vec<WorkspaceView>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -225,6 +287,14 @@ where
 pub struct ProfileRequest {
     #[serde(
         default,
+        rename = "recordHash",
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "provided"
+    )]
+    #[schemars(with = "String")]
+    pub record_hash: Option<String>,
+    #[serde(
+        default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "provided"
     )]
@@ -308,6 +378,9 @@ pub fn schemas() -> Value {
         "DecisionRecord":schema_for!(DecisionRecord),
         "RunRecord":schema_for!(RunRecord),
         "SessionView":schema_for!(crate::projection::SessionView),
+        "ProfileView":schema_for!(ProfileView),
+        "PinnedProfile":schema_for!(PinnedProfile),
+        "ProfileIssue":schema_for!(ProfileIssue),
         "ProfileRequest":schema_for!(ProfileRequest),
         "ProfileRecord":schema_for!(ProfileRecord),
         "ProfileResponse":schema_for!(ProfileResponse)

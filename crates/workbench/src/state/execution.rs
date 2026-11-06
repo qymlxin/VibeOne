@@ -162,7 +162,7 @@ impl Workbench {
             if view
                 .profile
                 .as_ref()
-                .and_then(|profile| profile["generation"].as_u64())
+                .and_then(|profile| profile.details.generation)
                 != Some(lease.key().generation)
             {
                 return Err("Provider 代次已更新，请新建会话".into());
@@ -393,30 +393,31 @@ impl Workbench {
                 .or_else(|| {
                     profile
                         .as_ref()
-                        .filter(|profile| profile["command"].is_string())
+                        .filter(|profile| profile.details.command.is_some())
                         .map(|profile| Provider {
                             id: provider.clone(),
                             name: provider.clone(),
                             description: String::new(),
                             available: true,
-                            command: PathBuf::from(profile["command"].as_str().unwrap_or_default()),
+                            command: PathBuf::from(
+                                profile.details.command.as_deref().unwrap_or_default(),
+                            ),
                             args: vec![],
                         })
                 })
                 .ok_or("Agent Provider 不可用")?;
             if let Some(profile) = profile {
-                if let Some(command) = profile["command"]
-                    .as_str()
+                if let Some(command) = profile
+                    .details
+                    .command
+                    .as_deref()
                     .filter(|command| !command.is_empty())
                 {
                     descriptor.command = PathBuf::from(command);
                     descriptor.args = vec![];
                 }
-                if let Some(args) = profile["args"].as_array() {
-                    descriptor.args = args
-                        .iter()
-                        .filter_map(|arg| arg.as_str().map(str::to_owned))
-                        .collect();
+                if let Some(args) = profile.details.args {
+                    descriptor.args = args;
                 }
             }
             let interactions = Arc::new(AgentInteractions::default());

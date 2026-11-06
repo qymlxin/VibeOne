@@ -232,6 +232,7 @@
       "persistent",
       "pluginEvents",
       "plugins",
+      "profileIssues",
       "profiles",
       "protocolVersion",
       "providers",
@@ -287,9 +288,17 @@
         "type": "array",
         "items": true
       },
+      "profileIssues": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/ProfileIssue"
+        }
+      },
       "profiles": {
         "type": "array",
-        "items": true
+        "items": {
+          "$ref": "#/definitions/ProfileView"
+        }
       },
       "protocolVersion": {
         "type": "integer",
@@ -441,6 +450,151 @@
           },
           "optionId": {
             "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "PinnedProfile": {
+        "type": "object",
+        "properties": {
+          "args": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "generation": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pluginId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": true
+      },
+      "ProfileIssue": {
+        "type": "object",
+        "required": [
+          "error",
+          "id",
+          "recordHash"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "recordHash": {
+            "type": "string"
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      },
+      "ProfileView": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "provider"
+        ],
+        "properties": {
+          "args": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "generation": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
           }
         },
         "additionalProperties": true
@@ -615,7 +769,15 @@
             "items": true
           },
           "profile": {
-            "default": null
+            "default": null,
+            "anyOf": [
+              {
+                "$ref": "#/definitions/PinnedProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "provider": {
             "type": "string"
@@ -692,6 +854,7 @@
       "persistent",
       "pluginEvents",
       "plugins",
+      "profileIssues",
       "profiles",
       "protocolVersion",
       "providers",
@@ -746,9 +909,17 @@
         "type": "array",
         "items": true
       },
+      "profileIssues": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/ProfileIssue"
+        }
+      },
       "profiles": {
         "type": "array",
-        "items": true
+        "items": {
+          "$ref": "#/definitions/ProfileView"
+        }
       },
       "protocolVersion": {
         "type": "integer",
@@ -799,6 +970,90 @@
             ]
           }
         }
+      },
+      "ProfileIssue": {
+        "type": "object",
+        "required": [
+          "error",
+          "id",
+          "recordHash"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "recordHash": {
+            "type": "string"
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      },
+      "ProfileView": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "provider"
+        ],
+        "properties": {
+          "args": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "generation": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": true
       },
       "Provider": {
         "type": "object",
@@ -1099,7 +1354,15 @@
         "items": true
       },
       "profile": {
-        "default": null
+        "default": null,
+        "anyOf": [
+          {
+            "$ref": "#/definitions/PinnedProfile"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "provider": {
         "type": "string"
@@ -1241,6 +1504,67 @@
         },
         "additionalProperties": true
       },
+      "PinnedProfile": {
+        "type": "object",
+        "properties": {
+          "args": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "generation": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pluginId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": true
+      },
       "RunRecord": {
         "type": "object",
         "required": [
@@ -1320,6 +1644,157 @@
       }
     }
   },
+  "ProfileView": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProfileView",
+    "type": "object",
+    "required": [
+      "id",
+      "name",
+      "provider"
+    ],
+    "properties": {
+      "args": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        }
+      },
+      "command": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "generation": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "pluginId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "provider": {
+        "type": "string"
+      },
+      "revision": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      }
+    },
+    "additionalProperties": true
+  },
+  "PinnedProfile": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PinnedProfile",
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        }
+      },
+      "command": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "generation": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      },
+      "id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "pluginId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "provider": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "revision": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      }
+    },
+    "additionalProperties": true
+  },
+  "ProfileIssue": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProfileIssue",
+    "type": "object",
+    "required": [
+      "error",
+      "id",
+      "recordHash"
+    ],
+    "properties": {
+      "error": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      },
+      "recordHash": {
+        "type": "string"
+      },
+      "revision": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      }
+    }
+  },
   "ProfileRequest": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "ProfileRequest",
@@ -1341,6 +1816,9 @@
         "type": "string"
       },
       "provider": {
+        "type": "string"
+      },
+      "recordHash": {
         "type": "string"
       },
       "remove": {

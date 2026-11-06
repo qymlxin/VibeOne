@@ -54,3 +54,16 @@ const privateProvider:Provider={id:'demo',name:'Demo',available:true,description
 // @ts-expect-error typed snapshots cannot replace session records with IDs
 const badSnapshotSessions:SnapshotResponse['sessions']=['session'];
 void [pendingRequest,inputDecision,badOption,badExpiry,privateProvider,badSnapshotSessions];
+
+import type {ProfileView,PinnedProfile,ProfileIssue} from '../src/generated.js';
+const legacyProfile:ProfileView={id:'legacy',name:'Legacy',provider:'demo',future:{keep:true}};
+const pluginPinned:PinnedProfile={name:'Plugin',provider:'plugin:demo',pluginId:'plugin',generation:1,command:'/agent',args:[]};
+const profileIssue:ProfileIssue={id:'bad',error:'Invalid record',recordHash:'hash'};
+removeProfile('bad',undefined,profileIssue.recordHash);
+// @ts-expect-error catalog entries have a persistent identity even when legacy revision is absent
+const noProfileId:ProfileView={name:'Legacy',provider:'demo'};
+// @ts-expect-error launch arguments remain strings in catalog and pinned views
+const badPinnedArgs:PinnedProfile={args:[1]};
+// @ts-expect-error record identity guards are strings
+const badProfileHash:ProfileRequest={id:'bad',recordHash:1,remove:true};
+void [legacyProfile,pluginPinned,profileIssue,noProfileId,badPinnedArgs,badProfileHash];

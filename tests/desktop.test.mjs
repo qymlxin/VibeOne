@@ -24,12 +24,12 @@ test(
     git('add','tracked.txt');git('-c','user.name=Test','-c','user.email=test@example.com','commit','-m','fixture');
     await writeFile(join(directory,'tracked.txt'),'staged\nkept\n');git('add','tracked.txt');
     await writeFile(join(directory,'tracked.txt'),'unstaged\nkept\n');
-    const child = spawn(
+    let child = spawn(
       resolve("target/debug/vibeone-host"),
       ["serve", "--data-dir", directory],
       { stdio: "ignore" },
     );
-    const exited = once(child, "exit");
+    let exited = once(child, "exit");
     const frontend = "http://127.0.0.1:5174";
     let vite;
     try {
@@ -61,6 +61,22 @@ test(
       await sleep(40);
     }
     assert.ok(connection);
+    // Seed a malformed legacy catalog row only while this disposable Host is stopped.
+    await fetch(`${connection.url}/v1/host/stop`,{method:'POST',headers:{Authorization:`Bearer ${connection.token}`}});
+    await exited;
+    execFileSync('python3',['-c',
+      'import sqlite3,json,sys; db=sqlite3.connect(sys.argv[1]); db.execute("INSERT INTO catalog(kind,id,value) VALUES(?,?,?)",("profile","corrupt-fixture",json.dumps({"id":"corrupt-fixture","name":"Invalid","provider":"demo","revision":1,"args":[42]}))); db.commit(); db.close()',
+      join(directory,'vibeone.sqlite3')]);
+    await rm(join(directory,'host.json'),{force:true});
+    child=spawn(resolve('target/debug/vibeone-host'),['serve','--data-dir',directory],{stdio:'ignore'});
+    exited=once(child,'exit');
+    connection=null;
+    for(let attempt=0;attempt<200;attempt++){
+      try{connection=JSON.parse(await readFile(join(directory,'host.json'),'utf8'));if((await fetch(`${connection.url}/v1/snapshot`,{headers:{Authorization:`Bearer ${connection.token}`}})).ok)break;}catch{}
+      await sleep(30);
+    }
+    assert.ok(connection);
+
     const executablePath =
       process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ??
       (process.platform === "darwin"
@@ -700,6 +716,22 @@ test(
     await page.getByRole('button',{name:'选择目录',exact:true}).click();
     assert.equal(await page.getByRole('textbox',{name:'工作区目录',exact:true}).inputValue(),directory);
     await settingsNav.getByRole('button',{name:'Agent',exact:true}).click();
+    await settingsNav.getByRole('button',{name:'外观',exact:true}).click();
+    await page.getByRole('button',{name:'亮色',exact:true}).click();
+    await settingsNav.getByRole('button',{name:'Agent',exact:true}).click();
+    const profileIssues=page.getByRole('region',{name:'需要检查的配置',exact:true});
+    await profileIssues.getByText('corrupt-fixture',{exact:true}).waitFor();
+    assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
+    await page.screenshot({path:join(tmpdir(),'vibeone-profile-issues-light.png')});
+    await settingsNav.getByRole('button',{name:'外观',exact:true}).click();
+    await page.getByRole('button',{name:'暗色',exact:true}).click();
+    await settingsNav.getByRole('button',{name:'Agent',exact:true}).click();
+    await profileIssues.getByText('corrupt-fixture',{exact:true}).waitFor();
+    assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
+    await page.screenshot({path:join(tmpdir(),'vibeone-profile-issues-dark.png')});
+    await page.getByRole('button',{name:'移除异常配置 corrupt-fixture',exact:true}).click();
+    await profileIssues.getByText('异常配置已移除，已有会话保持不变。',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'移除异常配置 corrupt-fixture',exact:true}).count(),0);
     await page.getByRole('button',{name:'新建 Agent 配置',exact:true}).click();
     await page.getByRole('textbox',{name:'配置名称',exact:true}).fill('桌面审阅配置');
     await page.getByRole('textbox',{name:'启动参数 JSON',exact:true}).fill('{bad');

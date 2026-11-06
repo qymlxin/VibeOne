@@ -12,5 +12,5 @@ export function updateSession(sessionId:string,body:UpdateSessionRequest):Comman
 export function importWorkspace(path:string):Command<WorkspaceImportRequest>{return ['/workspaces',{path}];}
 export function decideApproval(sessionId:string,requestId:string,option:string):Command<ApprovalDecisionRequest>{return [`/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(requestId)}`,{option}];}
 
-export function saveProfile(body:Omit<ProfileRequest,'remove'> & {name:string;provider:string}):Command<ProfileRequest>{return ['/profiles',body];}
-export function removeProfile(id:string,revision:number):Command<ProfileRequest>{return ['/profiles',{id,revision,remove:true}];}
+export function saveProfile(body:Omit<ProfileRequest,'remove'> & Required<Pick<ProfileRequest,'name'|'provider'>>):Command<ProfileRequest>{return ['/profiles',body];}
+export function removeProfile(id:string,revision?:number,recordHash?:string):Command<ProfileRequest>{return ['/profiles',{id,...(revision===undefined?{}:{revision}),...(recordHash===undefined?{}:{recordHash}),remove:true}];}

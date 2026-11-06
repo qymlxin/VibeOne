@@ -16,12 +16,13 @@
 | PluginTicketRequest | 激活或丢弃已准备的插件候选 |
 | HttpErrorResponse | code/error/status/requestId错误信封 |
 | ProfileRequest / ProfileRecord / ProfileResponse | 配置保存/移除命令、实际保存记录及移除结果 |
+| ProfileView / PinnedProfile / ProfileIssue | 目录视图、会话固定配置及异常目录记录 |
 | RunRecord / SessionView | 实际会话投影、执行列表及排队记录 |
 | SnapshotResponse / SnapshotMetadata | 实际快照封装及游标同步元数据 |
 | WorkspaceView / Provider / DeviceView | 工作区、Provider公开描述与当前设备身份 |
 | PendingRequest / PermissionOption / DecisionRecord | 待处理身份、期限、选项和持久决定回执 |
 
-Profile全量快照、插件包/操作目录记录内容与ACP动态字段尚未全部迁移到共享业务DTO。这里不把JsonValue或若干请求类型称为整个业务模型已经完成。
+插件包/操作目录记录内容与ACP动态字段尚未全部迁移到共享业务DTO，内部领域错误也仍有后续迁移。这里不把JsonValue或若干请求类型称为整个业务模型已经完成。
 
 ![契约生成与调用](diagrams/client-contracts.svg)
 
@@ -37,7 +38,7 @@ Profile全量快照、插件包/操作目录记录内容与ACP动态字段尚未
 
 ## 客户端接入
 
-`@vibeone/client-contracts`提供使用生成类型编译的请求构造器。正式桌面与手机共用的创建会话、发送消息已使用构造器生成路径和正文，幂等键沿用同一份草稿请求身份。字段改名或新增必填字段会使构造器/类型检查失败，需要同步调整生产调用。
+`@vibeone/client-contracts`提供使用生成类型编译的请求构造器。正式桌面与手机共用的创建会话、发送消息已使用构造器生成路径和正文，幂等键沿用同一份草稿请求身份。当前`AgentSettings`的保存/修改/移除也通过构造器发送；旧`Management`入口继续兼容。字段改名或新增必填字段会使构造器/类型检查失败，需要同步调整生产调用。
 
 其他构造器覆盖工作区、审批、元数据及队列，供后续调用逐步接入。JSON Schema描述字段类型、可空与缺省规则，不代替工作区权限、文件读取、Schema输入验证或业务大小限制。TypeScript作者模式会检查已知字段名；Host仍保留忽略未知请求字段的兼容行为。
 
@@ -51,9 +52,9 @@ Rust检查Schema与实际Serde对缺字段/null的判断一致；TypeScript正�
 
 ## Agent Profile 保存与删除
 
-`ProfileRequest`直接由HTTP解析器使用；`ProfileRecord`在存储前验证实际将保存的记录，成功保存/移除返回类型化的`ProfileResponse`。设置页通过共享`saveProfile`和`removeProfile`构造器调用。保存构造器要求name/provider；移除构造器携带id/revision。Host仍校验名称长度、Provider、程序绝对路径、参数限制和修订冲突。
+`ProfileRequest`直接由HTTP解析器使用；`ProfileRecord`在存储前验证实际将保存的记录，成功保存/移除返回类型化的`ProfileResponse`。设置页通过共享`saveProfile`和`removeProfile`构造器调用。保存构造器要求name/provider；移除构造器携带id及可用的revision/recordHash。Host仍校验名称长度、Provider、程序绝对路径、参数限制和修订冲突。
 
-请求可省略id/revision/command/args等字段；字段一旦提供必须为正确的非null类型。特别是revision:null不会当作“没有修订条件”而绕过并发保护；args:null或非字符串元素也会被解析器拒绝。空command和空参数列表仍支持。响应省略未设置的command/args，不引入多余null字段。旧存储数据及会话已固定配置的读取路径保持兼容；此处没有宣称Profile全量快照及全部ACP动态业务模型已完成类型迁移。
+请求可省略id/revision/command/args等字段；字段一旦提供必须为正确的非null类型。特别是revision:null不会当作“没有修订条件”而绕过并发保护；args:null或非字符串元素也会被解析器拒绝。空command和空参数列表仍支持。响应省略未设置的command/args，不引入多余null字段。旧存储数据及会话已固定配置的读取路径保持兼容；此处没有宣称全部ACP动态业务模型已完成类型迁移。
 
 Schema与Serde对字段省略、显式null、负修订号和错误参数元素做一致性检查；真实Host验证保存、改名递增修订、旧修订拒绝、非法null拒绝、按配置建会话固定修订和删除。TypeScript反例保证缺少保存字段、null修订或错误参数无法通过作者类型检查。
 
@@ -81,6 +82,18 @@ Run身份、文本、状态、幂等键、文件引用、附件身份、时间�
 
 历史回填可能遇到旧版或已损坏的、早已失效的权限/输入事件。这类事件不恢复为可操作请求：保留原始事件和消息历史，回填结果记录一次兼容提示并继续。在线新事件仍严格校验。回归已先复现旧权限选项阻断回填，再验证修复后正文保留、原始事件仍在且待处理列表为空。
 
-Profile目录和插件/操作记录内容仍是明确JsonValue，领域错误也仍有后续迁移；此处只确认已实现的快照封装、待处理公共结构和权限过滤。自动检查覆盖所有者/手机实际序列化Schema、零授权、脱敏、原始视图不变、错误选项类型、动态输入及决定内容往返，以及错误请求不发布和按身份移除。
+插件/操作记录内容仍是明确JsonValue，领域错误也仍有后续迁移。自动检查覆盖所有者/手机实际序列化Schema、零授权、脱敏、原始视图不变、错误选项类型、动态输入及决定内容往返，以及错误请求不发布和按身份移除。
 
 ![快照与决定链路](diagrams/snapshot-attention.svg)
+
+## Profile目录与固定配置
+
+`ProfileView`是实际快照中的配置目录视图，身份、名称和Provider必填；`PinnedProfile`用于实际会话保存和执行，可兼容没有目录身份的插件启动配置以及旧记录缺少部分说明字段。两者复用修订、程序、参数和插件代次等类型字段。目录读取不改写原始记录，旧配置没有revision时保持缺省；保存新修订后才开始计数。未知扩展在电脑端及会话历史中保留，手机仅接收已知公开字段，启动参数和未知扩展均过滤。
+
+格式或目录身份不匹配的记录不进入可用配置，快照通过`profileIssues`返回本地问题提示，其他配置和会话继续可用。原始记录仍在SQLite中；读取不会自动修复、覆盖或删除。用户可在电脑端Agent设置页明确移除异常记录。客户端携带目录身份、可用的旧修订和`recordHash`，Host在目录锁内核对当前原文摘要与修订；即使修订号没变，原文变化也会拒绝。摘要是并发检查，不是权限凭证。手机看不到本地问题列表，也不能管理主机配置。
+
+修改或移除目录后，已有会话继续保存原来的固定配置。用户正常编辑仍采用原来的已知字段替换语义，不自动继承未知扩展。参数为空列表与省略参数保持区别：前者覆盖默认参数，后者使用Provider默认值。严格类型仍拒绝错误启动字段，不把损坏记录当成可执行配置。
+
+回归覆盖旧配置缺少修订、未知字段保留、目录身份不匹配、异常原文不变、旧摘要拒绝、按目录身份移除、固定配置重启后保留、手机过滤未知扩展，以及正式设置页的异常提示和实际移除。测试只在停止的临时Host数据库中放入异常夹具，不修改用户数据。
+
+![配置目录处理](diagrams/profile-catalog.svg)

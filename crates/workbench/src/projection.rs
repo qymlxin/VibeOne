@@ -47,7 +47,7 @@ pub struct SessionView {
     #[schemars(with = "Vec<DecisionRecord>")]
     pub decisions: Vec<DecisionRecord>,
     #[serde(default)]
-    pub profile: Option<Value>,
+    pub profile: Option<crate::contracts::PinnedProfile>,
     #[serde(default)]
     pub agent_state: Value,
     #[serde(skip)]

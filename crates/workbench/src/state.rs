@@ -313,6 +313,7 @@ impl Workbench {
             .map(|entry| entry.view.lock().expect("view poisoned").clone())
             .collect();
         views.sort_by(|a, b| a.id.cmp(&b.id));
+        let (profiles, profile_issues) = self.profile_views();
         crate::contracts::SnapshotResponse {
             sessions: views,
             metadata: crate::contracts::SnapshotMetadata {
@@ -349,7 +350,8 @@ impl Workbench {
                 operations: self.operation_summaries(),
                 plugins: self.catalog("plugin"),
                 notifications: self.catalog("notification"),
-                profiles: self.catalog("profile"),
+                profiles,
+                profile_issues,
                 providers: self.provider_descriptors(),
                 workspaces: self
                     .workspaces
@@ -378,18 +380,15 @@ impl Workbench {
     ) -> Result<String, String> {
         self.available()?;
         let _catalog = self.catalog_gate.lock().await;
-        let mut profile = match profile_id {
-            Some(id) => Some(
-                self.catalog("profile")
-                    .into_iter()
-                    .find(|item| item["id"] == id)
-                    .ok_or("Agent Profile 不存在")?,
-            ),
-            None => None,
-        };
+        let mut profile = profile_id
+            .map(|id| {
+                self.profile_view(id)
+                    .map(crate::contracts::PinnedProfile::from)
+            })
+            .transpose()?;
         let provider = profile
             .as_ref()
-            .and_then(|item| item["provider"].as_str())
+            .and_then(|item| item.provider.as_deref())
             .unwrap_or(provider);
         let provider = self
             .provider_descriptors()
@@ -398,8 +397,10 @@ impl Workbench {
                 value.id == provider
                     && (value.available
                         || profile.as_ref().is_some_and(|profile| {
-                            profile["command"]
-                                .as_str()
+                            profile
+                                .details
+                                .command
+                                .as_deref()
                                 .is_some_and(|command| Path::new(command).is_file())
                         }))
             })
@@ -413,11 +414,22 @@ impl Workbench {
             }
             let mut pinned = profile
                 .take()
-                .unwrap_or_else(|| json!({"name":provider.name,"provider":provider.id}));
-            pinned["command"] = json!(provider.command);
-            pinned["args"] = json!(provider.args);
-            pinned["pluginId"] = json!(plugin_id);
-            pinned["generation"] = json!(lease.key().generation);
+                .unwrap_or_else(|| crate::contracts::PinnedProfile {
+                    id: None,
+                    name: Some(provider.name.clone()),
+                    provider: Some(provider.id.clone()),
+                    details: Default::default(),
+                });
+            pinned.details.command = Some(
+                provider
+                    .command
+                    .to_str()
+                    .ok_or("Provider路径名称无效")?
+                    .into(),
+            );
+            pinned.details.args = Some(provider.args.clone());
+            pinned.details.plugin_id = Some(plugin_id.into());
+            pinned.details.generation = Some(lease.key().generation);
             profile = Some(pinned);
             Some(lease)
         } else {
