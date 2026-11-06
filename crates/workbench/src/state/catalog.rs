@@ -104,11 +104,26 @@ impl Workbench {
         id: &str,
         value: Value,
     ) -> Result<(), DomainError> {
+        self.put_catalog_with_receipt_locked(kind, id, value, None)
+            .await
+    }
+    async fn put_catalog_with_receipt_locked(
+        &self,
+        kind: &str,
+        id: &str,
+        value: Value,
+        receipt: Option<(&str, &Value)>,
+    ) -> Result<(), DomainError> {
         self.command_available()?;
         let _sync = self.sync_gate.lock().await;
         let cursor = self
             .store
-            .put_catalog(kind, id, &value)
+            .put_catalog_with_receipt(
+                kind,
+                id,
+                &value,
+                receipt.map(|(id, value)| ("profile-command", id, value)),
+            )
             .await
             .map_err(|error| {
                 self.fail_storage(error);
@@ -121,6 +136,12 @@ impl Workbench {
             items.remove(id);
         } else {
             items.insert(id.into(), value);
+        }
+        if let Some((id, value)) = receipt {
+            catalog
+                .entry("profile-command".into())
+                .or_default()
+                .insert(id.into(), value.clone());
         }
         self.changed(cursor);
         Ok(())
@@ -248,10 +269,47 @@ impl Workbench {
     }
     pub(crate) async fn save_profile(
         &self,
-        request: crate::contracts::ProfileRequest,
+        mut request: crate::contracts::ProfileRequest,
     ) -> Result<crate::contracts::ProfileResponse, DomainError> {
         self.command_available()?;
         let _gate = self.catalog_gate.lock().await;
+        self.command_available()?;
+        let key = request
+            .key
+            .take()
+            .map(|key| {
+                if key.is_empty() || key.len() > 128 {
+                    return Err(DomainError::new(
+                        ErrorKind::InvalidInput,
+                        "配置幂等键必须为1至128字节",
+                    ));
+                }
+                Ok(Self::profile_hash(&json!(key)))
+            })
+            .transpose()?;
+        let fingerprint = Self::profile_hash(
+            &serde_json::to_value(&request)
+                .map_err(|_| DomainError::new(ErrorKind::Internal, "配置参数编码失败"))?,
+        );
+        if let Some(key) = &key {
+            let saved = self
+                .catalog
+                .lock()
+                .expect("catalog poisoned")
+                .get("profile-command")
+                .and_then(|items| items.get(key))
+                .cloned();
+            if let Some(saved) = saved {
+                if saved["fingerprint"] != fingerprint {
+                    return Err(DomainError::new(
+                        ErrorKind::IdempotencyConflict,
+                        "同一配置幂等键的参数不同",
+                    ));
+                }
+                return serde_json::from_value(saved["result"].clone())
+                    .map_err(|_| DomainError::new(ErrorKind::Internal, "配置操作回执无效"));
+            }
+        }
         let existing = request
             .id
             .as_deref()
@@ -280,7 +338,14 @@ impl Workbench {
                 .id
                 .as_deref()
                 .ok_or_else(|| DomainError::new(ErrorKind::InvalidInput, "请选择配置"))?;
-            self.put_catalog_locked("profile", id, Value::Null).await?;
+            let receipt = json!({"fingerprint":fingerprint,"result":{"removed":true}});
+            self.put_catalog_with_receipt_locked(
+                "profile",
+                id,
+                Value::Null,
+                key.as_deref().map(|key| (key, &receipt)),
+            )
+            .await?;
             return Ok(crate::contracts::ProfileResponse::Removed { removed: true });
         }
         let name = request
@@ -350,11 +415,14 @@ impl Workbench {
             command: request.command,
             args: request.args,
         };
-        self.put_catalog_locked(
+        let value = serde_json::to_value(&profile)
+            .map_err(|_| DomainError::new(ErrorKind::Internal, "配置编码失败"))?;
+        let receipt = json!({"fingerprint":fingerprint,"result":value});
+        self.put_catalog_with_receipt_locked(
             "profile",
             &id,
-            serde_json::to_value(&profile)
-                .map_err(|_| DomainError::new(ErrorKind::Internal, "配置编码失败"))?,
+            value,
+            key.as_deref().map(|key| (key, &receipt)),
         )
         .await?;
         Ok(crate::contracts::ProfileResponse::Saved(profile))

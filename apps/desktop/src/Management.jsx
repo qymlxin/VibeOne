@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import {useProfileCommands} from "./use-profile-commands.js";
 import { enableNotifications } from "./notifications.js";
 import { chooseWorkspace } from "./api.js";
 import {saveProfile as saveProfileCommand,removeProfile as removeProfileCommand} from "@vibeone/client-contracts";
 
 export function Management({ workbench, section="all" }) {
+  const profileCommands=useProfileCommands(workbench);
   const [error, setError] = useState(""),
     [name, setName] = useState(""),
     [editing, setEditing] = useState(null),
@@ -75,7 +77,7 @@ export function Management({ workbench, section="all" }) {
           <button
             onClick={() =>
               void run(() =>
-                workbench.call(...removeProfileCommand(profile.id,profile.revision)),
+                profileCommands.call(removeProfileCommand(profile.id,profile.revision)),
               )
             }
           >
@@ -88,7 +90,7 @@ export function Management({ workbench, section="all" }) {
         onSubmit={(event) => {
           event.preventDefault();
           void run(async () => {
-            await workbench.call(...saveProfileCommand({
+            await profileCommands.call(saveProfileCommand({
               name,
               provider,
               ...(editing

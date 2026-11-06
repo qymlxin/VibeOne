@@ -441,6 +441,8 @@ where
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ProfileRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
     #[serde(
         default,
         rename = "recordHash",
@@ -507,7 +509,7 @@ pub struct ProfileRecord {
     pub args: Option<Vec<String>>,
 }
 
-#[derive(Serialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum ProfileResponse {
     Saved(ProfileRecord),

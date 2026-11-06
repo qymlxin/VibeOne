@@ -2816,6 +2816,12 @@
       "id": {
         "type": "string"
       },
+      "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "name": {
         "type": "string"
       },

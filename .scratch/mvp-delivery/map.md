@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [99 Agent 配置操作回执](issues/99-profile-command-receipts.md)：新建、修订、移除接持久幂等与原子目录事务；设置页丢失响应可手动同键重试，异常移除保留重试入口，真实并发/重启/SQLite故障/HTTPS权限及桌面验证通过。
+
 - [97 会话创建对账](issues/97-session-creation-idempotency.md)：原子持久创建回执与正式表单同键重试接入；真实并发、重启、丢失响应、存储故障和HTTPS权限通过，文档/SVG及桌面包同步更新。
 
 - [96 Host 生命周期验收](issues/96-host-lifecycle-acceptance.md)：隔离服务端验证单实例、私有鉴权、断开保活、进程树停止和重启中断恢复；原生窗口验收继续保留，创建幂等缺口交由97修复。

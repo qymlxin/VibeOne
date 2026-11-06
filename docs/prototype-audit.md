@@ -58,7 +58,7 @@
 | S05 | 强调色、前景/背景、独立亮暗配色、恢复 | `appearance.js`、AppearanceSettings | 颜色合法性、对比度提示、模式隔离和恢复自动通过；字体为系统默认 |
 | S06 | 提醒开关与系统权限显示 | NotificationSettings、原生命令 | 查询失败、拒绝/允许、撤销刷新及关闭的桥接测试通过；macOS真正授权框/横幅待验 |
 | S07 | 审批/输入/执行结束提醒及首次历史基线 | `notifications.js` | 有权限冷启动零补发、新Run提醒自动通过；插件渠道使用真实Host outbox |
-| S08 | Agent选择、新建配置、名称/类型、命令/参数 | AgentSettings、Profile API | 保存修订、参数错误、固定旧修订、默认入口及移除自动通过 |
+| S08 | Agent选择、新建配置、名称/类型、命令/参数 | AgentSettings、Profile API | 保存修订、参数错误、固定旧修订、默认入口及移除自动通过；99补齐新建/修订/异常移除的丢失响应重试、持久回执和存储回滚，见[配置对账](profile-command-receipts.md) |
 | S09 | 认证信息与启动入口状态 | Provider主动探测、Agent设置说明 | 75补齐实际桥接器名称/版本、v2能力及CLI状态/引导；两类真实桥接器初始化通过，Claude仍未登录 |
 | S10 | 工作区路径输入/导入、已有目录与托管项目 | Management、Workspace API | 55已补齐路径输入、选择填入和明确导入；相对拒绝、空格目录、重复路径与Host持久化自动通过 |
 | S11 | 插件路径、检查、信任、范围、JSON配置 | PluginManager、Host插件API | 真包与清单检查、权限、配置错误、范围校验及App面板/Worker自动通过 |

@@ -386,6 +386,7 @@ impl Workbench {
                     "pluginOperations",
                     "pluginLifecycleOperations",
                     "sessionCreationIdempotency",
+                    "profileCommandIdempotency",
                     "structuredErrors",
                 ]
                 .into_iter()

@@ -215,6 +215,15 @@ impl Store {
             .collect()
     }
     pub async fn put_catalog(&self, kind: &str, id: &str, value: &Value) -> Result<u64> {
+        self.put_catalog_with_receipt(kind, id, value, None).await
+    }
+    pub async fn put_catalog_with_receipt(
+        &self,
+        kind: &str,
+        id: &str,
+        value: &Value,
+        receipt: Option<(&str, &str, &Value)>,
+    ) -> Result<u64> {
         let mut tx = self.pool.begin().await?;
         if value.is_null() {
             sqlx::query("DELETE FROM catalog WHERE kind=? AND id=?")
@@ -232,6 +241,14 @@ impl Store {
             .execute(&mut *tx)
             .await?
             .last_insert_rowid();
+        if let Some((kind, id, value)) = receipt {
+            sqlx::query("INSERT INTO catalog(kind,id,value) VALUES(?,?,?)")
+                .bind(kind)
+                .bind(id)
+                .bind(serde_json::to_string(value)?)
+                .execute(&mut *tx)
+                .await?;
+        }
         tx.commit().await?;
         Ok(cursor as u64)
     }
@@ -418,6 +435,60 @@ mod tests {
         assert_eq!(reopened.sessions().await.unwrap().len(), 1);
         assert_eq!(reopened.catalog().await.unwrap()[0].0, "session-create");
         reopened.close().await;
+    }
+    #[tokio::test]
+    async fn profile_receipt_failure_rolls_back_update_and_removal() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).await.unwrap();
+        let original = json!({"id":"profile","revision":1});
+        store
+            .put_catalog("profile", "profile", &original)
+            .await
+            .unwrap();
+        let cursor = store.cursor().await.unwrap();
+        sqlx::query("CREATE TRIGGER fail_profile_receipt BEFORE INSERT ON catalog WHEN NEW.kind='profile-command' BEGIN SELECT RAISE(ABORT,'injected receipt failure'); END").execute(&store.pool).await.unwrap();
+        for value in [json!({"id":"profile","revision":2}), Value::Null] {
+            assert!(
+                store
+                    .put_catalog_with_receipt(
+                        "profile",
+                        "profile",
+                        &value,
+                        Some(("profile-command", "intent", &json!({"result":"receipt"})))
+                    )
+                    .await
+                    .is_err()
+            );
+            assert_eq!(
+                store.catalog().await.unwrap(),
+                vec![("profile".into(), "profile".into(), original.clone())]
+            );
+            assert_eq!(store.cursor().await.unwrap(), cursor);
+        }
+        sqlx::query("DROP TRIGGER fail_profile_receipt")
+            .execute(&store.pool)
+            .await
+            .unwrap();
+        store
+            .put_catalog_with_receipt(
+                "profile",
+                "profile",
+                &Value::Null,
+                Some((
+                    "profile-command",
+                    "intent",
+                    &json!({"result":{"removed":true}}),
+                )),
+            )
+            .await
+            .unwrap();
+        store.close().await;
+        let store = Store::open(dir.path()).await.unwrap();
+        let rows = store.catalog().await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].0, "profile-command");
+        assert_eq!(rows[0].2["result"]["removed"], true);
+        store.close().await;
     }
     #[tokio::test]
     async fn restart_invalidates_requests_and_never_replays_pending_input() {

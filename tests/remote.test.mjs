@@ -13,6 +13,8 @@ test(
   { timeout: 45000 },
   async (t) => {
     const { directory, call, wait, connection } = await host(t);
+    const privateProfileCommand={name:'Owner profile receipt',provider:'demo',key:'owner-profile-receipt'};
+    await call('/profiles',privateProfileCommand);
     const workspace = await call("/workspaces", { path: directory });
     const hidden = join(directory, "hidden");
     await mkdir(hidden);
@@ -136,6 +138,7 @@ test(
     assert.equal((await request("/v1/devices", undefined, cookie)).status, 403);
     assert.equal((await request("/v1/providers/demo/probe", {}, cookie)).status, 403);
     assert.equal((await request("/v1/profiles", undefined, cookie)).status, 403);
+    assert.equal((await request('/v1/profiles',privateProfileCommand,cookie)).status,403,'known configuration receipts remain owner-only');
     assert.equal((await request('/v1/plugin-lifecycle/operations',{key:'remote-denied',action:'inspect',input:{path:directory}},cookie)).status,403);
     assert.equal((await request(`/v1/sessions/${visible.id}/attachments`,{name:'forbidden.txt',mimeType:'text/plain',data:'dGV4dA=='},cookie)).status,403);
     assert.equal((await request(`/v1/sessions/${visible.id}/context/resume`,{},cookie)).status,403);
@@ -198,6 +201,7 @@ test(
       workspaces: [workspace.id],
     });
     await page.getByText("本机 · 已连接", { exact: true }).waitFor();
+    assert.equal(await page.evaluate(async body=>(await fetch('/v1/profiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).status,privateProfileCommand),403,'operator devices cannot replay Owner configuration commands');
     const replays=await page.evaluate(async({directory,hidden})=>{
       const replay=async(workspace,key)=>{const response=await fetch('/v1/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'demo',workspace,key})});return {status:response.status,body:await response.json()};};
       return [await replay(directory,'visible-creation'),await replay(hidden,'hidden-creation')];
