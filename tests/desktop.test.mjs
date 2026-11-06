@@ -98,11 +98,21 @@ test(
     await page.getByText("工作主机 · 本机已连接", { exact: true }).waitFor();
     await page.getByRole("button", { name: "选择工作区目录" }).click();
     await page.getByRole("button", { name: "创建会话", exact: true }).click();
-    await page.getByRole("textbox", { name: "发送任务" }).fill("桌面集成测试");
+    await page
+      .getByRole("textbox", { name: "发送任务" })
+      .fill("桌面集成测试 /thought");
     await page.getByRole("button", { name: "发送消息" }).click();
     await page.getByText("本轮执行结束", { exact: true }).waitFor();
     assert.equal(await page.locator(".desktop-message.user").count(), 1);
     assert.equal(await page.locator(".desktop-message.assistant").count(), 1);
+    assert.equal(await page.locator(".desktop-message.thought").count(), 1);
+    assert.equal(
+      await page
+        .locator(".desktop-message.thought .desktop-message-text")
+        .innerText(),
+      "演示进度摘要：正在准备回复。",
+    );
+    await page.getByText("本地演示 · 思考摘要", { exact: true }).waitFor();
     await page.screenshot({
       animations: "disabled",
       path: join(tmpdir(), "vibeone-desktop-light.png"),
@@ -120,8 +130,26 @@ test(
       .waitFor();
     await page.getByRole("textbox", { name: "发送任务" }).fill("/wait");
     await page.getByRole("button", { name: "发送消息" }).click();
+    await page.waitForFunction(() =>
+      document.querySelector(".desktop-status")?.textContent.includes("运行中"),
+    );
+    assert.equal(
+      await page.locator(".desktop-live-status").count(),
+      1,
+      "Agent running without output must have visible progress feedback",
+    );
+    await page
+      .getByText("尚未收到可展示的思考摘要；收到后会自动显示。", {
+        exact: true,
+      })
+      .waitFor();
+    await page.screenshot({
+      animations: "disabled",
+      path: join(tmpdir(), "vibeone-desktop-waiting.png"),
+    });
     await page.getByRole("button", { name: "停止执行", exact: true }).click();
     await page.getByText("本轮已停止", { exact: true }).waitFor();
+    assert.equal(await page.locator(".desktop-live-status").count(), 0);
     await page
       .getByRole("combobox", { name: "主题", exact: true })
       .selectOption("dark");

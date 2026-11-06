@@ -372,6 +372,19 @@ function Conversation({ session, workbench, online, act }) {
     (length, message) => length + message.text.length,
     0,
   );
+  const turnStart = session.messages.findLastIndex(
+    (message) => message.role === "user",
+  );
+  const turnOutput = session.messages
+    .slice(turnStart + 1)
+    .findLast(
+      (message) =>
+        message.text && ["thought", "assistant"].includes(message.role),
+    );
+  const progressStage =
+    session.status === "running"
+      ? (turnOutput?.role ?? "waiting")
+      : session.status;
   useEffect(() => {
     if (followLatest.current) bottom.current?.scrollIntoView({ block: "end" });
   }, [contentLength, session.approvals.length]);
@@ -457,7 +470,7 @@ function Conversation({ session, workbench, online, act }) {
                   {message.role === "user"
                     ? "你"
                     : message.role === "thought"
-                      ? `${name} · 思考`
+                      ? `${name} · 思考摘要`
                       : name}
                 </strong>
                 {message.pending ? <span>已受理 · 等待 Agent 接受</span> : null}
@@ -545,6 +558,7 @@ function Conversation({ session, workbench, online, act }) {
                 : `本轮已结束 · ${session.stopReason}`}
           </p>
         ) : null}
+        {active ? <LiveStatus stage={progressStage} /> : null}
         <div ref={bottom} />
       </div>
       {!following && (
@@ -630,6 +644,39 @@ function Conversation({ session, workbench, online, act }) {
         </div>
       </div>
     </>
+  );
+}
+
+function LiveStatus({ stage }) {
+  const [started] = useState(Date.now);
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(
+      () => setSeconds(Math.floor((Date.now() - started) / 1000)),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [started]);
+  const message =
+    {
+      starting: "正在准备本轮执行",
+      waiting: "Agent 正在处理，等待输出",
+      thought: "已收到思考摘要，等待回复",
+      assistant: "正在接收回复",
+      requires_action: "等待你处理审批",
+      cancelling: "正在请求 Agent 停止",
+    }[stage] ?? "Agent 正在执行";
+  return (
+    <div className="desktop-live-status">
+      <LoaderCircle size={14} className="desktop-spin" aria-hidden="true" />
+      <div>
+        <p role="status">{message}</p>
+        {stage === "waiting" && seconds >= 3 ? (
+          <small>尚未收到可展示的思考摘要；收到后会自动显示。</small>
+        ) : null}
+      </div>
+      <time aria-hidden="true">已等待 {seconds} 秒</time>
+    </div>
   );
 }
 

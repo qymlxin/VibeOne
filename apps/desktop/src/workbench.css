@@ -597,6 +597,31 @@ p {
   color: var(--muted);
   margin: 25px 0 0;
 }
+.desktop-live-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 18px 0 22px 41px;
+  color: var(--muted);
+}
+.desktop-live-status > svg {
+  flex: none;
+}
+.desktop-live-status p {
+  margin: 0;
+  font-size: 12px;
+}
+.desktop-live-status small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+}
+.desktop-live-status time {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  white-space: nowrap;
+}
 .desktop-composer-wrap {
   flex: none;
   padding: 12px max(26px, calc((100% - 860px) / 2)) 16px;
