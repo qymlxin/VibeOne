@@ -17,6 +17,23 @@ test('commands use current ACP advertisements and never shadow Agent commands',(
   assert.equal(commandOptions(null,'终端')[0].panel,'terminal');
   assert.equal(commandOptions([], 'does-not-exist').length,0);
 });
+
+test('Chinese prose and punctuation open suggestions without matching emails or URLs',()=>{
+  for(const text of ['看看@Cargo','请查看：@Cargo','查看（@Cargo','请用/terminal']){
+    const token=composerToken(text,text.length);
+    assert.ok(token,text);
+    assert.equal(replaceToken(text,token,''),text.slice(0,token.start));
+  }
+  const text='查看@"folder name/child.txt" 后文';
+  const token=composerToken(text,12);
+  assert.equal(token.kind,'@');
+  assert.equal(replaceToken(text,token,''),'查看 后文');
+  for(const text of ['mail@host','first.last@example.com','https://example.com/path','https://user@host','https://example.com/中文/path','/usr/local/bin']){
+    const token=composerToken(text,text.length);
+    if(text.startsWith('/usr'))assert.equal(token.query,'usr/local/bin');
+    else assert.equal(token,null,text);
+  }
+});
 test('direct send handles only exact local commands and respects upstream names',()=>{
   assert.equal(commandPanel(' /files\n',[]),'files');
   assert.equal(commandPanel('/files src',[]),null);

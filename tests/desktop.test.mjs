@@ -180,6 +180,14 @@ test(
     await page.getByRole('heading',{name:'工作区',exact:true,level:1}).waitFor();
     await page.getByRole('button',{name:'返回工作台',exact:true}).click();
     const composer=page.getByRole('textbox',{name:'发送任务'});
+    await composer.fill('看看@preview');
+    await page.getByRole('option',{name:/preview.txt/}).waitFor();
+    await composer.press('Tab');
+    assert.equal(await composer.inputValue(),'看看');
+    await page.getByRole('button',{name:'移除引用 preview.txt'}).click();
+    await composer.fill('请用/terminal');
+    await page.getByRole('option',{name:/terminal/}).waitFor();
+    await composer.press('Escape');
     await composer.fill('@composer-review');
     await page.getByRole('option',{name:/composer-review/}).waitFor();
     await page.screenshot({path:join(tmpdir(),'vibeone-composer-at-skills.png')});

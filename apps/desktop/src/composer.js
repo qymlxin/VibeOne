@@ -2,9 +2,14 @@
 export function composerToken(text, caret) {
   const prefix = text.slice(0, caret);
   const suffix = text.slice(caret);
-  const quoted=/(?:^|\s)@"([^"\n]*)$/.exec(prefix);
+  const word=prefix.match(/\S*$/)?.[0]??'';
+  if(/^[a-z][a-z\d+.-]*:\/\//i.test(word))return null;
+  // Chinese prose does not normally separate words with spaces. Treat Han
+  // characters and Chinese punctuation as boundaries, but leave email/URL
+  // fragments alone (ASCII letters, ':' and '/' are not boundaries).
+  const quoted=/(?:^|[\s\p{Script=Han}，。！？：；、（【「『])@"([^"\n]*)$/u.exec(prefix);
   if(quoted)return {kind:'@',query:quoted[1],start:prefix.length-quoted[1].length-2,end:caret+(suffix.match(/^[^"\n]*(?:")?/)?.[0].length??0)};
-  const match = /(?:^|\s)([@/])([^\s]*)$/.exec(prefix);
+  const match = /(?:^|[\s\p{Script=Han}，。！？：；、（【「『])([@/])([^\s]*)$/u.exec(prefix);
   if (!match) return null;
   return {kind:match[1], query:match[2], start:prefix.length-match[2].length-1, end:caret+(suffix.match(/^[^\s]*/)?.[0].length??0)};
 }

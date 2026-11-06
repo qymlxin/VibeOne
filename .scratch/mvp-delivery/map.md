@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [98 指令和引用输入](issues/98-composer-chinese-triggers.md)：核对正式菜单和真实上下文发送，补全中文无空格触发；输入框单元测试与真实 Host 桌面回归通过，亮暗截图已核对。
+
 - [43 正式版交付](issues/43-workbench-phase.md)：29 项模型/原生/浏览器测试通过，Clippy、macOS 打包和原生历史核对完成；只重开桌面，Host 保持运行。
 
 - [42 界面偏好](issues/42-workbench-phase.md)：本设备持久外观和头像、距离衰减索引、新原生图标已接入，存储与减少动画回退明确。
