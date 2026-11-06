@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [96 Host 生命周期验收](issues/96-host-lifecycle-acceptance.md)：隔离服务端验证单实例、私有鉴权、断开保活、进程树停止和重启中断恢复；原生窗口验收继续保留，创建幂等缺口交由97修复。
+
 - [98 指令和引用输入](issues/98-composer-chinese-triggers.md)：核对正式菜单和真实上下文发送，补全中文无空格触发；输入框单元测试与真实 Host 桌面回归通过，亮暗截图已核对。
 
 - [43 正式版交付](issues/43-workbench-phase.md)：29 项模型/原生/浏览器测试通过，Clippy、macOS 打包和原生历史核对完成；只重开桌面，Host 保持运行。

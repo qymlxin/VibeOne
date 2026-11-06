@@ -35,5 +35,5 @@ export async function host(t, environment = {}) {
     }
     throw Error(`Session condition timed out: ${JSON.stringify({status:latest?.status,error:latest?.error,inputs:latest?.inputs?.length})}`);
   }
-  return { directory, connection, call, wait };
+  return { directory, connection, call, wait, child, exited };
 }
