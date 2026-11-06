@@ -973,7 +973,174 @@ p {
   padding: 7px;
 }
 
-.desktop-input-request {border:1px solid var(--line);background:var(--soft);padding:16px;margin:12px 0;border-radius:6px;}
-.desktop-input-request textarea {width:100%;min-height:100px;background:var(--surface);border:1px solid var(--line);padding:8px;}
-.desktop-input-request pre {white-space:pre-wrap;overflow-wrap:anywhere;}
-.desktop-input-request button {margin:8px 8px 0 0;}
+.desktop-input-request {
+  border: 1px solid var(--line);
+  background: var(--soft);
+  padding: 16px;
+  margin: 12px 0;
+  border-radius: 6px;
+}
+.desktop-input-request textarea {
+  width: 100%;
+  min-height: 100px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 8px;
+}
+.desktop-input-request pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.desktop-input-request button {
+  margin: 8px 8px 0 0;
+}
+
+.desktop-plugin-card {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.desktop-plugin-card button {
+  margin: 4px 8px 4px 0;
+}
+.desktop-device-scope {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+.desktop-remote-qr {
+  width: 180px;
+  height: 180px;
+  background: white;
+}
+.mobile-open-list {
+  display: none;
+}
+.phone-pairing {
+  max-width: 460px;
+  margin: 10dvh auto;
+  padding: 24px;
+  background: var(--surface);
+}
+.phone-mode body {
+  background: var(--surface);
+  color: var(--ink);
+}
+@media (max-width: 800px) {
+  .phone-mode .desktop-sidebar {
+    width: 100%;
+    display: none;
+    padding: 20px 16px;
+    padding-top: max(20px, env(safe-area-inset-top));
+  }
+  .phone-mode .desktop-main {
+    width: 100%;
+  }
+  .phone-mode .mobile-list .desktop-sidebar {
+    display: flex;
+  }
+  .phone-mode .mobile-list .desktop-main {
+    display: none;
+  }
+  .phone-mode .mobile-open-list {
+    display: inline-block;
+    background: transparent;
+    border: 0;
+    color: var(--ink);
+  }
+  .phone-mode .desktop-connection {
+    padding: 10px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-height: 44px;
+  }
+  .phone-mode .desktop-conversation-heading {
+    padding: 12px;
+    gap: 8px;
+  }
+  .phone-mode .desktop-conversation-heading > div {
+    min-width: 0;
+  }
+  .phone-mode .desktop-conversation-heading h1 {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .phone-mode .desktop-timeline {
+    padding: 12px;
+  }
+  .phone-mode .desktop-composer-wrap {
+    padding: 8px 12px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .phone-mode .desktop-setup,
+  .phone-mode .desktop-settings {
+    padding: 20px 16px;
+  }
+  .phone-mode .desktop-session-tabs {
+    padding: 8px 12px;
+    gap: 4px;
+  }
+  .phone-mode .desktop-inspector {
+    padding: 12px;
+  }
+  .phone-mode button {
+    min-height: 36px;
+  }
+  .phone-mode input,
+  .phone-mode select,
+  .phone-mode textarea {
+    font-size: 16px;
+  }
+}
+
+.desktop-file-reference {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.desktop-file-reference input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+}
+.desktop-message-text p {
+  margin: 0 0 10px;
+}
+.desktop-message-text p:last-child {
+  margin-bottom: 0;
+}
+.desktop-message-text pre {
+  background: var(--soft);
+  border: 1px solid var(--line);
+  padding: 12px;
+  overflow: auto;
+  white-space: pre;
+  font-size: 12px;
+}
+.desktop-message-text code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.desktop-message-text table {
+  border-collapse: collapse;
+  max-width: 100%;
+  display: block;
+  overflow: auto;
+}
+.desktop-message-text th,
+.desktop-message-text td {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+}
+
+.desktop-session-tabs {
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.desktop-session-tabs button {
+  flex: none;
+}

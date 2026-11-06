@@ -58,7 +58,7 @@ export function useWorkbench() {
     refreshRef.current = refresh;
     const open = () => {
       socket = new WebSocket(
-        `${connection.url.replace("http:", "ws:")}/v1/events`,
+        `${connection.url.replace(/^http/, "ws")}/v1/events`,
       );
       socket.onopen = () =>
         socket.send(JSON.stringify({ token: connection.token }));
@@ -78,6 +78,7 @@ export function useWorkbench() {
       socket.onclose = () => {
         if (!closed) {
           setPhase("reconnecting");
+          void refresh();
           retry = setTimeout(open, 1500);
         }
       };

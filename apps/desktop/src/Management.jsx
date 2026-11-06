@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import { enableNotifications } from "./notifications.js";
 import { chooseWorkspace } from "./api.js";
 
 export function Management({ workbench }) {
   const [error, setError] = useState(""),
     [name, setName] = useState(""),
+    [editing, setEditing] = useState(null),
     [provider, setProvider] = useState("demo"),
     [command, setCommand] = useState(""),
     [args, setArgs] = useState(""),
@@ -40,6 +42,30 @@ export function Management({ workbench }) {
       {(workbench.profiles ?? []).map((profile) => (
         <p key={profile.id}>
           {profile.name} · {profile.provider} · 修订 {profile.revision}
+          <button
+            onClick={() => {
+              setEditing(profile);
+              setName(profile.name);
+              setProvider(profile.provider);
+              setCommand(profile.command ?? "");
+              setArgs(profile.args ? JSON.stringify(profile.args) : "");
+            }}
+          >
+            编辑
+          </button>
+          <button
+            onClick={() =>
+              void run(() =>
+                workbench.call("/profiles", {
+                  id: profile.id,
+                  revision: profile.revision,
+                  remove: true,
+                }),
+              )
+            }
+          >
+            移除配置
+          </button>
         </p>
       ))}
       <form
@@ -50,12 +76,16 @@ export function Management({ workbench }) {
             await workbench.call("/profiles", {
               name,
               provider,
+              ...(editing
+                ? { id: editing.id, revision: editing.revision }
+                : {}),
               ...(command.trim() ? { command: command.trim() } : {}),
               ...(args.trim() ? { args: JSON.parse(args) } : {}),
             });
             setName("");
             setCommand("");
             setArgs("");
+            setEditing(null);
           });
         }}
       >
@@ -90,26 +120,36 @@ export function Management({ workbench }) {
           />
         </label>
         <label>
-          启动参数（可选，JSON 数组）
+          完整启动参数（可选，JSON 数组；填写后覆盖默认值）
           <input
             placeholder={'["/path/to/bridge.js"]'}
             value={args}
             onChange={(event) => setArgs(event.target.value)}
           />
         </label>
-        <button className="desktop-button">保存配置</button>
+        <button className="desktop-button">
+          {editing ? "保存修订" : "保存配置"}
+        </button>
+        {editing && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setName("");
+              setCommand("");
+              setArgs("");
+            }}
+          >
+            取消编辑
+          </button>
+        )}
       </form>
       <h2>本机通知</h2>
       <button
         className="desktop-button"
         onClick={() =>
           void run(async () => {
-            if (!("Notification" in window))
-              throw Error(
-                "当前系统 WebView 不支持网页通知；请使用工作台待处理列表。",
-              );
-            const status = await Notification.requestPermission();
-            if (status !== "granted") throw Error("通知权限未开启");
+            await enableNotifications();
           })
         }
       >

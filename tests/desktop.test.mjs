@@ -97,6 +97,15 @@ test(
     await page.goto(frontend);
     await page.getByText("工作主机 · 本机已连接", { exact: true }).waitFor();
     await page.getByRole("button", { name: "选择工作区目录" }).click();
+    await page
+      .waitForFunction(
+        () => !document.querySelector(".desktop-setup-form .primary")?.disabled,
+        {},
+        { timeout: 3000 },
+      )
+      .catch(async () => {
+        throw Error(await page.locator("body").innerText());
+      });
     await page.getByRole("button", { name: "创建会话", exact: true }).click();
     await page
       .getByRole("textbox", { name: "发送任务" })
@@ -127,6 +136,15 @@ test(
     await page.getByRole("button", { name: "允许一次", exact: true }).click();
     await page
       .getByText("你已允许一次，演示审批链路完成。", { exact: true })
+      .waitFor();
+    await page.getByRole("textbox", { name: "发送任务" }).fill("/input");
+    await page.getByRole("button", { name: "发送消息", exact: true }).click();
+    await page
+      .getByRole("textbox", { name: "补充输入 JSON" })
+      .fill(JSON.stringify({ name: "desktop-input" }));
+    await page.getByRole("button", { name: "提交回答", exact: true }).click();
+    await page
+      .getByText("已收到项目名称：desktop-input", { exact: true })
       .waitFor();
     await page.getByRole("textbox", { name: "发送任务" }).fill("/wait");
     await page.getByRole("button", { name: "发送消息" }).click();
@@ -248,6 +266,44 @@ test(
       );
     });
     await page.getByText("本轮执行结束", { exact: true }).waitFor();
+
+    await page.getByRole("button", { name: "连接与设置", exact: true }).click();
+    await page
+      .getByRole("button", { name: "选择内置示例插件", exact: true })
+      .click();
+    await page.getByRole("button", { name: "检查插件", exact: true }).click();
+    await page.getByLabel(/允许访问/).check();
+    await page.getByLabel("信任此本地插件及上述权限").check();
+    await page
+      .getByRole("button", { name: "安装 / 更新并启用", exact: true })
+      .click();
+    await page
+      .getByRole("heading", { name: "插件工作区面板", exact: true })
+      .waitFor();
+    await page
+      .getByRole("button", { name: "通过 Worker 读取目录", exact: true })
+      .click();
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll("pre")].some((node) =>
+        node.textContent.includes('"entries"'),
+      ),
+    );
+    assert.equal(
+      await page.evaluate(async () => {
+        const [react, dom, client] = await Promise.all([
+          import("react"),
+          import("react-dom"),
+          import("react-dom/client"),
+        ]);
+        return (
+          react.createElement === window.__vibeoneReact.createElement &&
+          dom.createPortal === window.__vibeoneReactDOM.createPortal &&
+          client.createRoot === window.__vibeoneReactDOMClient.createRoot
+        );
+      }),
+      true,
+    );
+
     assert.deepEqual(errors, []);
     assert.equal(
       await page.evaluate(

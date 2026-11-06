@@ -1,3 +1,5 @@
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -19,10 +21,14 @@ import {
   Terminal,
   X,
 } from "lucide-react";
+import { useNotifications } from "./notifications.js";
+import { RemoteSettings, PhoneGate } from "./Remote.jsx";
+import { isNative } from "./api.js";
 import { chooseWorkspace } from "./api.js";
 import { useWorkbench } from "./use-workbench.js";
 import { InputRequest } from "./InputRequest.jsx";
 import { SessionTools, Queue } from "./SessionTools.jsx";
+import { usePlugins, PluginManager } from "./plugins.jsx";
 import { Management } from "./Management.jsx";
 import mark from "../../../assets/brand/vibeone-logo-mark.svg";
 import "../../../prototype/src/theme.css";
@@ -57,7 +63,10 @@ applyTheme(savedTheme());
 
 function App() {
   const workbench = useWorkbench();
+  const plugins = usePlugins(workbench);
+  useNotifications(workbench);
   const [selected, setSelected] = useState(null);
+  const [showList, setShowList] = useState(true);
   const [creating, setCreating] = useState(true);
   const [settings, setSettings] = useState(false);
   const [query, setQuery] = useState("");
@@ -100,7 +109,7 @@ function App() {
     }
   };
   return (
-    <div className="desktop-app">
+    <div className={`desktop-app ${showList ? "mobile-list" : ""}`}>
       <aside className="desktop-sidebar">
         <div className="desktop-brand">
           <img src={mark} alt="" />
@@ -124,6 +133,7 @@ function App() {
             if (attention) {
               setSelected(attention.id);
               setCreating(false);
+              setShowList(false);
               setSettings(false);
             } else setError("当前没有待处理的审批请求");
           }}
@@ -143,6 +153,7 @@ function App() {
             aria-label="新建会话"
             onClick={() => {
               setCreating(true);
+              setShowList(false);
               setSettings(false);
             }}
           >
@@ -167,6 +178,7 @@ function App() {
                 onClick={() => {
                   setSelected(item.id);
                   setCreating(false);
+                  setShowList(false);
                   setSettings(false);
                 }}
               >
@@ -204,7 +216,7 @@ function App() {
             <button
               className="desktop-icon"
               aria-label="连接与设置"
-              onClick={() => setSettings(!settings)}
+              onClick={() => (setSettings(!settings), setShowList(false))}
             >
               <Settings2 size={16} />
             </button>
@@ -225,12 +237,25 @@ function App() {
       </aside>
       <main className="desktop-main">
         <div className="desktop-connection">
+          <button
+            className="mobile-open-list"
+            onClick={() => setShowList(true)}
+          >
+            会话列表
+          </button>
           <span>
             <span className={`desktop-dot ${online ? "online" : ""}`} />
             {online ? "工作主机 · 本机已连接" : "正在连接工作主机"}
           </span>
           <span>ACP v2 · 本地运行</span>
         </div>
+        {online &&
+          workbench.providers.length > 0 &&
+          workbench.apiVersion !== 3 && (
+            <div className="desktop-alert" role="status">
+              当前主机为旧版本，请结束执行后在设置中重启工作主机，启用本版功能。
+            </div>
+          )}
         {(error || workbench.storageError || workbench.error || !online) && (
           <div className="desktop-alert" role="status">
             <span>
@@ -256,15 +281,19 @@ function App() {
           </div>
         )}
         {settings ? (
-          <Settings workbench={workbench} />
+          <Settings workbench={workbench} plugins={plugins} />
         ) : creating || !session ? (
           <NewSession
             workbench={workbench}
-            online={online}
+            online={
+              online &&
+              (!workbench.device || workbench.device.role === "operator")
+            }
             act={act}
             onCreated={(id) => {
               setSelected(id);
               setCreating(false);
+              setShowList(false);
             }}
           />
         ) : (
@@ -313,26 +342,42 @@ function NewSession({ workbench, online, act, onCreated }) {
       </div>
       <form className="desktop-setup-form" onSubmit={create}>
         <label htmlFor="workspace">工作区</label>
-        <div className="desktop-path">
-          <input
+        {isNative() ? (
+          <div className="desktop-path">
+            <input
+              id="workspace"
+              list="saved-workspaces"
+              value={workspace}
+              onChange={(event) => setWorkspace(event.target.value)}
+              placeholder="选择或输入项目目录"
+              required
+            />
+            <button
+              type="button"
+              aria-label="选择工作区目录"
+              onClick={async () => {
+                const path = await act(chooseWorkspace);
+                if (path) setWorkspace(path);
+              }}
+            >
+              <FolderOpen size={16} />
+            </button>
+          </div>
+        ) : (
+          <select
             id="workspace"
-            list="saved-workspaces"
             value={workspace}
             onChange={(event) => setWorkspace(event.target.value)}
-            placeholder="选择或输入项目目录"
             required
-          />
-          <button
-            type="button"
-            aria-label="选择工作区目录"
-            onClick={async () => {
-              const path = await act(chooseWorkspace);
-              if (path) setWorkspace(path);
-            }}
           >
-            <FolderOpen size={16} />
-          </button>
-        </div>
+            <option value="">选择已授权工作区</option>
+            {(workbench.workspaces ?? []).map((item) => (
+              <option key={item.id} value={item.path}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        )}
         <datalist id="saved-workspaces">
           {(workbench.workspaces ?? []).map((item) => (
             <option key={item.id} value={item.path}>
@@ -368,7 +413,10 @@ function NewSession({ workbench, online, act, onCreated }) {
         <button
           className="desktop-button primary"
           disabled={
-            !online || !workspace.trim() || busy || !selected?.available
+            !online ||
+            !workspace.trim() ||
+            busy ||
+            !(selected?.available || profile?.command)
           }
         >
           {busy ? (
@@ -388,12 +436,36 @@ function NewSession({ workbench, online, act, onCreated }) {
 }
 
 function Conversation({ session, workbench, online, act }) {
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => {
+    try {
+      return localStorage.getItem(`vibeone-draft:${session.id}`) || "";
+    } catch {
+      return "";
+    }
+  });
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        if (draft)
+          localStorage.setItem(
+            `vibeone-draft:${session.id}`,
+            draft.slice(0, 32768),
+          );
+        else localStorage.removeItem(`vibeone-draft:${session.id}`);
+      } catch {}
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [draft, session.id]);
+  const canOperate = !workbench.device || workbench.device.role === "operator";
+  const canApprove =
+    !workbench.device ||
+    ["operator", "approver"].includes(workbench.device.role);
   const [editingTitle, setEditingTitle] = useState(false);
   const [tab, setTab] = useState("chat");
   const requestKey = useRef(null);
+  const [fileReference, setFileReference] = useState("");
   const [title, setTitle] = useState(session.title);
-  const readOnly = session.historyOnly || session.archived;
+  const readOnly = session.historyOnly || session.archived || !canOperate;
   const [sending, setSending] = useState(false);
   const [deciding, setDeciding] = useState(null);
   const bottom = useRef(null);
@@ -435,11 +507,13 @@ function Conversation({ session, workbench, online, act }) {
     const result = await act(() =>
       workbench.call(`/sessions/${session.id}/messages`, {
         text: draft,
+        files: fileReference.trim() ? [fileReference.trim()] : [],
         key: (requestKey.current ??= crypto.randomUUID()),
       }),
     );
     if (result) {
       setDraft("");
+      setFileReference("");
       requestKey.current = null;
     }
     setSending(false);
@@ -476,7 +550,7 @@ function Conversation({ session, workbench, online, act }) {
           {workbench.persistent && (
             <div className="desktop-session-actions">
               <button
-                disabled={!online}
+                disabled={!online || !canOperate}
                 onClick={() => {
                   setTitle(session.title);
                   setEditingTitle(true);
@@ -485,7 +559,7 @@ function Conversation({ session, workbench, online, act }) {
                 重命名
               </button>
               <button
-                disabled={!online || active}
+                disabled={!online || !canOperate || active}
                 onClick={() =>
                   void act(() =>
                     workbench.call(`/sessions/${session.id}/metadata`, {
@@ -529,6 +603,8 @@ function Conversation({ session, workbench, online, act }) {
           ["changes", "变更"],
           ["files", "文件"],
           ["runs", "执行记录"],
+          ["artifacts", "产物"],
+          ["agent", "Agent 设置"],
         ].map(([id, label]) => (
           <button key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>
             {label}
@@ -592,7 +668,29 @@ function Conversation({ session, workbench, online, act }) {
                 </strong>
                 {message.pending ? <span>已受理 · 等待 Agent 接受</span> : null}
               </div>
-              <div className="desktop-message-text">{message.text || "…"}</div>
+              <div className="desktop-message-text">
+                {message.role === "assistant" ? (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: (props) => (
+                        <a
+                          {...props}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        />
+                      ),
+                      img: (props) => (
+                        <span>[图片：{props.alt ?? "图片"}]</span>
+                      ),
+                    }}
+                  >
+                    {message.text || "…"}
+                  </ReactMarkdown>
+                ) : (
+                  message.text || "…"
+                )}
+              </div>
             </div>
           </article>
         ))}
@@ -618,6 +716,10 @@ function Conversation({ session, workbench, online, act }) {
                     2,
                   )}
                 </pre>
+                {tool.output && <pre>{tool.output}</pre>}
+                {tool.rawOutput && (
+                  <pre>{JSON.stringify(tool.rawOutput, null, 2)}</pre>
+                )}
               </details>
             ))}
           </section>
@@ -628,10 +730,28 @@ function Conversation({ session, workbench, online, act }) {
             request={request}
             session={session}
             workbench={workbench}
-            online={online}
+            online={online && canOperate}
             act={act}
           />
         ))}
+        {!!session.decisions?.length && (
+          <details className="desktop-tools">
+            <summary>人工处理回执</summary>
+            {session.decisions.slice(-10).map((decision) => (
+              <p key={decision.id}>
+                {decision.option
+                  ? `审批选择：${decision.option}`
+                  : `补充输入：${decision.answer?.action ?? "已提交"}`}{" "}
+                ·{" "}
+                {{
+                  pending: "决定已记录，等待投递",
+                  sent: "已交给 ACP 响应通道",
+                  uncertain: "投递不确定，不自动重发",
+                }[decision.delivery] ?? decision.delivery}
+              </p>
+            ))}
+          </details>
+        )}
         {session.approvals.map((approval) => (
           <section className="desktop-approval" key={approval.id}>
             <h2>
@@ -649,6 +769,7 @@ function Conversation({ session, workbench, online, act }) {
                   className={`desktop-button ${option.kind.startsWith("allow") ? "primary" : ""}`}
                   disabled={
                     !online ||
+                    !canApprove ||
                     deciding === approval.id ||
                     session.status === "cancelling"
                   }
@@ -704,10 +825,23 @@ function Conversation({ session, workbench, online, act }) {
       )}
       <div hidden={tab !== "chat"} className="desktop-composer-wrap">
         <div className="desktop-composer">
+          <label className="desktop-file-reference">
+            引用工作区文件（可选）
+            <input
+              aria-label="引用文件路径"
+              disabled={readOnly}
+              placeholder="例如 src/main.rs · 文本文件最大 32 KiB"
+              value={fileReference}
+              onChange={(event) => {
+                setFileReference(event.target.value);
+                requestKey.current = null;
+              }}
+            />
+          </label>
           <Queue
             session={session}
             workbench={workbench}
-            online={online}
+            online={online && canOperate}
             act={act}
           />
           <textarea
@@ -719,11 +853,13 @@ function Conversation({ session, workbench, online, act }) {
               requestKey.current = null;
             }}
             placeholder={
-              readOnly
-                ? "历史或归档会话仅供查看，请新建会话开始执行"
-                : active
-                  ? "当前正在执行，发送后加入下一轮队列…"
-                  : "描述任务，或发送新的指令…"
+              !canOperate
+                ? "此设备仅可查看或审批，不能发送任务"
+                : readOnly
+                  ? "历史或归档会话仅供查看，请新建会话开始执行"
+                  : active
+                    ? "当前正在执行，发送后加入下一轮队列…"
+                    : "描述任务，或发送新的指令…"
             }
             onKeyDown={(event) => {
               if (
@@ -767,7 +903,9 @@ function Conversation({ session, workbench, online, act }) {
           <span>Enter 发送 · Shift+Enter 换行</span>
           {active ? (
             <button
-              disabled={!online || session.status === "cancelling"}
+              disabled={
+                !online || !canOperate || session.status === "cancelling"
+              }
               onClick={() =>
                 void act(() =>
                   workbench.call(`/sessions/${session.id}/cancel`, {}),
@@ -825,7 +963,7 @@ function LiveStatus({ stage }) {
   );
 }
 
-function Settings({ workbench }) {
+function Settings({ workbench, plugins }) {
   return (
     <div className="desktop-settings">
       <h1>连接与工具</h1>
@@ -833,10 +971,13 @@ function Settings({ workbench }) {
         {workbench.persistent
           ? "会话与工作区保存在本机 SQLite 数据库中。重启后可查看历史，未结束的执行会标记为中断，旧审批失效。"
           : "当前连接的主机仅在运行期间保留会话，请升级主机以启用本地历史。"}
-        手机配对尚未接入。
+        {workbench.device
+          ? "此设备已通过主机授权。"
+          : "可在下方配置 HTTPS 手机入口与设备授权。"}
       </p>
       <button
         className="desktop-button"
+        hidden={!!workbench.device}
         disabled={
           workbench.phase !== "online" ||
           workbench.sessions.some((session) =>
@@ -864,7 +1005,16 @@ function Settings({ workbench }) {
         入口可用不代表已认证。Codex 与 Claude Code
         使用本机已有的工具认证；认证失败会在会话中显示原因。
       </p>
-      <Management workbench={workbench} />
+      {!workbench.device && workbench.apiVersion >= 3 && (
+        <>
+          <Management workbench={workbench} />
+          <PluginManager workbench={workbench} plugins={plugins} />
+          <RemoteSettings workbench={workbench} />
+        </>
+      )}
+      {workbench.device && (
+        <p>此设备权限：{workbench.device.role}。工作区与设备授权由电脑管理。</p>
+      )}
       <h2>协议</h2>
       <dl>
         <dt>Agent 通信</dt>
@@ -883,4 +1033,12 @@ function Settings({ workbench }) {
   );
 }
 
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(
+  isNative() ? (
+    <App />
+  ) : (
+    <PhoneGate>
+      <App />
+    </PhoneGate>
+  ),
+);
