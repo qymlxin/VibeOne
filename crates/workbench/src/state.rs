@@ -9,7 +9,7 @@ use std::{
     },
 };
 use tokio::sync::{broadcast, watch};
-use vibeone_agent_client::AgentSession;
+use vibeone_agent_client::{AgentInteractions, AgentSession};
 mod artifacts;
 mod catalog;
 mod execution;
@@ -21,6 +21,7 @@ pub struct Entry {
     gate: tokio::sync::Mutex<()>,
     revision: AtomicI64,
     connection: Mutex<Option<Arc<AgentSession>>>,
+    interactions: Mutex<Option<Arc<AgentInteractions>>>,
     cancel: Mutex<Option<watch::Sender<bool>>>,
     wake: tokio::sync::Notify,
     driver: AtomicBool,
@@ -41,6 +42,7 @@ impl Entry {
             gate: tokio::sync::Mutex::new(()),
             revision: AtomicI64::new(revision),
             connection: Mutex::default(),
+            interactions: Mutex::default(),
             cancel: Mutex::default(),
             wake: tokio::sync::Notify::new(),
             driver: AtomicBool::new(false),
@@ -184,6 +186,14 @@ impl Workbench {
             .collect();
         for entry in entries {
             entry.wake.notify_one();
+            if let Some(control) = entry
+                .interactions
+                .lock()
+                .expect("interactions poisoned")
+                .as_ref()
+            {
+                control.cancel();
+            }
             if let Some(cancel) = entry.cancel.lock().expect("cancel poisoned").as_ref() {
                 let _ = cancel.send(true);
             }
@@ -435,9 +445,9 @@ impl Workbench {
         }
         view.approvals.retain(|approval| approval["id"] != request);
         let connection = entry
-            .connection
+            .interactions
             .lock()
-            .expect("connection poisoned")
+            .expect("interactions poisoned")
             .clone()
             .ok_or("Agent 未连接")?;
         view.decisions.push(json!({"id":uuid::Uuid::new_v4().to_string(),"requestId":request,"option":option,"delivery":"pending","createdAt":execution::now()}));
@@ -489,9 +499,9 @@ impl Workbench {
             return Err("补充输入已失效或已处理".into());
         }
         let connection = entry
-            .connection
+            .interactions
             .lock()
-            .expect("connection poisoned")
+            .expect("interactions poisoned")
             .clone()
             .ok_or("Agent 未连接")?;
         connection.validate_input(request, &answer)?;
@@ -593,6 +603,14 @@ impl Workbench {
         for entry in entries {
             entry.wake.notify_one();
             let _gate = entry.gate.lock().await;
+            if let Some(control) = entry
+                .interactions
+                .lock()
+                .expect("interactions poisoned")
+                .as_ref()
+            {
+                control.cancel();
+            }
             let mut view = entry.view.lock().expect("view poisoned").clone();
             if view.active {
                 view.active = false;

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import { host } from "./helpers/host.mjs";
 
 test(
@@ -93,3 +94,31 @@ test(
     );
   },
 );
+
+test("an unresponsive ACP process is closed after the grace period with its child process",{timeout:25000,skip:process.platform==="win32"},async t=>{
+  const {directory,call,wait}=await host(t);
+  const profile=await call("/profiles",{name:"stubborn fixture",provider:"demo",args:[join(directory,"demo-agent.mjs"),"--stubborn"]});
+  const {id}=await call("/sessions",{provider:"demo",workspace:directory,profileId:profile.id});
+  await call(`/sessions/${id}/messages`,{text:"/wait"});
+  const running=await wait(id,session=>session.messages.some(message=>message.role==="assistant"&&message.text.startsWith("stubborn-child-pid:")));
+  const pid=Number(running.messages.find(message=>message.role==="assistant"&&message.text.startsWith("stubborn-child-pid:")).text.split(":")[1]);
+  t.after(()=>{try{process.kill(pid,"SIGKILL");}catch{}});
+  await new Promise(resolve=>setTimeout(resolve,200));
+  await call(`/sessions/${id}/messages`,{text:"must stay queued"});
+  await call(`/sessions/${id}/cancel`,{});
+  const cancelled=await wait(id,session=>session.stopReason==="cancelled");
+  assert.equal(cancelled.queuePaused,true);assert.equal(cancelled.queue.length,1);
+  let alive=true;for(let i=0;i<100;i++){try{process.kill(pid,0);}catch{alive=false;break;}await new Promise(resolve=>setTimeout(resolve,30));}
+  assert.equal(alive,false,"SDK process-group cleanup must also stop the fixture child");
+});
+
+test("request-scoped input can be answered before ACP session creation completes",{timeout:20000},async t=>{
+  const {directory,call,wait}=await host(t);
+  const profile=await call("/profiles",{name:"session input",provider:"demo",args:[join(directory,"demo-agent.mjs"),"--input-before-session"]});
+  const {id}=await call("/sessions",{provider:"demo",workspace:directory,profileId:profile.id});
+  await call(`/sessions/${id}/messages`,{text:"complete initialization"});
+  const attention=await wait(id,session=>session.inputs.length===1);
+  assert.equal(attention.status,"starting");
+  await call(`/sessions/${id}/inputs/${attention.inputs[0].id}`,{action:"accept",content:{name:"initialized"}});
+  await wait(id,session=>session.stopReason==="end_turn");
+});

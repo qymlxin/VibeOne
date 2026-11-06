@@ -320,6 +320,9 @@ pub(super) fn filter_snapshot(mut snapshot: Value, identity: &Identity) -> Value
             .collect::<Vec<_>>()
     );
     snapshot["workspaces"] = json!(visible);
+    if snapshot["storageError"].is_string() {
+        snapshot["storageError"] = json!("主机本地存储不可用，请在电脑检查诊断");
+    }
     snapshot["examplePluginPath"] = Value::Null;
     snapshot["pluginEvents"] = json!([]);
     snapshot["plugins"] = json!([]);

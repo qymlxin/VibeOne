@@ -33,6 +33,11 @@ struct Input {
 type Inputs = Arc<Mutex<HashMap<String, Input>>>;
 type Permissions = Arc<Mutex<HashMap<String, Permission>>>;
 
+#[derive(Default)]
+pub struct AgentInteractions {
+    permissions: Permissions,
+    inputs: Inputs,
+}
 struct LaunchGuard(Option<tokio::task::JoinHandle<()>>);
 impl Drop for LaunchGuard {
     fn drop(&mut self) {
@@ -44,8 +49,7 @@ impl Drop for LaunchGuard {
 
 pub struct AgentSession {
     session: ActiveSession<Agent>,
-    permissions: Permissions,
-    inputs: Inputs,
+    interactions: Arc<AgentInteractions>,
     stop: Mutex<Option<oneshot::Sender<()>>>,
     task: tokio::task::JoinHandle<()>,
 }
@@ -57,8 +61,24 @@ impl AgentSession {
         cwd: PathBuf,
         sink: Sink,
     ) -> Result<Self, String> {
-        let permissions: Permissions = Arc::default();
-        let inputs: Inputs = Arc::default();
+        Self::connect_with_interactions(
+            command,
+            args,
+            cwd,
+            sink,
+            Arc::new(AgentInteractions::default()),
+        )
+        .await
+    }
+    pub async fn connect_with_interactions(
+        command: PathBuf,
+        args: Vec<String>,
+        cwd: PathBuf,
+        sink: Sink,
+        interactions: Arc<AgentInteractions>,
+    ) -> Result<Self, String> {
+        let permissions = interactions.permissions.clone();
+        let inputs = interactions.inputs.clone();
         let input_pending = inputs.clone();
         let input_sink = sink.clone();
         let init_sink = sink.clone();
@@ -195,8 +215,7 @@ impl AgentSession {
         match tokio::time::timeout(Duration::from_secs(30), ready_rx).await {
             Ok(Ok(Ok(session))) => Ok(Self {
                 session,
-                permissions,
-                inputs,
+                interactions,
                 stop: Mutex::new(Some(stop_tx)),
                 task: launch.0.take().expect("launch task"),
             }),
@@ -252,6 +271,31 @@ impl AgentSession {
         self.task.abort();
     }
     pub fn validate_input(&self, id: &str, answer: &Value) -> Result<(), String> {
+        self.interactions.validate_input(id, answer)
+    }
+    pub fn answer(&self, id: &str, answer: Value) -> Result<(), String> {
+        self.interactions.answer(id, answer)
+    }
+    pub fn decide(&self, id: &str, option: &str) -> Result<(), String> {
+        self.interactions.decide(id, option)
+    }
+    pub fn cancel(&self) -> Result<(), String> {
+        self.interactions.cancel();
+        self.session
+            .cancel_active_work()
+            .map_err(|error| error.to_string())
+    }
+}
+
+impl AgentInteractions {
+    pub fn cancel(&self) {
+        self.inputs.lock().expect("inputs poisoned").clear();
+        self.permissions
+            .lock()
+            .expect("permissions poisoned")
+            .clear();
+    }
+    pub fn validate_input(&self, id: &str, answer: &Value) -> Result<(), String> {
         let pending = self.inputs.lock().expect("inputs poisoned");
         let input = pending.get(id).ok_or("补充输入已失效或已处理")?;
         if !matches!(
@@ -283,17 +327,6 @@ impl AgentSession {
             .send(answer)
             .map_err(|_| "补充输入已失效".into())
     }
-    pub fn cancel(&self) -> Result<(), String> {
-        self.inputs.lock().expect("inputs poisoned").clear();
-        self.permissions
-            .lock()
-            .expect("permissions poisoned")
-            .clear();
-        self.session
-            .cancel_active_work()
-            .map_err(|error| error.to_string())
-    }
-
     pub fn decide(&self, id: &str, option: &str) -> Result<(), String> {
         let mut pending = self.permissions.lock().expect("permissions poisoned");
         let permission = pending.get(id).ok_or("审批已失效或已处理")?;
@@ -311,11 +344,7 @@ impl AgentSession {
 
 impl Drop for AgentSession {
     fn drop(&mut self) {
-        self.inputs.lock().expect("inputs poisoned").clear();
-        self.permissions
-            .lock()
-            .expect("permissions poisoned")
-            .clear();
+        self.interactions.cancel();
         if let Some(stop) = self.stop.get_mut().expect("stop poisoned").take() {
             let _ = stop.send(());
         }

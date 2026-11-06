@@ -26,12 +26,14 @@ export async function host(t) {
     const result = await response.json(); assert.equal(response.ok, ok, result.error); return result;
   }
   async function wait(id, predicate) {
+    let latest;
     for (let i = 0; i < 240; i++) {
       const session = (await call("/snapshot")).sessions.find(item => item.id === id);
+      latest=session;
       if (predicate(session)) return session;
       await sleep(30);
     }
-    throw Error("Session condition timed out");
+    throw Error(`Session condition timed out: ${JSON.stringify({status:latest?.status,error:latest?.error,inputs:latest?.inputs?.length})}`);
   }
   return { directory, connection, call, wait };
 }

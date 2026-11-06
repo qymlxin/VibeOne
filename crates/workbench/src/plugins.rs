@@ -166,6 +166,41 @@ pub(crate) fn inspect(path: &Path) -> Result<Value, String> {
         if !supported {
             return Err(format!("当前版本不支持此扩展点或绑定：{id}"));
         }
+        if item["kind"] == "agent.provider" {
+            if !manifest["hostRequirements"]
+                .as_array()
+                .is_some_and(|caps| caps.iter().any(|cap| cap == "agent.spawn"))
+            {
+                return Err("Agent Provider 必须声明 agent.spawn 权限".into());
+            }
+            let descriptor = &item["binding"]["descriptor"];
+            let command = descriptor["command"].as_str().unwrap_or_default();
+            if command.is_empty()
+                || command != "$node"
+                    && !std::path::Path::new(command).is_absolute()
+                    && !files::resolve(path, command, false)?.is_file()
+            {
+                return Err("Provider 启动程序不存在".into());
+            }
+            if let Some(args) = descriptor.get("args")
+                && !args.as_array().is_some_and(|args| {
+                    args.len() <= 64
+                        && args.iter().all(|arg| {
+                            arg.as_str().is_some_and(|text| {
+                                text.len() <= 4096
+                                    && !text.strip_prefix("$package/").is_some_and(|path| {
+                                        std::path::Path::new(path).is_absolute()
+                                            || std::path::Path::new(path)
+                                                .components()
+                                                .any(|part| part == std::path::Component::ParentDir)
+                                    })
+                            })
+                        })
+                })
+            {
+                return Err("Provider 启动参数或包内路径无效".into());
+            }
+        }
     }
     if let Some(dependencies) = manifest["dependencies"].as_object()
         && !dependencies.is_empty()

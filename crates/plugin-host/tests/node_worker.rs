@@ -201,6 +201,19 @@ async fn rust_denies_ungranted_capabilities_and_cancels_dropped_invocations() {
 }
 
 #[tokio::test]
+async fn rust_deadline_bounds_a_worker_that_blocks_the_node_event_loop() {
+    let host = host().await;
+    host.activate(activation(&[])).await.unwrap();
+    let started = std::time::Instant::now();
+    let result = host
+        .invoke(&key(), "block", Value::Null, None, Duration::from_millis(100))
+        .await;
+    assert!(matches!(result, Err(Error::Timeout)));
+    assert!(started.elapsed() < Duration::from_secs(2));
+    host.terminate().unwrap();
+}
+
+#[tokio::test]
 async fn node_crash_fails_waiting_calls_instead_of_hanging() {
     let host = host().await;
     host.activate(activation(&[])).await.unwrap();

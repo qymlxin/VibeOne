@@ -33,4 +33,5 @@ export default defineWorker(async ({ handle }, instance) => {
   });
   handle('progress', async (_input, ctx) => { ctx.progress({ percent: 50 }); return 'done'; });
   handle('fail', () => { throw Error('Fixture failure'); });
+  handle('block', () => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3_000); return null; });
 });

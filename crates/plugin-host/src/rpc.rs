@@ -402,12 +402,17 @@ impl PluginHost {
         if let Some(workspace) = workspace {
             params["workspaceId"] = json!(workspace);
         }
-        self.request(
-            "plugin/invoke",
-            params,
-            Some((key.clone(), workspace.map(str::to_owned))),
+        // Enforce the budget outside Node too: synchronous plugin code can block its timers.
+        tokio::time::timeout(
+            timeout,
+            self.request(
+                "plugin/invoke",
+                params,
+                Some((key.clone(), workspace.map(str::to_owned))),
+            ),
         )
         .await
+        .map_err(|_| Error::Timeout)?
     }
 
     pub async fn deactivate(&self, key: &InstanceKey) -> Result<Value> {

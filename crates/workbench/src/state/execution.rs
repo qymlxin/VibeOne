@@ -355,6 +355,8 @@ impl Workbench {
                         .collect();
                 }
             }
+            let interactions = Arc::new(AgentInteractions::default());
+            *entry.interactions.lock().expect("interactions poisoned") = Some(interactions.clone());
             let generation = entry.generation.fetch_add(1, Ordering::SeqCst) + 1;
             let connection_id = uuid::Uuid::new_v4().to_string();
             let weak = Arc::downgrade(entry);
@@ -374,7 +376,7 @@ impl Workbench {
                 }
             });
             tokio::select! {
-                result = AgentSession::connect(descriptor.command, descriptor.args, PathBuf::from(workspace), sink) => Arc::new(result?),
+                result = AgentSession::connect_with_interactions(descriptor.command, descriptor.args, PathBuf::from(workspace), sink,interactions) => Arc::new(result?),
                 _ = cancelled.changed() => return Err("启动已取消".into()),
             }
         };
@@ -535,6 +537,14 @@ impl Workbench {
         }
         self.commit(&entry, view, "run.cancel_requested", &json!({}))
             .await?;
+        if let Some(control) = entry
+            .interactions
+            .lock()
+            .expect("interactions poisoned")
+            .as_ref()
+        {
+            control.cancel();
+        }
         if let Some(cancel) = entry.cancel.lock().expect("cancel poisoned").as_ref() {
             let _ = cancel.send(true);
         }

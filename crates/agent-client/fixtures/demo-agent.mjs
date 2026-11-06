@@ -1,5 +1,6 @@
 // ACP v2 fixture. No model, file operations or shell execution; never presented as a real coding tool.
 import { createInterface } from 'node:readline';
+import { spawn } from 'node:child_process';
 const input = createInterface({ input: process.stdin });
 const sessions = new Map();
 const pending = new Map();
@@ -25,6 +26,10 @@ async function run(sessionId, prompt, userId, epoch) {
       update(sessionId, { sessionUpdate: 'agent_thought', messageId, content: [{ type: 'text', text }] });
     }
     if (prompt.includes('/wait')) {
+      if(process.argv.includes('--stubborn')) {
+        const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});
+        update(sessionId,{sessionUpdate:'agent_message',messageId:`pid:${userId}`,content:[{type:'text',text:`stubborn-child-pid:${child.pid}`}]});
+      }
       while (active()) await sleep(50);
       return;
     }
@@ -73,12 +78,19 @@ for await (const line of input) {
   const { id, method, params = {} } = message;
   if (method === 'initialize') {
     if (process.argv.includes('--malformed')) { process.stdout.write('invalid json\n'); process.exit(1); }
-    send({ id, result: { protocolVersion: process.argv.includes('--v1') ? 1 : 2, info: { name: 'vibeone-demo-agent', version: '0.1.0' }, capabilities: { session: {} } } });
+    const initialized={protocolVersion:process.argv.includes('--v1')?1:2,info:{name:'vibeone-demo-agent',version:'0.1.0'},capabilities:{session:{}}};
+    send({id,result:initialized});
   } else if (method === 'session/new') {
-    const sessionId = `demo:${++sequence}`;
-    sessions.set(sessionId, { cwd: params.cwd, epoch: 0 });
-    state(sessionId, 'idle'); // Intentionally before the response: clients must preserve early updates.
-    send({ id, result: { sessionId,configOptions:configOptions() } });
+    const open=()=>{
+      const sessionId=`demo:${++sequence}`;
+      sessions.set(sessionId,{cwd:params.cwd,epoch:0});state(sessionId,'idle');
+      send({id,result:{sessionId,configOptions:configOptions()}});
+    };
+    if(process.argv.includes('--input-before-session')){
+      const inputId=`session-input:${++sequence}`;
+      pending.set(inputId,{sessionId:null,resolve:answer=>{if(answer?.action==='accept')open();else send({id,error:{code:-32800,message:'Session input cancelled'}});}});
+      send({id:inputId,method:'elicitation/create',params:{mode:'form',requestId:id,message:'创建会话前的演示输入',requestedSchema:{type:'object',properties:{name:{type:'string',minLength:2}},required:['name']}}});
+    }else open();
   } else if (method === 'session/set_config_option') {
     if(params.configId!=='mode'||params.type!=='id'||!['safe','normal'].includes(params.value)){send({id,error:{code:-32602,message:'Invalid option'}});continue;}
     update(params.sessionId,{sessionUpdate:'config_option_update',configOptions:configOptions(params.value)});
@@ -99,6 +111,7 @@ for await (const line of input) {
     send({ id, result: { messageId: userId } });
     void run(params.sessionId, params.prompt.map(block => block.text ?? '').join(''), userId, epoch);
   } else if (method === 'session/cancel' || method === 'session/close') {
+    if(process.argv.includes('--stubborn'))continue;
     const session = sessions.get(params.sessionId);
     if (session) session.epoch++;
     for (const [pendingId, request] of pending) {

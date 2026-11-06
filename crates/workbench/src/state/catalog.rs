@@ -136,15 +136,15 @@ impl Workbench {
     }
     pub(crate) async fn save_profile(&self, mut value: Value) -> Result<Value, String> {
         let _gate = self.catalog_gate.lock().await;
-        if let Some(id) = value["id"].as_str()
-            && let Some(existing) = self
+        if let Some(id) = value["id"].as_str() {
+            let existing = self
                 .catalog("profile")
-                .iter()
+                .into_iter()
                 .find(|profile| profile["id"] == id)
-            && value.get("revision").is_some()
-            && value["revision"] != existing["revision"]
-        {
-            return Err("配置已更新，请重新加载后修改".into());
+                .ok_or("配置不存在，请新建配置")?;
+            if value.get("revision").is_some() && value["revision"] != existing["revision"] {
+                return Err("配置已更新，请重新加载后修改".into());
+            }
         }
         if value["remove"] == true {
             let id = value["id"].as_str().ok_or("请选择配置")?;
@@ -159,6 +159,12 @@ impl Workbench {
             return Ok(json!({"removed":true}));
         }
 
+        value = Value::Object(
+            ["id", "revision", "name", "provider", "command", "args"]
+                .into_iter()
+                .filter_map(|key| value.get(key).cloned().map(|value| (key.into(), value)))
+                .collect(),
+        );
         let name = value["name"].as_str().ok_or("请输入配置名称")?.trim();
         if name.is_empty() || name.chars().count() > 80 {
             return Err("配置名称须为 1–80 个字符".into());
