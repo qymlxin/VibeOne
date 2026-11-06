@@ -160,9 +160,14 @@ test(
     await composer.fill('/files');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
     await page.getByRole('heading',{name:'工作区文件',exact:true}).waitFor();
+    // Hold animation frames to reproduce typing before a delayed caret restoration.
+    await page.evaluate(()=>{window.__savedComposerRaf=window.requestAnimationFrame;window.__composerFrames=[];window.requestAnimationFrame=callback=>{window.__composerFrames.push(callback);return 0;};});
     await page.getByRole('button',{name:'引用文件',exact:true}).click();
     await writeFile(join(directory,'new-reference.txt'),'new file after opening picker');
     await composer.fill('@new-reference');
+    await page.evaluate(()=>{window.requestAnimationFrame=window.__savedComposerRaf;for(const callback of window.__composerFrames)callback(performance.now());delete window.__savedComposerRaf;delete window.__composerFrames;});
+    assert.equal(await composer.inputValue(),'@new-reference');
+    assert.equal(await composer.evaluate(node=>node.selectionStart),'@new-reference'.length,'delayed focus must not move the caret into newer input');
     await page.getByRole('button',{name:'刷新引用目录',exact:true}).click();
     await page.getByRole('option',{name:/new-reference.txt/}).waitFor();
     await composer.fill('@folder');

@@ -75,6 +75,8 @@
 
 - [52-prototype-final-audit](issues/52-prototype-final-audit.md)：逐控件矩阵已保存，当前自动检查和包外资源验证通过；Mac锁屏、Claude认证及物理设备/系统界面仍未验收，总目标未完成。
 
+- [57-composer-caret-race](issues/57-composer-caret-race.md)：修复引用入口和候选选择延迟恢复光标覆盖新输入的问题；延迟动画帧用例修复前红、修复后绿，桌面及HTTPS手机回归通过。
+
 ## Fog
 
 - 真实 Claude 认证与真实工具审批/取消由本机账号和实际工具能力决定。

@@ -1,13 +1,22 @@
-import React,{useEffect,useId,useRef,useState} from 'react';
+import React,{useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import {File,Folder,Slash,X,AtSign,RefreshCw} from 'lucide-react';
 import {composerToken,replaceToken,commandOptions} from './composer.js';
 import './composer.css';
 
 export function ComposerInput({session,workbench,value,onChange,files,onFiles,onSubmit,onPanel,disabled,online,placeholder}) {
-  const input=useRef(null),root=useRef(null),cache=useRef(new Map());
+  const input=useRef(null),root=useRef(null),cache=useRef(new Map()),selection=useRef(null);
   const [token,setToken]=useState(null),[selected,setSelected]=useState(0),[listing,setListing]=useState(null),[error,setError]=useState('');
   const [refresh,setRefresh]=useState(0);
   const listId=useId();
+  // Restore the caret in the same commit as the controlled value. A queued
+  // animation frame could otherwise overwrite a newer user selection/input.
+  useLayoutEffect(()=>{
+    const pending=selection.current;
+    if(!pending)return;
+    selection.current=null;
+    if(input.current?.value!==pending.text)return;
+    input.current.focus();input.current.setSelectionRange(pending.caret,pending.caret);
+  });
   const directory=token?.kind==='@'?(token.query.includes('/')?token.query.slice(0,token.query.lastIndexOf('/')+1):''):'';
   const query=token?.kind==='@'?token.query.slice(directory.length):'';
   useEffect(()=>{
@@ -43,20 +52,19 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
       onFiles([...files,item.path]);
     }
     const next=replaceToken(value,token,insertion),caret=token.start+insertion.length;
+    selection.current={text:next,caret};
     onChange(next);setToken(item.kind==='directory'?composerToken(next,caret):null);
-    requestAnimationFrame(()=>{input.current?.focus();input.current?.setSelectionRange(caret,caret);});
   };
   const trigger=kind=>{
     const caret=input.current?.selectionStart??value.length;
     const before=value.slice(0,caret),insert=(before&&!/\s$/.test(before)?' ':'')+kind;
-    const text=before+insert+value.slice(caret);update(text,caret+insert.length);
-    requestAnimationFrame(()=>{input.current?.focus();input.current?.setSelectionRange(caret+insert.length,caret+insert.length);});
+    const text=before+insert+value.slice(caret);selection.current={text,caret:caret+insert.length};update(text,caret+insert.length);
   };
   return <section className="composer-input" ref={root}>
     {!!files.length&&<div className="composer-references" aria-label="已引用文件">{files.map(path=><span key={path} title={path}><File size={14}/><span>{path}</span><button type="button" disabled={disabled} aria-label={`移除引用 ${path}`} onClick={()=>onFiles(files.filter(file=>file!==path))}><X size={13}/></button></span>)}</div>}
     {token&&!disabled&&<div className="composer-picker">
       <div className="composer-picker-heading">{token.kind==='/'?'指令':'工作区文件'}<small>{token.kind==='/'?'Agent 命令插入后发送':'最多 5 个文本文件 · 每个 32 KiB'}</small>{token.kind==='@'&&<button type="button" aria-label="刷新引用目录" disabled={!online} onClick={()=>{cache.current.delete(`${session.id}:${directory}`);setRefresh(count=>count+1);}}><RefreshCw size={14}/></button>}<button type="button" aria-label="关闭建议" onClick={()=>setToken(null)}><X size={14}/></button></div>
-      {token.kind==='@'&&directory&&<button type="button" className="composer-parent" onClick={()=>{const parent=directory.replace(/\/$/,'').split('/').slice(0,-1).join('/');const insertion=parent?'@\"'+parent+'/':'@';const next=replaceToken(value,token,insertion),caret=token.start+insertion.length;update(next,caret);requestAnimationFrame(()=>{input.current?.focus();input.current?.setSelectionRange(caret,caret);});}}>‹ 上级目录 · {directory}</button>}
+      {token.kind==='@'&&directory&&<button type="button" className="composer-parent" onClick={()=>{const parent=directory.replace(/\/$/,'').split('/').slice(0,-1).join('/');const insertion=parent?'@\"'+parent+'/':'@';const next=replaceToken(value,token,insertion),caret=token.start+insertion.length;selection.current={text:next,caret};update(next,caret);}}>‹ 上级目录 · {directory}</button>}
       <div id={listId} role="listbox" aria-label={token.kind==='/'?'指令建议':'文件建议'}>{options.map((item,index)=><button type="button" role="option" id={`${listId}-${index}`} aria-selected={index===selected} key={item.path??item.name} onPointerMove={()=>setSelected(index)} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(item)}>
         {token.kind==='/'?<Slash size={16}/>:item.kind==='directory'?<Folder size={16}/>:<File size={16}/>}
         <span><strong>{token.kind==='/'?'/'+item.name:item.name}</strong><small>{item.description??(item.kind==='directory'?'打开目录':item.path)}</small></span>{item.source&&<small>{item.source}</small>}
