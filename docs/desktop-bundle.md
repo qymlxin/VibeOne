@@ -1,5 +1,7 @@
 # 桌面包与独立运行资源
 
+> 正式桌面入口已迁移为Electron，当前构建命令与产物位置见[Electron桌面说明](electron-desktop.md)。本文保留Tauri兼容包的资源与历史验收说明；旧构建入口为`desktop:bundle:tauri`。
+
 ## 包内与本机的边界
 
 Tauri桌面包包含Rust Host、桌面/手机前端、Node插件运行时、SDK、内置示例，以及锁定版本的ACP桥接器（把编码工具暴露为ACP进程的适配程序）。本机仍须提供Node22+和模型认证；构建不复制用户认证目录、令牌或已有会话数据。

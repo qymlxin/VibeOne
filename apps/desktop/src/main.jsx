@@ -2,7 +2,7 @@ import {submitMessage as submitMessageCommand} from "@vibeone/client-contracts";
 import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  ArrowUp,
+  ArrowUp, Users,
   MoreHorizontal, GitBranch, Paperclip, Slash, AtSign, ChevronDown,
   GitCompareArrows, FileCode, Terminal, Globe, Layers, Pencil, Archive,
   Maximize2,
@@ -51,6 +51,7 @@ import {SessionRow} from "./SessionIdentity.jsx";
 import {AppearanceSettings,useAppearance} from "./AppearanceSettings.jsx";
 import {readAppearance,applyAppearance} from "./appearance.js";
 const SettingsCenter=lazy(()=>import("./SettingsCenter.jsx").then(module=>({default:module.SettingsCenter})));
+import {useSpaces,SpaceNavigation,ProjectSpaceSidebar,SpaceOverview,SpaceEditor,GroupTranscript} from './ProjectSpaces.jsx';
 import {NewSession} from "./NewSession.jsx";
 import {SplitHandle} from "./SplitHandle.jsx";
 import {PreviewContext} from "./PreviewLinks.jsx";
@@ -102,10 +103,16 @@ function App() {
   const plugins = usePlugins(workbench);
   const projects=useProjects(workbench);
   const [newProject,setNewProject]=useState('');
+  const spaces=useSpaces(workbench);
+  const [spaceId,setSpaceId]=useState(null),[overview,setOverview]=useState(true),[board,setBoard]=useState(false),[spaceEditor,setSpaceEditor]=useState(null);
+  const currentProject=projects.items.find(p=>p.id===spaceId);
+  const openSession=id=>{setSelected(id);setOverview(false);setCreating(false);setSettings(false);setShowList(false);};
+  const enterProject=async project=>{setCreating(false);setSettings(false);const result=await act(()=>spaces.command({action:'enter',projectId:project.id}));if(result){setSpaceId(project.id);setOverview(true);setBoard(false);setPanel('chat');}return !!result;};
+  const openCode=()=>{const steward=spaces.agents.find(a=>a.projectId===spaceId&&a.steward);if(steward){openSession(steward.sessionId);setPanel('files');}};
   useNotifications(workbench);
   const [selected, setSelected] = useState(null);
   const [showList, setShowList] = useState(true);
-  const [creating, setCreating] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [settings, setSettings] = useState(false);
   const [query, setQuery] = useState("");
   const searchInput=useRef(null);
@@ -135,10 +142,12 @@ function App() {
     return () => media.removeEventListener("change", apply);
   }, [theme]);
   const online = workbench.phase === "online" && !workbench.storageError;
-  const session = workbench.sessions.find((session) => session.id === selected);
+  const rawSession = workbench.sessions.find((session) => session.id === selected);
+  const agentIdentity=spaces.agentFor(selected);
+  const session=rawSession&&agentIdentity?{...rawSession,title:agentIdentity.name}:rawSession;
   const sessions = recentSessions(workbench.sessions.filter(
     (session) =>
-      !!session.archived === archived &&
+      !spaces.hidden.has(session.id) && !!session.archived === archived &&
       `${session.title} ${session.workspace}`
         .toLowerCase()
         .includes(query.toLowerCase()),
@@ -157,17 +166,18 @@ function App() {
       return null;
     }
   };
-  const renderSession=item=><SessionRow key={item.id} item={item} selected={!creating&&item.id===selected} provider={workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={sessionLabel(item)} onSelect={()=>{setSelected(item.id);setCreating(false);setShowList(false);setSettings(false);}}/>;
+  const renderSession=item=>{const identity=spaces.agentFor(item.id),thread=spaces.threadFor(item.id);return <SessionRow key={item.id} item={{...item,title:identity?.name??thread?.name??item.title,avatar:identity}} selected={!overview&&!creating&&item.id===selected} provider={thread?.coordination?'项目管家':thread?'会话组':workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={thread?.state==='running'?'协作中':sessionLabel(item)} onSelect={()=>openSession(item.id)}/>;};
   const mode=appearance.dark?'dark':'light',colors=appearance.value[mode];
   useEffect(()=>{if(panelWidth)try{localStorage.setItem('vibeone-panel-width',String(panelWidth));}catch{}},[panelWidth]);
   const colorStyle={'--accent':appearance.value.accent,'--link':'color-mix(in srgb,var(--accent) 70%,var(--fg))',...(panelWidth?{'--panel-width':`${panelWidth}px`}:{}),...(colors.background||colors.foreground?{'--bg':colors.background??(appearance.dark?'#181818':'#FFFFFF'),'--fg':colors.foreground??(appearance.dark?'#FFFFFF':'#1A1C1F'),'--sidebar':'color-mix(in srgb,var(--bg) 97%,var(--fg))','--panel':'var(--bg)','--bar':'color-mix(in srgb,var(--bg) 94%,var(--fg))','--raised':'color-mix(in srgb,var(--bg) 91%,var(--fg))','--hover':'color-mix(in srgb,var(--bg) 92%,var(--fg))','--selected':'color-mix(in srgb,var(--bg) 86%,var(--fg))','--muted':'color-mix(in srgb,var(--fg) 64%,var(--bg))','--line':'color-mix(in srgb,var(--bg) 88%,var(--fg))','--border':'color-mix(in srgb,var(--bg) 62%,var(--fg))'}:{})};
-  return <ApprovedWorkbenchShell dark={appearance.dark} colorStyle={colorStyle} sidebarOpen={sidebarOpen} hasPanel={panel!=='chat'&&!settings&&!creating&&!!session} wide={expandedPanel} settings={settings} native={isNative()} mobileList={showList} title={creating||!session?'新会话':session.title} connectionLabel={online?'工作主机 · 本机已连接':workbench.phase==='upgrading'?'正在重启工作主机':'正在连接工作主机'} onToggleSidebar={()=>setSidebarOpen(!sidebarOpen)} onOpenList={()=>{setSidebarOpen(true);setShowList(true);}} panel={panel} onPanel={value=>{setSettings(false);setPanel(value);}} sidebar={
-      <aside className="session-sidebar desktop-sidebar">
+  return <ApprovedWorkbenchShell dark={appearance.dark} colorStyle={colorStyle} sidebarOpen={sidebarOpen} hasPanel={panel!=='chat'&&!settings&&!creating&&!overview&&!!session} wide={expandedPanel} settings={settings} native={isNative()} mobileList={showList} title={currentProject?.name??(overview?'所有项目':creating||!session?'新会话':session.title)} navigation={spaces.enabled?<SpaceNavigation project={currentProject} board={board&&overview} onHome={()=>{setSpaceId(null);setOverview(true);setBoard(false);setCreating(false);setSettings(false);setPanel('chat');}} onBoard={()=>{setOverview(true);setBoard(true);setCreating(false);setSettings(false);setPanel('chat');}} onProject={()=>{setOverview(true);setBoard(false);setCreating(false);setSettings(false);setPanel('chat');}}/>:null} connectionLabel={online?'工作主机 · 本机已连接':workbench.phase==='upgrading'?'正在重启工作主机':'正在连接工作主机'} onToggleSidebar={()=>setSidebarOpen(!sidebarOpen)} onOpenList={()=>{setSidebarOpen(true);setShowList(true);}} panel={panel} onPanel={value=>{setSettings(false);if(overview){const target=(currentProject?spaces.agents.find(a=>a.projectId===spaceId&&a.steward)?.sessionId:null)??session?.id??sessions[0]?.id;if(target)openSession(target);else setError('先选择一个项目对话，再打开工作区工具');}setPanel(value);}} sidebar={currentProject&&spaces.enabled?<ProjectSpaceSidebar project={currentProject} spaces={spaces} workbench={workbench} selected={overview?null:selected} onSelect={openSession} onBack={()=>{setSpaceId(null);setOverview(true);setBoard(false);setPanel('chat');}} onCreate={kind=>setSpaceEditor({kind})} onEdit={(initial,kind)=>setSpaceEditor({initial,kind})} onCode={openCode}/>:<aside className="session-sidebar desktop-sidebar">
         <div className="brand desktop-brand">
           <Brand/>          <button
             className="icon-button desktop-icon"
             aria-label="新建会话"
-            onClick={() => {
+            onClick={async () => {
+              const project=projects.items.find(p=>p.paths.includes(session?.workspace))??projects.items[0];
+              if(spaces.enabled&&project){if(await enterProject(project))setSpaceEditor({kind:'agent'});return;}
               setNewProject(projects.items.find(p=>p.paths.includes(session?.workspace))?.id??'');
               setCreating(true);
               setShowList(false);
@@ -194,6 +204,7 @@ function App() {
               (session) => session.approvals.length || session.inputs?.length,
             );
             if (attention) {
+              setOverview(false);
               setSelected(attention.id);
               setCreating(false);
               setShowList(false);
@@ -212,7 +223,7 @@ function App() {
               <button onClick={event=>{setArchived(!archived);event.currentTarget.closest('details').open=false;}}>{archived?'已归档 · 查看会话':'会话 · 查看归档'}</button>
             </div></details>
           </div></div>
-          {projectGroups(sessions,projects.items,workbench.workspaces).map(group=><section className="desktop-project-group" key={group.id}><div className="project-sidebar-heading"><button className="project-name desktop-project-heading" title={group.paths.join('\n')} aria-expanded={!!query.trim()||!collapsedProjects.has(group.id)} onClick={()=>setCollapsedProjects(previous=>{const next=new Set(previous);if(next.has(group.id))next.delete(group.id);else next.add(group.id);return next;})}><ChevronRight size={12}/><FolderOpen size={13}/><span>{group.name}</span><small>{group.sessions.length}</small></button><button className="icon-button" aria-label={`在项目 ${group.name} 新建会话`} onClick={()=>{setNewProject(group.id);setCreating(true);setSettings(false);setShowList(false);}}><Plus size={13}/></button></div>{(!!query.trim()||!collapsedProjects.has(group.id))&&group.sessions.map(renderSession)}</section>)}
+          {projectGroups(sessions,projects.items,workbench.workspaces).map(group=><section className="desktop-project-group" key={group.id}><div className="project-sidebar-heading"><button className="project-name desktop-project-heading" title={group.paths.join('\n')} aria-expanded={!!query.trim()||!collapsedProjects.has(group.id)} onClick={()=>setCollapsedProjects(previous=>{const next=new Set(previous);if(next.has(group.id))next.delete(group.id);else next.add(group.id);return next;})}><ChevronRight size={12}/><FolderOpen size={13}/><span>{group.name}</span><small>{group.sessions.length}</small></button>{spaces.enabled&&<button className="icon-button space-enter" aria-label={`进入项目空间${group.name}`} title="进入项目空间" onClick={()=>void enterProject(group)}><ChevronRight size={13}/></button>}<button className="icon-button" aria-label={`在项目 ${group.name} 新建会话`} onClick={()=>{if(spaces.enabled){void enterProject(group).then(ok=>{if(ok)setSpaceEditor({kind:'agent'});});}else{setNewProject(group.id);setCreating(true);setSettings(false);setShowList(false);}}}><Plus size={13}/></button></div>{(!!query.trim()||!collapsedProjects.has(group.id))&&group.sessions.map(renderSession)}</section>)}
           {!sessions.length&&!projects.items.some(p=>!p.implicit)&&<p className="desktop-list-empty">{query?'没有匹配的会话':'从一个新项目开始'}</p>}
 
         </div>
@@ -292,8 +303,10 @@ function App() {
         {settings ? (
           <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter key={settingsTarget} initialPage={settingsTarget} projects={projects} workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance} onBack={()=>setSettings(false)}/>}/></Suspense>
         ) : <>
-          {!session&&<section className="new-session-home"><BrandMark/><h1>开始新的工作</h1><p>选择一个项目，或开启一段新的对话。</p><button className="desktop-button" onClick={()=>setCreating(true)}><Plus size={15}/>新建会话</button></section>}
-          {session&&<Conversation key={session.id} session={session} workbench={workbench} online={online} act={act} tab={creating?'chat':panel} setTab={setPanel} panelWidth={panelWidth} setPanelWidth={setPanelWidth} expandedPanel={expandedPanel} setExpandedPanel={setExpandedPanel}/>}
+          {overview&&spaces.enabled&&<SpaceOverview projects={projects} project={currentProject} board={board} spaces={spaces} workbench={workbench} onEnter={enterProject} onSelect={openSession} onCreate={kind=>setSpaceEditor({kind})} onCode={openCode}/>}
+          {!session&&!(overview&&spaces.enabled)&&<section className="new-session-home"><BrandMark/><h1>开始新的工作</h1><p>选择一个项目，或开启一段新的对话。</p><button className="desktop-button" onClick={()=>setCreating(true)}><Plus size={15}/>新建会话</button></section>}
+          {session&&!(overview&&spaces.enabled)&&<Conversation spaceIdentity={agentIdentity} onEditIdentity={()=>{const p=projects.items.find(p=>p.id===agentIdentity?.projectId);if(p){setSpaceId(p.id);setSpaceEditor({kind:"agent-update",initial:agentIdentity});}}} fixedIdentity={!!agentIdentity?.steward} spaces={spaces} thread={spaces.threadFor(session.id)} onOpenExecution={openSession} key={session.id} session={session} workbench={workbench} online={online} act={act} tab={creating?'chat':panel} setTab={setPanel} panelWidth={panelWidth} setPanelWidth={setPanelWidth} expandedPanel={expandedPanel} setExpandedPanel={setExpandedPanel}/>}
+          {spaceEditor&&currentProject&&<SpaceEditor {...spaceEditor} project={currentProject} spaces={spaces} workbench={workbench} onClose={()=>setSpaceEditor(null)} onCreated={id=>{if(id)openSession(id);}}/>}
           {creating&&
           <NewSession
             key={newProject}
@@ -306,6 +319,7 @@ function App() {
             act={act}
             onCancel={()=>setCreating(false)}
             onCreated={(id) => {
+              setOverview(false);
               setSelected(id);
               setCreating(false);
               setShowList(false);
@@ -315,7 +329,7 @@ function App() {
     </ApprovedWorkbenchShell>;
 }
 
-function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,setPanelWidth,expandedPanel,setExpandedPanel }) {
+function Conversation({ session, workbench, online, act,thread,spaces,spaceIdentity,onEditIdentity,fixedIdentity,onOpenExecution,tab,setTab,panelWidth,setPanelWidth,expandedPanel,setExpandedPanel }) {
   const [draft, setDraft] = useState(() => {
     try {
       return localStorage.getItem(`vibeone-draft:${session.id}`) || "";
@@ -378,7 +392,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
   const name =
     workbench.providers.find((provider) => provider.id === session.provider)
       ?.name ?? session.provider;
-  const active = [
+  const active = thread?.state==='running'||[
     "starting",
     "running",
     "requires_action",
@@ -401,7 +415,10 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
     else if (followLatest.current && timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight;
   }, [contentLength, history.session.messages,history.session.tools, session.approvals.length, session.inputs?.length, session.status]);
   const send = async () => {
-    if ((!draft.trim()&&!fileReferences.length&&!attachmentDraft.items.length) || attachmentDraft.busy || sending || !online || readOnly) return;
+    if ((!draft.trim()&&!fileReferences.length&&!attachmentDraft.items.length) || (thread&&active) || attachmentDraft.busy || sending || !online || readOnly) return;
+    if(thread){
+      setSending(true);const result=await act(()=>spaces.command({action:'send',projectId:thread.projectId,id:thread.id,text:draft,key:(requestKey.current??=crypto.randomUUID())}));if(result){setDraft('');requestKey.current=null;}setSending(false);return;
+    }
     const panel=commandPanel(draft,session.agentState?.commands);
     if(panel&&!fileReferences.length&&!attachmentDraft.items.length){setTab(panel);setDraft('');requestKey.current=null;return;}
     followLatest.current = true;
@@ -469,7 +486,8 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
           {sessionLabel(session)}
         </span></span>
         </div>
-          {workbench.persistent && (
+          {spaceIdentity&&!fixedIdentity&&<button className="icon-button" aria-label="编辑 Agent" onClick={onEditIdentity}><Settings2 size={15}/></button>}
+          {workbench.persistent && !spaceIdentity && !thread && (
             <details className="workbench-tool-menu session-action-menu"><summary className="icon-button" aria-label="会话操作" title="会话操作"><MoreHorizontal size={16}/></summary><div>
               <button aria-label="重命名" title="重命名"
                 disabled={!online || !canOperate || metadataCommands.busy || !!metadataCommands.failure}
@@ -522,7 +540,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
             </p>
           </div>
         )}
-        {turns.map(turn => (
+        {thread?<GroupTranscript thread={thread} session={history.session} workbench={workbench} spaces={spaces} act={act} onOpenExecution={onOpenExecution}/>:turns.map(turn => (
           <div className="conversation-round desktop-turn" tabIndex={-1} key={turn.id} data-turn-id={turn.id}>
             {turn.user && <ChatMessage message={turn.user} name={name}/>}
             <AgentResponse onChanges={()=>setTab('changes')} changeStats={changeSummary} changeCount={turn.id===lastRun?.id&&changeSummary?.isGit?changeSummary.files.length:0} turn={turn} name={name} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
@@ -628,23 +646,24 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
         </div>
       )}
       <div className="composer-area desktop-composer-wrap">
+        {thread&&<div className="space-mention-shortcuts">{thread.members.map(id=>{const a=spaces.agents.find(a=>a.id===id);return a&&<button key={id} disabled={active||sending} onClick={()=>{setDraft(d=>`${d}${d&&!d.endsWith(' ')?' ':''}@${a.name} `);requestKey.current=null;}}>@{a.name}</button>;})}</div>}
         <div className="composer desktop-composer" onPaste={attachmentDraft.onPaste} onDrop={attachmentDraft.onDrop} onDragOver={attachmentDraft.onDragOver}>
-          <AttachmentPicker inputRef={attachmentInput} draft={attachmentDraft} disabled={readOnly||sending} supported={workbench.features?.includes('attachments')}/>
+          {!thread&&<AttachmentPicker inputRef={attachmentInput} draft={attachmentDraft} disabled={readOnly||sending} supported={workbench.features?.includes('attachments')}/>}
           <Queue
             commands={queueCommands}
             session={session}
             workbench={workbench}
             online={online && canOperate}
           />
-          <ComposerInput inputActions={composerActions} session={session} workbench={workbench} value={draft}
+          {thread?<textarea className="space-group-input" aria-label="发送组消息" value={draft} onChange={e=>{setDraft(e.target.value);requestKey.current=null;}} disabled={readOnly||sending||active} placeholder="向会话组发送任务，或 @成员名字 指定处理…" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();void send();}}}/>:<ComposerInput inputActions={composerActions} session={session} workbench={workbench} value={draft}
             onChange={text=>{setDraft(text);requestKey.current=null;}}
             files={fileReferences} onFiles={changeReferences} onSubmit={()=>void send()}
             onPanel={setTab} disabled={readOnly || sending} online={online}
-            placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档后继续会话" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 引用文件…"}/>
+            placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档后继续会话" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 引用文件…"}/> }
           <div className="composer-toolbar desktop-composer-toolbar"><div>
-            <div className="composer-context-control" ref={contextControl}><IconButton label="添加上下文" disabled={readOnly||sending} onClick={()=>setContextMenuOpen(!contextMenuOpen)}><Plus size={19}/></IconButton>{contextMenuOpen&&<div className="composer-context-actions"><button type="button" aria-label="添加附件" disabled={!workbench.features?.includes('attachments')||!online||attachmentDraft.busy} onClick={()=>{setContextMenuOpen(false);attachmentInput.current?.click();}}><Paperclip size={14}/>添加附件</button><button type="button" onClick={()=>{setContextMenuOpen(false);composerActions.current?.trigger('/');}}><Slash size={14}/>选择指令</button><button type="button" onClick={()=>{setContextMenuOpen(false);composerActions.current?.trigger('@');}}><AtSign size={14}/>引用文件</button></div>}</div>
+            <div className="composer-context-control" ref={contextControl}><IconButton label="添加上下文" disabled={readOnly||sending||!!thread} onClick={()=>setContextMenuOpen(!contextMenuOpen)}><Plus size={19}/></IconButton>{contextMenuOpen&&<div className="composer-context-actions"><button type="button" aria-label="添加附件" disabled={!workbench.features?.includes('attachments')||!online||attachmentDraft.busy} onClick={()=>{setContextMenuOpen(false);attachmentInput.current?.click();}}><Paperclip size={14}/>添加附件</button><button type="button" onClick={()=>{setContextMenuOpen(false);composerActions.current?.trigger('/');}}><Slash size={14}/>选择指令</button><button type="button" onClick={()=>{setContextMenuOpen(false);composerActions.current?.trigger('@');}}><AtSign size={14}/>引用文件</button></div>}</div>
             <button type="button" className="permission" onClick={()=>setTab('agent')}><ShieldCheck size={13}/>会话权限<ChevronDown size={11}/></button>
-          </div><div><AgentConfigControls session={session} workbench={workbench} compact label={name} onOpen={()=>setTab('agent')}/>
+          </div><div>{thread?<span className="space-group-label"><Users size={13}/> {thread.members.length} 位成员</span>:<AgentConfigControls session={session} workbench={workbench} compact label={name} onOpen={()=>setTab('agent')}/>}
             <button
               className="send-button desktop-send"
               aria-label="发送消息"
@@ -654,7 +673,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
                 attachmentDraft.busy ||
                 sending ||
                 !online ||
-                session.status === "disconnected"
+                (thread&&active) || session.status === "disconnected"
               }
               onClick={() => void send()}
             >
@@ -675,7 +694,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
                 !online || !canOperate || session.status === "cancelling"
               }
               onClick={() =>
-                void act(stopCurrentRun)
+                void act(thread?()=>spaces.command({action:'stop',projectId:thread.projectId,id:thread.id}):stopCurrentRun)
               }
             >
               <Square size={11} />

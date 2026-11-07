@@ -10,4 +10,4 @@ export function streamChannel(){
  const events=new Channel();const dispose=window.vibeoneDesktop.onChannel(events.id,event=>events.onmessage?.(event));return {events,dispose};
 }
 
-if(window.vibeoneDesktop)document.documentElement.classList.add('electron-desktop');
+if(typeof window!=='undefined'&&window.vibeoneDesktop)document.documentElement.classList.add('electron-desktop');

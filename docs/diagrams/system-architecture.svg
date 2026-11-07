@@ -8,7 +8,7 @@
 <text x="40" y="119" font-size="16" font-weight="400" fill="#536174" text-anchor="start">客户端负责呈现与意图；Rust Host 管理运行事实、审批、扩展和持久化。</text>
 <rect x="70" y="165" width="350" height="110" rx="12" fill="white" stroke="#E2E8F0"/>
 <text x="88" y="194" font-size="18" font-weight="600" fill="#172033" text-anchor="start">桌面客户端</text>
-<text x="88" y="219" font-size="14" font-weight="400" fill="#536174" text-anchor="start">Tauri 窗口 / 托盘 / 系统通知</text>
+<text x="88" y="219" font-size="14" font-weight="400" fill="#536174" text-anchor="start">Electron 窗口 / Chromium / 系统通知</text>
 <text x="88" y="242" font-size="14" font-weight="400" fill="#536174" text-anchor="start">React 工作台 / JS App 动态注册</text>
 <rect x="520" y="165" width="350" height="110" rx="12" fill="white" stroke="#E2E8F0"/>
 <text x="538" y="194" font-size="18" font-weight="600" fill="#172033" text-anchor="start">手机客户端</text>

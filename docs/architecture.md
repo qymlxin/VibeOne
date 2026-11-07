@@ -1,16 +1,18 @@
 # VibeOne 架构设计
 
-版本：0.4 · 2026-11-06。本文描述目标架构，已交付范围以实施计划为准。当前桌面和 ACP v2 链路仍为开发预览，插件公共接口尚未冻结。
+版本：0.5 · 2026-11-07。本文描述目标架构，已交付范围以实施计划为准。当前桌面和 ACP v2 链路仍为开发预览，插件公共接口尚未冻结。
 
 ## 1. 定位与范围
 
 VibeOne 是本地优先、可远程控制、以 ACP 为主要接入协议的 Agent 工作台。用户在电脑上运行现有 Coding Agent，通过桌面或手机查看进展、发送指令、取消任务、审批工具请求和查看代码变更。
 
-建议的第一版：Tauri 2 + React 桌面客户端、独立 Rust Host、手机 Web/PWA 客户端、JS 动态插件与可选原生 Worker。Agent 继续使用自身模型、认证与执行逻辑。
+当前桌面主入口：Electron + React 桌面客户端、独立 Rust Host、手机 Web/PWA 客户端、JS 动态插件与可选原生 Worker。Agent 继续使用自身模型、认证与执行逻辑。
 
 后端与插件管理内核采用 Rust；普通插件使用 JS，也允许 TS 开发后编译成 JS。App 插件通过版本化 SDK 动态注册 React 面板、命令、Hook 和服务，后台逻辑运行在 Host 管理的 Node.js Worker 中。声明式资源作为便捷入口保留；Rust 等原生 Worker 是可选扩展，运行时不直接执行 TS。
 
 第一版聚焦单用户、多设备、单执行主机；允许多个 Agent 会话。预留多主机身份，不立即实现分布式调度。手机端先完成控制与审批，不在手机本地运行 Coding CLI。
+
+项目沉浸空间、固定管家、命名Agent与组对话见[项目空间](project-spaces.md)。桌面外壳迁移见[Electron实现](electron-desktop.md)与[ADR](adr/0001-electron-shell-rust-host.md)；Rust Host、ACP、插件及远程链路继续复用。
 
 ## 2. 总体结构
 

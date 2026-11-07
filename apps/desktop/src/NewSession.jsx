@@ -7,7 +7,7 @@ import {savedModelOption,modelOptions,isModelOption} from './session-models.js';
 import './new-session.css';
 const basename=path=>path?.split(/[\\/]/).filter(Boolean).at(-1)??'';
 
-function Choice({label,value,options,onChange,icon:Icon=Folder,up=false,disabled=false,onOpen}){
+export function Choice({label,value,options,onChange,icon:Icon=Folder,up=false,disabled=false,onOpen}){
  const [open,setOpen]=useState(false);const root=useRef(null),trigger=useRef(null),id=useId();
  const current=options.find(option=>option.value===value);
  useEffect(()=>{if(!open)return;const outside=event=>{if(!root.current?.contains(event.target))setOpen(false);};document.addEventListener('pointerdown',outside);root.current?.querySelector('[role=option][aria-selected=true]:not(:disabled)')?.focus();return()=>document.removeEventListener('pointerdown',outside);},[open]);
@@ -19,6 +19,7 @@ function Choice({label,value,options,onChange,icon:Icon=Folder,up=false,disabled
 }
 
 export function NewSession({workbench,online,act,onCreated,projects,initialProject,onCancel}){
+ const [agentName,setAgentName]=useState('');
  const [projectId,setProjectId]=useState(initialProject??'');
  const project=projects.items.find(p=>p.id===projectId);
  const creation=useRef(null);
@@ -49,7 +50,7 @@ export function NewSession({workbench,online,act,onCreated,projects,initialProje
  const pickDirectory=async()=>{const path=await act(chooseWorkspace);if(path)setWorkspace(path);};
  const changeProject=value=>{setProjectId(value);setWorkspace(projects.items.find(p=>p.id===value)?.paths[0]??'');};
  const authorizedDirectory=!workbench.device||(workbench.workspaces??[]).some(item=>item.path===workspace);
- const canCreate=online&&authorizedDirectory&&(!workbench.device||!!workspace.trim())&&!busy&&available;
+ const canCreate=(!workbench.features?.includes('projectSpaces')||!!agentName.trim())&&online&&authorizedDirectory&&(!workbench.device||!!workspace.trim())&&!busy&&available;
  const create=async event=>{
   event.preventDefault();if(!canCreate||creation.current?.busy)return;
   const initialModel=model&&canSetModel?{id:modelOption.configId,value:model}:undefined;
@@ -59,6 +60,7 @@ export function NewSession({workbench,online,act,onCreated,projects,initialProje
   try{
    const result=await act(()=>workbench.call(...createSessionCommand(profile?.provider??provider,workspace,profile?.id,workbench.features?.includes('sessionCreationIdempotency')?intent.key:undefined,initialModel)));
    if(result){
+    if(agentName.trim()){const named=await act(()=>workbench.call(`/sessions/${result.id}/metadata`,{title:agentName.trim()}));if(!named)return;}
     if(project){const snapshot=await workbench.call('/snapshot');const created=snapshot.sessions.find(s=>s.id===result.id);if(created&&!project.paths.includes(created.workspace)){const saved=await act(()=>projects.save({id:project.id,addPath:created.workspace}));if(!saved)return;}}
     await projects.reload();try{localStorage.setItem(`vibeone-avatar:${result.id}`,JSON.stringify(avatar));}catch{}creation.current=null;onCreated(result.id);
    }
@@ -72,7 +74,7 @@ export function NewSession({workbench,online,act,onCreated,projects,initialProje
    <form className="new-session-form" onSubmit={create} aria-busy={busy}>
     <header className="new-session-form-heading"><h1 id="new-session-title">新建会话</h1><button type="button" className="new-session-close" aria-label="关闭新建会话" disabled={busy} onClick={onCancel}><X size={17}/></button></header>
     <div className="new-avatar-setting"><SessionAvatar {...avatar}/><div className="new-avatar-options"><div className="new-avatar-tabs"><span>会话图标</span><button type="button" disabled={busy} aria-pressed={avatarTab==='color'} onClick={()=>setAvatarTab('color')}>颜色</button><button type="button" disabled={busy} aria-pressed={avatarTab==='shape'} onClick={()=>setAvatarTab('shape')}>形状</button></div>{avatarTab==='color'?<div className="new-avatar-colors">{avatarColors.map(color=><button type="button" disabled={busy} key={color} aria-label={`图标颜色 ${color}`} aria-pressed={avatar.color===color} onClick={()=>setAvatar(value=>({...value,color}))}><span style={{background:color}}/></button>)}</div>:<div className="new-avatar-shapes">{avatarShapes.map((shape,index)=><button type="button" disabled={busy} key={shape} aria-label={`图标形状 ${avatarShapeNames[index]}`} aria-pressed={avatar.shape===shape} onClick={()=>setAvatar(value=>({...value,shape}))}><SessionAvatar color={avatar.color} shape={shape}/></button>)}</div>}</div></div>
-    <fieldset disabled={busy} aria-label="会话配置">
+    <fieldset disabled={busy} aria-label="会话配置">{workbench.features?.includes('projectSpaces')&&<div className="new-session-row"><label htmlFor="agent-name">Agent 名称</label><input id="agent-name" className="new-agent-name" value={agentName} onChange={e=>setAgentName(e.target.value)} maxLength={100} required placeholder="给这位 Agent 起一个名字"/></div>}
      <div className="new-session-row"><label>项目</label><Choice label="项目" value={projectId} options={projectOptions} onChange={changeProject}/></div>
      <div className="new-session-row"><label>工作目录</label><div className="new-directory-control"><Choice label="工作目录" value={workspace} options={directoryOptions} onChange={setWorkspace} icon={FolderOpen}/>{native&&<button type="button" className="new-directory-browse" aria-label="选择工作区目录" title="从本机选择目录" onClick={()=>void pickDirectory()}><FolderOpen size={17}/></button>}</div></div>
      <div className="new-session-row new-session-agent"><label>Agent</label><div className="new-agent-control"><Choice label="Agent" value={provider} options={agentOptions.length?agentOptions:[{value:'codex',label:'正在读取工具',description:'连接工作主机后继续',disabled:true}]} onChange={setProvider} icon={Terminal} up/><span className={`new-agent-status ${available?'available':''}`}><i/>{available?'已就绪':'待配置'}</span></div></div>
