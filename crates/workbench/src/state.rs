@@ -400,6 +400,8 @@ impl Workbench {
                     "attachments",
                     "directoryReferences",
                     "providerProbe",
+                    "providerModels",
+                    "initialSessionModel",
                     "upstreamResume",
                     "conversationHistory",
                     "cursorSync",
@@ -470,12 +472,25 @@ impl Workbench {
             .await
     }
 
+    #[cfg(test)]
     pub(crate) async fn create_with_key(
         &self,
         provider: &str,
         workspace: &str,
         profile_id: Option<&str>,
         key: Option<&str>,
+    ) -> Result<String, DomainError> {
+        self.create_with_model(provider, workspace, profile_id, key, None)
+            .await
+    }
+
+    pub(crate) async fn create_with_model(
+        &self,
+        provider: &str,
+        workspace: &str,
+        profile_id: Option<&str>,
+        key: Option<&str>,
+        model: Option<crate::contracts::ConfigureAgentRequest>,
     ) -> Result<String, DomainError> {
         use sha2::{Digest, Sha256};
         let hash = |bytes: &[u8]| {
@@ -498,11 +513,25 @@ impl Workbench {
                 Ok(hash(key.as_bytes()))
             })
             .transpose()?;
+        if let Some(model) = &model {
+            if model.id.is_empty()
+                || model.id.len() > 128
+                || model
+                    .value
+                    .as_str()
+                    .is_none_or(|value| value.is_empty() || value.len() > 256)
+            {
+                return Err(DomainError::new(ErrorKind::InvalidInput, "模型选择无效"));
+            }
+        }
+        let mut creation_parameters =
+            json!({"provider":provider,"workspace":workspace,"profileId":profile_id});
+        if let Some(model) = &model {
+            creation_parameters["model"] = json!(model);
+        }
         let fingerprint = hash(
-            &serde_json::to_vec(
-                &json!({"provider":provider,"workspace":workspace,"profileId":profile_id}),
-            )
-            .map_err(|_| DomainError::new(ErrorKind::Internal, "创建参数编码失败"))?,
+            &serde_json::to_vec(&creation_parameters)
+                .map_err(|_| DomainError::new(ErrorKind::Internal, "创建参数编码失败"))?,
         );
         if let Some(key) = &receipt_key {
             let saved = self
@@ -694,7 +723,9 @@ impl Workbench {
             queue_paused: false,
             decisions: vec![],
             profile,
-            agent_state: Value::Null,
+            agent_state: model
+                .map(|model| json!({"initialModel":model}))
+                .unwrap_or(Value::Null),
         };
         let record = SavedSession {
             id: id.clone(),
@@ -969,6 +1000,11 @@ impl Workbench {
         })?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
         view.agent_state["configOptions"] = response["configOptions"].clone();
+        if view.agent_state["initialModel"]["id"] == config_id {
+            if let Some(state) = view.agent_state.as_object_mut() {
+                state.remove("initialModel");
+            }
+        }
         self.commit(
             &entry,
             view,

@@ -146,6 +146,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/projects",get(project_list).post(project_save))
         .route("/v1/profiles",get(profile_catalog).post(profile))
         .route("/v1/providers/{id}/probe",post(provider_probe))
+        .route("/v1/providers/{id}/models",post(provider_models))
         .route("/v1/remote",post(remote::configure))
         .route("/v1/devices",get(remote::status))
         .route("/v1/pairing/code",post(remote::pairing_code))
@@ -306,6 +307,21 @@ async fn profile(
         .await
         .map(Json)
         .map_err(domain_fail)
+}
+async fn provider_models(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+    Json(body): Json<ProviderModelsRequest>,
+) -> ApiResult {
+    domain_command(async move {
+        state
+            .workbench
+            .provider_models(&id, body.profile_id.as_deref(), &body.workspace)
+            .await
+    })
+    .await
+    .map(Json)
+    .map_err(domain_fail)
 }
 async fn provider_probe(
     State(state): State<Server>,
@@ -638,11 +654,12 @@ async fn create(
     domain_command(async move {
         state
             .workbench
-            .create_with_key(
+            .create_with_model(
                 &body.provider,
                 &body.workspace,
                 body.profile_id.as_deref(),
                 body.key.as_deref(),
+                body.model,
             )
             .await
     })

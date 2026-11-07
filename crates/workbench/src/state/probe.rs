@@ -242,3 +242,111 @@ mod tests {
         );
     }
 }
+
+pub(super) fn is_model_option(option: &Value) -> bool {
+    option["type"] == "select" && (option["category"] == "model" || option["configId"] == "model")
+}
+impl Workbench {
+    pub(crate) async fn provider_models(
+        &self,
+        id: &str,
+        profile_id: Option<&str>,
+        workspace: &str,
+    ) -> Result<Value, DomainError> {
+        self.command_available()?;
+        let _gate = self.probe_gate.try_lock().map_err(|_| {
+            DomainError::new(
+                ErrorKind::ProbeBusy,
+                "另一个 Agent 正在读取配置，请稍后重试",
+            )
+        })?;
+        let mut provider = self
+            .providers
+            .iter()
+            .find(|p| p.id == id)
+            .cloned()
+            .ok_or_else(|| {
+                DomainError::new(
+                    ErrorKind::ConfigurationUnsupported,
+                    "此 Agent 通过会话连接读取模型",
+                )
+            })?;
+        if let Some(profile_id) = profile_id {
+            let profile = self.profile_view(profile_id)?;
+            if profile.provider != id {
+                return Err(DomainError::new(
+                    ErrorKind::InvalidInput,
+                    "配置与 Agent 不匹配",
+                ));
+            }
+            if let Some(command) = profile.details.command {
+                provider.command = PathBuf::from(command);
+                provider.args.clear();
+            }
+            if let Some(args) = profile.details.args {
+                provider.args = args;
+            }
+        }
+        let cwd = if workspace.trim().is_empty() {
+            let path = self.directory.join("model-catalog");
+            let mut builder = std::fs::DirBuilder::new();
+            builder.recursive(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::DirBuilderExt;
+                builder.mode(0o700);
+            }
+            builder.create(&path).map_err(|_| {
+                DomainError::new(ErrorKind::WorkspaceUnavailable, "无法准备模型读取目录")
+            })?;
+            path
+        } else {
+            PathBuf::from(workspace)
+        };
+        let cwd = cwd
+            .canonicalize()
+            .map_err(|_| DomainError::new(ErrorKind::WorkspaceUnavailable, "模型读取目录不可用"))?;
+        if !cwd.is_dir() {
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "工作目录必须为文件夹",
+            ));
+        }
+        let options = Arc::new(Mutex::new(Value::Null));
+        let captured = options.clone();
+        let sink = vibeone_agent_client::event_sink(move |event| {
+            let captured = captured.clone();
+            async move {
+                let update = &event["notification"]["update"];
+                if update["configOptions"].is_array() {
+                    *captured.lock().expect("model options poisoned") =
+                        update["configOptions"].clone();
+                }
+                Ok(())
+            }
+        });
+        let connection = tokio::time::timeout(
+            Duration::from_secs(35),
+            AgentSession::connect(provider.command, provider.args, cwd, sink),
+        )
+        .await
+        .map_err(|_| DomainError::new(ErrorKind::ConfigurationFailed, "读取模型超时，请重试"))?
+        .map_err(|_| {
+            DomainError::new(
+                ErrorKind::ConfigurationFailed,
+                "无法读取模型，请检查 Agent 安装、登录和工作目录",
+            )
+        })?;
+        let result = options
+            .lock()
+            .expect("model options poisoned")
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(is_model_option)
+            .collect::<Vec<_>>();
+        connection.shutdown().await;
+        Ok(json!({"configOptions":result}))
+    }
+}

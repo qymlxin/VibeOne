@@ -55,7 +55,7 @@ import {NewSession} from "./NewSession.jsx";
 import {SplitHandle} from "./SplitHandle.jsx";
 import {PreviewContext} from "./PreviewLinks.jsx";
 import {ContextTabs} from "./ContextTabs.jsx";
-import { Brand } from "./Brand.jsx";
+import { Brand,BrandMark } from "./Brand.jsx";
 import {ApprovedWorkbenchShell,primaryTools,IconButton} from "./ApprovedWorkbenchShell.jsx";
 import "./approved/review.css";
 import "./approved/settings-review.css";
@@ -291,7 +291,10 @@ function App() {
         )}
         {settings ? (
           <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter key={settingsTarget} initialPage={settingsTarget} projects={projects} workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance} onBack={()=>setSettings(false)}/>}/></Suspense>
-        ) : creating || !session ? (
+        ) : <>
+          {!session&&<section className="new-session-home"><BrandMark/><h1>开始新的工作</h1><p>选择一个项目，或开启一段新的对话。</p><button className="desktop-button" onClick={()=>setCreating(true)}><Plus size={15}/>新建会话</button></section>}
+          {session&&<Conversation key={session.id} session={session} workbench={workbench} online={online} act={act} tab={creating?'chat':panel} setTab={setPanel} panelWidth={panelWidth} setPanelWidth={setPanelWidth} expandedPanel={expandedPanel} setExpandedPanel={setExpandedPanel}/>}
+          {creating&&
           <NewSession
             key={newProject}
             projects={projects} initialProject={newProject||projects.items.find(p=>p.paths.includes(session?.workspace))?.id}
@@ -301,21 +304,14 @@ function App() {
               (!workbench.device || workbench.device.role === "operator")
             }
             act={act}
+            onCancel={()=>setCreating(false)}
             onCreated={(id) => {
               setSelected(id);
               setCreating(false);
               setShowList(false);
             }}
-          />
-        ) : (
-          <Conversation
-            key={session.id}
-            session={session}
-            workbench={workbench}
-            online={online}
-            act={act} tab={panel} setTab={setPanel} panelWidth={panelWidth} setPanelWidth={setPanelWidth} expandedPanel={expandedPanel} setExpandedPanel={setExpandedPanel}
-          />
-        )}
+          />}
+        </>}
     </ApprovedWorkbenchShell>;
 }
 

@@ -687,6 +687,16 @@
           "null"
         ]
       },
+      "model": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/ConfigureAgentRequest"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "profileId": {
         "type": [
           "string",
@@ -699,6 +709,22 @@
       "workspace": {
         "default": "",
         "type": "string"
+      }
+    },
+    "definitions": {
+      "ConfigureAgentRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "value": {
+            "default": null
+          }
+        }
       }
     }
   },
@@ -3146,6 +3172,23 @@
             "minimum": 0
           }
         }
+      }
+    }
+  },
+  "ProviderModelsRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProviderModelsRequest",
+    "type": "object",
+    "properties": {
+      "profileId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "workspace": {
+        "default": "",
+        "type": "string"
       }
     }
   },

@@ -92,6 +92,14 @@ pub struct ProviderProbeResponse {
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderModelsRequest {
+    #[serde(default)]
+    pub workspace: String,
+    pub profile_id: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CreateSessionRequest {
     pub key: Option<String>,
     pub provider: String,
@@ -99,6 +107,8 @@ pub struct CreateSessionRequest {
     pub workspace: String,
     #[serde(rename = "profileId")]
     pub profile_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<ConfigureAgentRequest>,
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
@@ -709,6 +719,10 @@ pub fn schemas() -> Value {
             (
                 "ProfileResponse".into(),
                 json!(schema_for!(ProfileResponse)),
+            ),
+            (
+                "ProviderModelsRequest".into(),
+                json!(schema_for!(ProviderModelsRequest)),
             ),
             (
                 "ProviderProbeRequest".into(),

@@ -504,6 +504,47 @@ impl Workbench {
             }
         };
         *entry.connection.lock().expect("connection poisoned") = Some(connection.clone());
+        let initial_model = entry
+            .view
+            .lock()
+            .expect("view poisoned")
+            .agent_state
+            .get("initialModel")
+            .cloned();
+        if let Some(model) = initial_model {
+            let config_id = model["id"].as_str().ok_or("初始模型配置无效")?;
+            {
+                let view = entry.view.lock().expect("view poisoned");
+                let option = view.agent_state["configOptions"]
+                    .as_array()
+                    .and_then(|options| {
+                        options.iter().find(|option| {
+                            option["configId"] == config_id && super::probe::is_model_option(option)
+                        })
+                    })
+                    .ok_or("Agent 未提供所选模型配置，未发送任务")?;
+                super::validate_config_value(option, &model["value"])
+                    .map_err(|error| error.to_string())?;
+            }
+            let response = tokio::select! {
+                response = connection.configure(config_id, model["value"].clone()) => response.map_err(|_| "所选模型未应用成功，未发送任务")?,
+                _ = cancelled.changed() => return Err("应用模型时已停止".into()),
+            };
+            let _gate = entry.gate.lock().await;
+            let mut view = entry.view.lock().expect("view poisoned").clone();
+            view.agent_state["configOptions"] = response["configOptions"].clone();
+            view.agent_state
+                .as_object_mut()
+                .ok_or("Agent状态无效")?
+                .remove("initialModel");
+            self.commit(
+                entry,
+                view,
+                "agent.initial_model_applied",
+                &json!({"configId":config_id}),
+            )
+            .await?;
+        }
         if let Some(options) = restore_options {
             let mut restored = None;
             for option in options {
