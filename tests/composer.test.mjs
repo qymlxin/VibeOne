@@ -13,8 +13,10 @@ test('composer tokens respect caret, whitespace and preserve trailing text',()=>
 test('commands use current ACP advertisements and never shadow Agent commands',()=>{
   const options=commandOptions([{name:'files',description:'上游文件命令'},{name:'compact',description:'压缩上下文'}],'');
   assert.equal(options.filter(option=>option.name==='files').length,1);
-  assert.equal(options.find(option=>option.name==='files').source,'Agent');
-  assert.equal(commandOptions(null,'终端')[0].panel,'terminal');
+  assert.equal(options.find(option=>option.name==='files').source,'Agent 指令');
+  assert.equal(commandOptions(null,'终端').length,0);
+  assert.equal(commandPanel('/terminal',[]),'terminal');
+  assert.equal(commandOptions(null,'思考')[0].control,'reasoning');
   assert.equal(commandOptions([], 'does-not-exist').length,0);
 });
 
@@ -80,8 +82,9 @@ test('project skill discovery uses authorized paths, ignores symlinks and preser
  const dir=(name,path=name)=>({name,path,kind:'directory'}), file=name=>({name,kind:'file'});
  const trees={'.':{entries:[dir('.agents'),dir('.claude')]},'.agents':{entries:[dir('skills')]},'.claude':{entries:[dir('skills')]},'.agents/skills':{entries:[dir('review','.agents/skills/review'),{name:'linked',kind:'symlink'}]},'.claude/skills':{entries:[dir('review','.claude/skills/review'),dir('empty','.claude/skills/empty')]},'.agents/skills/review':{entries:[file('SKILL.md')]},'.claude/skills/review':{entries:[file('SKILL.md')]},'.claude/skills/empty':{entries:[]}};
  const paths=[];
- const skills=await discoverComposerSkills(async url=>{assert.ok(url.startsWith('/sessions/session%20id/tree?'));const path=new URL(url,'http://host').searchParams.get('path');paths.push(path);assert.ok(trees[path],path);return trees[path];},'session id');
+ const skills=await discoverComposerSkills(async url=>{if(url.includes('/file?'))return {text:'---\ndescription: Review project code\n---\n'};assert.ok(url.startsWith('/sessions/session%20id/tree?'));const path=new URL(url,'http://host').searchParams.get('path');paths.push(path);assert.ok(trees[path],path);return trees[path];},'session id');
  assert.equal(skills.length,2);
+ assert.equal(skills[0].description,'Review project code');
  assert.notEqual(skills[0].path,skills[1].path);
  assert.equal(commandOptions([],'review',skills).length,2);
  assert.equal(commandOptions([{name:'review'}],'review',skills).length,1);
@@ -146,4 +149,16 @@ test('diff metadata stays hidden across files without dropping header-like sourc
  assert.equal(parsed.added,2);assert.equal(parsed.removed,2);
  assert.deepEqual(parsed.rows.map(row=>row.line),[2,2,1,1]);
  assert.deepEqual(parsed.rows.map(row=>row.text),['--- old','+++ new','-before','+after']);
+});
+
+import {groupReferenceText,configCategory} from '../apps/desktop/src/composer.js';
+test('group references deliver authorized text and reject binary or oversized context',async()=>{
+ const read=async url=>url.includes('/tree?')?{entries:[{path:'docs/a.md'}]}:{text:'source text'};
+ const prompt=await groupReferenceText(read,'group id','review',['a.md','docs/']);
+ assert.match(prompt,/source text/);assert.match(prompt,/docs\/a.md/);
+ await assert.rejects(groupReferenceText(async()=>({binary:true,text:''}),'group','review',['a.png']),/二进制/);
+ await assert.rejects(groupReferenceText(async()=>({text:'中'.repeat(5000)}),'group','review',['a.md']),/大小限制/);
+ assert.equal(configCategory({category:'thought_level',configId:'reasoning_effort'}),'reasoning');
+ assert.equal(configCategory({category:'model'}),'model');
+ assert.equal(configCategory({configId:'reasoning_effort'}),'reasoning');
 });

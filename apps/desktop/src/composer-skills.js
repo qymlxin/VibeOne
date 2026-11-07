@@ -16,7 +16,13 @@ export async function discoverComposerSkills(read, sessionId, signal) {
         const directory=entry.path.replace(/^\.\//,'');
         const contents=await tree(directory);
         if (!contents.entries?.some(file=>file.name==='SKILL.md'&&file.kind==='file')) return null;
-        return {name:entry.name,path:`${directory}/SKILL.md`,kind:'skill',source:`${base}/skills`,description:`使用项目技能 · ${directory}`};
+        const path=`${directory}/SKILL.md`;let description='使用此技能处理当前任务';
+        try{
+          const file=await read(`/sessions/${encodeURIComponent(sessionId)}/file?path=${encodeURIComponent(path)}`,signal);
+          const front=file.text?.match(/^---\r?\n([\s\S]*?)\r?\n---/);const line=front?.[1].match(/^description:\s*(.+)$/m)?.[1];
+          if(line&&!['|','>'].includes(line))description=line.replace(/^["']|["']$/g,'');
+        }catch(error){if(signal?.aborted)throw error;}
+        return {name:entry.name,path,kind:'skill',source:`${base}/skills`,description};
       }));
       skills.push(...batch.filter(Boolean));
     }

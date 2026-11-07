@@ -31,16 +31,44 @@ export const localCommands = [
   {name:'artifacts',label:'产物',description:'查看会话生成的产物',panel:'artifacts'},
   {name:'agent',label:'Agent 设置',description:'查看当前 Agent 配置',panel:'agent'},
 ];
+export const sessionCommands = [
+  {name:'model',label:'模型',description:'选择当前 Agent 使用的模型',control:'model',source:'会话控制'},
+  {name:'reasoning',label:'思考强度',description:'调整推理投入与处理深度',control:'reasoning',source:'会话控制'},
+  {name:'mode',label:'工作模式',description:'选择 Agent 提供的执行模式',control:'mode',source:'会话控制'},
+];
 export function commandOptions(commands, query, skills = []) {
-  const agent = (Array.isArray(commands)?commands:[]).filter(item=>typeof item.name==='string').map(item=>({...item,source:'Agent'}));
-  const names=new Set(agent.map(item=>item.name));
-  return [...agent,...localCommands.filter(item=>!names.has(item.name)).map(item=>({...item,source:'工作台'})),...skills.filter(item=>!names.has(item.name)&&!localCommands.some(command=>command.name===item.name))]
-    .filter(item=>(item.name+' '+(item.label??'')+' '+(item.description??'')).toLowerCase().includes(query.toLowerCase())).slice(0,50);
+  const reserved=new Set(sessionCommands.map(item=>item.name));
+  const agent=(Array.isArray(commands)?commands:[]).filter(item=>typeof item.name==='string'&&!reserved.has(item.name)).map(item=>({...item,source:'Agent 指令'}));
+  return [...sessionCommands,...agent,...skills.filter(item=>!agent.some(command=>command.name===item.name)&&!reserved.has(item.name)).map(item=>({...item,source:'技能'}))]
+    .filter(item=>(item.name+' '+(item.label??'')+' '+(item.description??'')).toLowerCase().includes(query.toLowerCase())).slice(0,100);
+}
+export function configCategory(option){
+  const id=`${option.category??''} ${option.configId??''} ${option.name??''}`.toLowerCase();
+  return /reason|effort|think|thought|思考|推理/.test(id)?'reasoning':/model/.test(id)?'model':'mode';
 }
 
 // Only an exact, argument-free workbench command is handled locally.
 export function commandPanel(text, commands) {
   const match = /^\/([^\s]+)$/.exec(text.trim());
   if (!match) return null;
-  return commandOptions(commands, '').find(item => item.name === match[1])?.panel ?? null;
+  if(commands?.some(item=>item.name===match[1]))return null;
+  return localCommands.find(item => item.name === match[1])?.panel ?? null;
+}
+
+// Group messages have a text transport. Resolve references through the authorized
+// workspace API and include bounded text rather than silently dropping paths.
+export async function groupReferenceText(read,sessionId,text,files){
+  if(!files.length)return text;
+  const parts=await Promise.all(files.map(async path=>{
+    const directory=path.endsWith('/');
+    const result=await read(`/sessions/${encodeURIComponent(sessionId)}/${directory?'tree':'file'}?path=${encodeURIComponent(path)}`);
+    if(result.binary)throw Error(`引用 ${path} 是二进制文件，请使用附件入口`);
+    if(result.truncated)throw Error(`引用 ${path} 内容过大，请选择更小的文件`);
+    const content=directory?(result.entries??[]).map(item=>item.path).join('\n'):result.text;
+    if(typeof content!=='string')throw Error(`引用 ${path} 无法作为文本读取`);
+    return `[引用${directory?'文件夹清单':'文件'}：${path}]\n${content}\n[引用结束]`;
+  }));
+  const prompt=text+'\n\n'+parts.join('\n\n');
+  if(new TextEncoder().encode(prompt).length>12000)throw Error('会话组引用与消息超过大小限制，请减少引用内容');
+  return prompt;
 }

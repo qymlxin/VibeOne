@@ -28,6 +28,7 @@ import { AttachmentPicker,useAttachmentDraft } from "./Attachments.jsx";
 import { recentSessions } from "./session-groups.js";
 import {useProjects,projectGroups} from "./projects.jsx";
 import { AgentConfigControls } from "./AgentConfigControls.jsx";
+import {groupReferenceText} from "./composer.js";
 import { ComposerInput } from "./ComposerInput.jsx";
 import { commandPanel } from "./composer.js";
 import {useStopCommand} from './use-stop-command.js';
@@ -417,7 +418,7 @@ function Conversation({ session, workbench, online, act,thread,spaces,spaceIdent
     const panel=commandPanel(draft,session.agentState?.commands);
     if(panel&&!fileReferences.length&&!attachmentDraft.items.length){setTab(panel);setDraft('');requestKey.current=null;return;}
     if(thread){
-      setSending(true);const result=await act(()=>spaces.command({action:'send',projectId:thread.projectId,id:thread.id,text:draft,key:(requestKey.current??=crypto.randomUUID())}));if(result){setDraft('');requestKey.current=null;}setSending(false);return;
+      setSending(true);const result=await act(()=>groupReferenceText(workbench.read,session.id,draft,fileReferences).then(text=>spaces.command({action:'send',projectId:thread.projectId,id:thread.id,text,key:(requestKey.current??=crypto.randomUUID())})));if(result){setDraft('');changeReferences([]);requestKey.current=null;}setSending(false);return;
     }
     followLatest.current = true;
     setFollowing(true);
@@ -656,7 +657,7 @@ function Conversation({ session, workbench, online, act,thread,spaces,spaceIdent
             workbench={workbench}
             online={online && canOperate}
           />
-          <ComposerInput group={!!thread} agents={spaces.agents.filter(a=>thread?thread.members.includes(a.id):a.projectId===spaceIdentity?.projectId||(!spaceIdentity&&a.workspace===session.workspace))} inputActions={composerActions} session={session} workbench={workbench} value={draft}
+          <ComposerInput configTargets={thread?spaces.agents.filter(a=>thread.members.includes(a.id)).map(a=>({name:a.name,session:workbench.sessions.find(s=>s.id===thread.bindings?.[a.id])})).filter(a=>a.session):[]} group={!!thread} agents={spaces.agents.filter(a=>thread?thread.members.includes(a.id):a.projectId===spaceIdentity?.projectId||(!spaceIdentity&&a.workspace===session.workspace))} inputActions={composerActions} session={session} workbench={workbench} value={draft}
             onChange={text=>{setDraft(text);requestKey.current=null;}}
             files={fileReferences} onFiles={changeReferences} onSubmit={()=>void send()}
             onPanel={setTab} disabled={readOnly || sending || (!!thread&&active)} online={online}
