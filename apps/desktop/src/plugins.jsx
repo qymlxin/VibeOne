@@ -6,6 +6,7 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import {Plus,Plug} from 'lucide-react';
+import {BuiltinPluginSettings} from "./workspace-extensions.jsx";
 import {PluginDetails} from './PluginDetails.jsx';
 import {operationPresentation} from './plugin-operations.js';
 import * as jsx from "react/jsx-runtime";
@@ -212,6 +213,7 @@ export function usePlugins(workbench) {
   }
   return {
     registrations,
+    records:workbench.plugins??[],
     error,
     install,
     async disable(id) {
@@ -257,7 +259,7 @@ export function PluginManager({ workbench, plugins }) {
     }
   }
   return (
-    <section className="desktop-plugin-settings">
+    <section className="desktop-plugin-settings"><BuiltinPluginSettings/>
 
       <p>
         JS 插件作为可信本机代码运行。支持安装、更新、停用、动态面板与后台命令。

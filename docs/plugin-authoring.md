@@ -107,3 +107,7 @@ Worker 入口需要 `runtime: "node"`、`protocolVersion: 1`，默认导出 `def
 App `activate` 阶段主要注册贡献和资源；Worker 候选尚未发布时，不应依赖当前路由执行后台业务。停用阻止新调用和新会话，已有 Provider 会话按代次租约排空。
 
 当前自动重启预算为 0；进程崩溃或配置错误由管理页显示，用户修正后重新启用。跨插件依赖解析、公开市场、签名、恶意插件沙箱和稳定的跨版本公共 SDK 尚未交付。当前 SDK 为仓库内 `0.1`，不要将本版当作已经冻结的公开兼容承诺。
+
+## 在工作区打开App面板
+
+app.panel贡献可声明`surface: "workspace.tool"`，以及title、description、icon展示元数据。组件接收sessionId/workspaceId，使用原有SDK与Worker授权接口；无需单独实现侧栏或标签页。Host停用包后入口和打开面板同步撤下。完整示例及边界见[工作区工具插件](workspace-tool-extensions.md)。

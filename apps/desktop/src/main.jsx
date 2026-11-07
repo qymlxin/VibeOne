@@ -29,6 +29,7 @@ import { recentSessions } from "./session-groups.js";
 import {useProjects,projectGroups} from "./projects.jsx";
 import { AgentConfigControls } from "./AgentConfigControls.jsx";
 import {groupReferenceText} from "./composer.js";
+import {WorkspaceExtensions} from "./workspace-extensions.jsx";
 import { ComposerInput } from "./ComposerInput.jsx";
 import { commandPanel } from "./composer.js";
 import {useStopCommand} from './use-stop-command.js';
@@ -180,7 +181,7 @@ function App() {
   const mode=appearance.dark?'dark':'light',colors=appearance.value[mode];
   useEffect(()=>{if(panelWidth)try{localStorage.setItem('vibeone-panel-width',String(panelWidth));}catch{}},[panelWidth]);
   const colorStyle={'--accent':appearance.value.accent,'--link':'color-mix(in srgb,var(--accent) 70%,var(--fg))',...(panelWidth?{'--panel-width':`${panelWidth}px`}:{}),...(colors.background||colors.foreground?{'--bg':colors.background??(appearance.dark?'#181818':'#FFFFFF'),'--fg':colors.foreground??(appearance.dark?'#FFFFFF':'#1A1C1F'),'--sidebar':'color-mix(in srgb,var(--bg) 97%,var(--fg))','--panel':'var(--bg)','--bar':'color-mix(in srgb,var(--bg) 94%,var(--fg))','--raised':'color-mix(in srgb,var(--bg) 91%,var(--fg))','--hover':'color-mix(in srgb,var(--bg) 92%,var(--fg))','--selected':'color-mix(in srgb,var(--bg) 86%,var(--fg))','--muted':'color-mix(in srgb,var(--fg) 64%,var(--bg))','--line':'color-mix(in srgb,var(--bg) 88%,var(--fg))','--border':'color-mix(in srgb,var(--bg) 62%,var(--fg))'}:{})};
-  return <ApprovedWorkbenchShell dark={appearance.dark} colorStyle={colorStyle} sidebarOpen={sidebarOpen} hasPanel={panel!=='chat'&&!settings&&!creating} wide={expandedPanel} settings={settings} native={isNative()} mobileList={showList} title={currentProject?.name??(overview?'所有项目':creating||!session?'新会话':session.title)} navigation={spaces.enabled?<ProjectSwitcher project={currentProject} projects={sidebarManagement.sort(projects.items,'project')} onSelect={enterProject} busy={projectBusy}/>:null} connectionLabel={online?'工作主机 · 本机已连接':workbench.phase==='upgrading'?'正在重启工作主机':'正在连接工作主机'} onToggleSidebar={()=>setSidebarOpen(!sidebarOpen)} onOpenList={()=>{setSidebarOpen(true);setShowList(true);}} panel={panel} onPanel={value=>{setSettings(false);setPanel(value);}} sidebar={currentProject&&spaces.enabled?<ProjectSpaceSidebar project={currentProject} spaces={spaces} workbench={workbench} selected={overview?null:selected} onSelect={openSession} onBack={home} onCreate={kind=>kind==='project'?setCreatingProject(true):setSpaceEditor({kind})} onEdit={(initial,kind)=>setSpaceEditor({initial,kind})} onCode={openCode} management={sidebarManagement}/>:<aside className="session-sidebar desktop-sidebar">
+  return <WorkspaceExtensions plugins={plugins}><ApprovedWorkbenchShell dark={appearance.dark} colorStyle={colorStyle} sidebarOpen={sidebarOpen} hasPanel={panel!=='chat'&&!settings&&!creating} wide={expandedPanel} settings={settings} native={isNative()} mobileList={showList} title={currentProject?.name??(overview?'所有项目':creating||!session?'新会话':session.title)} navigation={spaces.enabled?<ProjectSwitcher project={currentProject} projects={sidebarManagement.sort(projects.items,'project')} onSelect={enterProject} busy={projectBusy}/>:null} connectionLabel={online?'工作主机 · 本机已连接':workbench.phase==='upgrading'?'正在重启工作主机':'正在连接工作主机'} onToggleSidebar={()=>setSidebarOpen(!sidebarOpen)} onOpenList={()=>{setSidebarOpen(true);setShowList(true);}} panel={panel} onPanel={value=>{setSettings(false);setPanel(value);}} sidebar={currentProject&&spaces.enabled?<ProjectSpaceSidebar project={currentProject} spaces={spaces} workbench={workbench} selected={overview?null:selected} onSelect={openSession} onBack={home} onCreate={kind=>kind==='project'?setCreatingProject(true):setSpaceEditor({kind})} onEdit={(initial,kind)=>setSpaceEditor({initial,kind})} onCode={openCode} management={sidebarManagement}/>:<aside className="session-sidebar desktop-sidebar">
         <div className="brand desktop-brand">
           <Brand/><CreationMenu onAgent={()=>{const project=projects.items.find(p=>p.id===spaceId)??projects.items.find(p=>p.paths.includes(session?.workspace))??projects.items.find(p=>p.paths.length);if(spaces.enabled&&project){setSpaceEditor({kind:'agent',projectId:project.id,preservePage:true});}else if(spaces.enabled){setError('请先创建项目并添加一个工作目录');}else{setNewProject(project?.id??'');setCreating(true);}}} onProject={()=>setCreatingProject(true)}/>
         </div>
@@ -325,7 +326,7 @@ function App() {
             }}
           />}
         </>}
-    </ApprovedWorkbenchShell>;
+    </ApprovedWorkbenchShell></WorkspaceExtensions>;
 }
 
 function Conversation({ session, workbench, online, act,thread,spaces,spaceIdentity,onEditIdentity,fixedIdentity,onOpenExecution,tab,setTab,panelWidth,setPanelWidth,expandedPanel,setExpandedPanel }) {

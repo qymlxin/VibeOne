@@ -32,7 +32,11 @@
       "kindVersion": 1,
       "binding": {
         "type": "app"
-      }
+      },
+      "surface": "workspace.tool",
+      "title": "工作区扫描",
+      "description": "通过插件 Worker 检查授权工作区",
+      "icon": "folder"
     },
     {
       "id": "workspace-settings",

@@ -1,18 +1,13 @@
-import {useArtifactCapture} from './use-artifact-capture.js';
+import {WorkspaceTool,useWorkspaceExtensions} from './workspace-extensions.jsx';
 import {AgentConfigControls} from "./AgentConfigControls.jsx";
-import {FileExplorer} from "./FileExplorer.jsx";
+
 import {describeTool} from "./tool-presentation.js";
 import {ToolDetails} from "./ToolDetails.jsx";
-import React, { useEffect, useRef, useState, lazy, Suspense } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
-const TerminalPanel=lazy(()=>import("./TerminalPanel.jsx"));
 export function SessionTools(props) {
-  if(props.tab==='terminal')return <Suspense fallback={<p>正在打开终端…</p>}><TerminalPanel {...props}/></Suspense>;
-  return ['files','changes'].includes(props.tab)?<FileTools key={props.session.id} {...props}/>:<SessionToolsDetail {...props}/>;
-}
-function FileTools(props){
- const capture=useArtifactCapture(props.workbench,props.session.id);
- return <FileExplorer {...props} artifactCapture={props.artifactCapture??capture}/>;
+ const {tools,builtins}=useWorkspaceExtensions();
+ return props.tab.startsWith('plugin:')||tools.some(tool=>tool.id===props.tab)||builtins.some(tool=>tool.id===props.tab)?<WorkspaceTool key={`${props.session.id}:${props.tab}`} kind={props.tab} {...props}/>:<SessionToolsDetail {...props}/>;
 }
 function SessionToolsDetail({ session, workbench, tab, act, onLocateRun, availableRunIds=[] }) {
   const [result,setResult]=useState(null);

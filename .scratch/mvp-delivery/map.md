@@ -225,6 +225,8 @@
 
 - [134 · 子目录空白](issues/134-directory-children.md) 已修复：统一目录缓存键，展开可看到子文件，失败后支持重新展开请求。
 
+- [135 · 工作区工具插件](issues/135-workspace-tool-plugins.md) 已交付：四个内置App、设备开关、第三方workspace.tool入口及停用卸载；局部检查通过。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。
