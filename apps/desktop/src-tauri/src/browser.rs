@@ -1,5 +1,9 @@
 use crate::terminal::local;
 use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 use tauri::{
     LogicalPosition, LogicalSize, Manager, WebviewUrl,
     ipc::Channel,
@@ -31,6 +35,24 @@ fn url(value: &str) -> Result<tauri::Url, String> {
         return Err("仅支持HTTP/HTTPS网址".into());
     }
     Ok(u)
+}
+// WKWebView's default UA omits Safari's product tokens, causing embedded-only
+// site fallbacks. Describe the actual WebKit engine as a desktop Safari client.
+#[cfg(target_os = "macos")]
+const DESKTOP_WEBKIT_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+fn navigation_url(mut target: tauri::Url, secure_hosts: &mut HashSet<String>) -> tauri::Url {
+    if let Some(host) = target.host_str().map(str::to_owned) {
+        if target.scheme() == "https" {
+            secure_hosts.insert(host);
+        } else if target.scheme() == "http" && secure_hosts.contains(&host) {
+            let explicit_http_port = target.port() == Some(80);
+            let _ = target.set_scheme("https");
+            if explicit_http_port {
+                let _ = target.set_port(None);
+            }
+        }
+    }
+    target
 }
 fn geometry(bounds: &Bounds) -> Result<(), String> {
     if ![bounds.x, bounds.y, bounds.width, bounds.height]
@@ -68,6 +90,11 @@ pub async fn browser_open(
     {
         return Err("最多同时打开16个网页".into());
     }
+    let mut known_hosts = HashSet::new();
+    navigation_url(address.clone(), &mut known_hosts);
+    let secure_hosts = Arc::new(Mutex::new(known_hosts));
+    let navigation_app = app.clone();
+    let navigation_label = label.clone();
     let navigate_events = events.clone();
     let popup_app = app.clone();
     let popup_label = label.clone();
@@ -75,6 +102,16 @@ pub async fn browser_open(
         .on_navigation(move |u| {
             if url(u.as_str()).is_err() {
                 return false;
+            }
+            if let Ok(mut hosts) = secure_hosts.lock() {
+                let next = navigation_url(u.clone(), &mut hosts);
+                if next != *u {
+                    drop(hosts);
+                    if let Some(view) = navigation_app.get_webview(&navigation_label) {
+                        let _ = view.navigate(next);
+                    }
+                    return false;
+                }
             }
             let _ = navigate_events.send(BrowserEvent {
                 state: "loading".into(),
@@ -100,6 +137,8 @@ pub async fn browser_open(
                 url: payload.url().to_string(),
             });
         });
+    #[cfg(target_os = "macos")]
+    let builder = builder.user_agent(DESKTOP_WEBKIT_UA);
     app.get_window("main")
         .ok_or("主窗口不可用")?
         .add_child(
@@ -156,6 +195,28 @@ pub async fn browser_action(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn secure_navigation_preserves_queries_and_keeps_plain_http_working() {
+        let mut hosts = HashSet::new();
+        let local = url("http://127.0.0.1:4189/").unwrap();
+        assert_eq!(navigation_url(local.clone(), &mut hosts), local);
+        navigation_url(url("https://www.baidu.com/").unwrap(), &mut hosts);
+        let upgraded = navigation_url(
+            url("http://www.baidu.com/s?wd=1111&ie=utf-8#results").unwrap(),
+            &mut hosts,
+        );
+        assert_eq!(
+            upgraded.as_str(),
+            "https://www.baidu.com/s?wd=1111&ie=utf-8#results"
+        );
+    }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn webkit_uses_desktop_browser_product_tokens() {
+        assert!(DESKTOP_WEBKIT_UA.contains("Version/"));
+        assert!(DESKTOP_WEBKIT_UA.contains("Safari/"));
+        assert!(!DESKTOP_WEBKIT_UA.contains("Chrome/"));
+    }
     #[test]
     fn remote_urls_cannot_be_app_pages() {
         for value in [
