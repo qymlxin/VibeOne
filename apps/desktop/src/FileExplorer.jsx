@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {ChevronRight,FileText,Folder,PanelRight,Search,X} from 'lucide-react';
+import {CodeText} from './CodeText.jsx';
 import {ChangeStack} from './ChangeStack.jsx';
 import {codeLines} from './code-lines.js';
 import './file-explorer.css';
@@ -83,7 +84,7 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
      {!preview&&!error&&<p role="status">正在读取文件…</p>}
      {preview&&<>{preview.binary?<p>二进制文件 · {preview.size} 字节</p>:<>
        <div className="code-label explorer-code-heading"><span>{preview.isDiff?'统一差异':'UTF-8 · 只读'}</span>{preview.isDiff&&<span><em>+{lines.added}</em> <b>−{lines.removed}</b></span>}</div>
-       {preview.text?<pre className="explorer-code">{lines.rows.map((row,index)=><span className={`code-line explorer-code-line ${row.kind}`} key={index}><span className="explorer-line-number" aria-hidden="true">{row.line??''}</span><span aria-hidden="true">{row.kind==='added'?'+':row.kind==='removed'?'−':''}</span><code>{['added','removed'].includes(row.kind)?row.text.slice(1):row.text||' '}</code></span>)}</pre>:<p>{preview.isDiff?'当前范围没有文本差异。':'空文件'}</p>}
+       {preview.text?<pre className="explorer-code">{lines.rows.map((row,index)=><span className={`code-line explorer-code-line ${row.kind}`} key={index}><span className="explorer-line-number" aria-hidden="true">{row.line??''}</span><span aria-hidden="true">{row.kind==='added'?'+':row.kind==='removed'?'−':''}</span><CodeText path={selected.path} text={['added','removed'].includes(row.kind)?row.text.slice(1):row.text||' '}/></span>)}</pre>:<p>{preview.isDiff?'当前范围没有文本差异。':'空文件'}</p>}
        <div className="code-end">{preview.isDiff?'其余内容未变化':'文件结束'}</div>
        {lines.clipped&&<p>超过 5,000 行，当前预览仅显示前 5,000 行。</p>}
      </>}{preview.truncated&&<p>内容超过显示上限，已截断。</p>}</>}

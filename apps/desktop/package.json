@@ -8,5 +8,8 @@
     "build:web": "vite build",
     "desktop": "tauri dev",
     "desktop:build": "tauri build --bundles app"
+  },
+  "dependencies": {
+    "highlight.js": "^11.12.0"
   }
 }

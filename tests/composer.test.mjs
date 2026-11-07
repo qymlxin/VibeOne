@@ -46,7 +46,7 @@ import {codeLines} from '../apps/desktop/src/code-lines.js';
 test('unified diff line numbers and counts exclude headers and follow hunk ranges',()=>{
   const parsed=codeLines('--- a/main.js\n+++ b/main.js\n@@ -3,2 +3,3 @@\n kept\n-old\n+new\n+extra\n',true);
   assert.equal(parsed.added,2);assert.equal(parsed.removed,1);
-  assert.deepEqual(parsed.rows.slice(3).map(row=>[row.line,row.kind]),[[3,'plain'],[4,'removed'],[4,'added'],[5,'added']]);
+  assert.deepEqual(parsed.rows.map(row=>[row.line,row.kind]),[[3,'plain'],[4,'removed'],[4,'added'],[5,'added']]);
   assert.deepEqual(codeLines('').rows,[]);
   assert.equal(codeLines('x\n'.repeat(5001)).clipped,true);
 });
@@ -139,4 +139,11 @@ test('device display uses Host status, real scopes and legacy expiry without cla
  assert.equal(devicePresentation({...grant,role:'future'},[],100).label,'记录异常');
  assert.equal(devicePresentation({...grant,expiresAt:null},[],100).expires,null);
  assert.deepEqual(devicePresentation(grant,[{id:'one',name:'Project One'}],100).scopes,['Project One','未找到的工作区（missing）']);
+});
+
+test('diff metadata stays hidden across files without dropping header-like source lines',()=>{
+ const parsed=codeLines('diff --git a/a b/a\nindex 1..2\n--- a/a\n+++ b/a\n@@ -2,1 +2,1 @@\n--- old\n+++ new\ndiff --git a/b b/b\n--- a/b\n+++ b/b\n@@ -1,1 +1,1 @@\n-before\n+after\n',true);
+ assert.equal(parsed.added,2);assert.equal(parsed.removed,2);
+ assert.deepEqual(parsed.rows.map(row=>row.line),[2,2,1,1]);
+ assert.deepEqual(parsed.rows.map(row=>row.text),['--- old','+++ new','-before','+after']);
 });

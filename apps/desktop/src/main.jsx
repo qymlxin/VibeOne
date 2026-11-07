@@ -60,6 +60,7 @@ import {ApprovedWorkbenchShell,primaryTools,IconButton} from "./ApprovedWorkbenc
 import "./approved/review.css";
 import "./approved/settings-review.css";
 import "./runtime-states.css";
+import "./diff-treatment.css";
 
 const labels = {
   idle: "就绪",
