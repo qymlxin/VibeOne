@@ -12,6 +12,7 @@ test('author tool creates TS sources and packs loadable JavaScript without sourc
   await exec(process.execPath,[cli,'create',source]);
   await exec(process.execPath,[cli,'pack',source,destination]);
   await exec(process.execPath,[cli,'check',destination]);
+  await assert.rejects(exec(process.execPath,[cli,'pack',source,join(source,'nested-output')]),/Output must be outside the source package/);
   const manifest=JSON.parse(await readFile(join(destination,'plugin.json'),'utf8'));
   assert.equal(manifest.entrypoints.app.path,'dist/app.js');
   assert.ok((await readFile(join(destination,'dist/worker.js'),'utf8')).includes('defineWorker'));

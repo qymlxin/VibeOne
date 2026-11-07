@@ -10,6 +10,7 @@ import {
 import { resolve, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import {containsPackagePath} from "./package-paths.mjs";
 import { loadWorkerPackage } from "../packages/plugin-runtime/dist/manifest.js";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const [command, input, output] = process.argv.slice(2);
@@ -22,7 +23,7 @@ async function check(path) {
   if (value.entrypoints?.app) {
     const app = await realpath(join(path, value.entrypoints.app.path));
     if (
-      !app.startsWith(`${await realpath(path)}/`) ||
+      !containsPackagePath(await realpath(path),app) ||
       !(await stat(app)).isFile()
     )
       throw Error("Invalid App entry");
@@ -146,7 +147,7 @@ async function run() {
   if (command === "pack") {
     if (!output) throw Error("Pack needs a new output directory");
     const destination = resolve(output);
-    if (destination === path || destination.startsWith(`${path}/`))
+    if (containsPackagePath(path,destination))
       throw Error("Output must be outside the source package");
     await mkdir(destination);
     await cp(join(path, "dist"), join(destination, "dist"), {

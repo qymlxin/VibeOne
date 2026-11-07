@@ -18,3 +18,9 @@ Action使用经核对的固定提交：checkout v7.0.1、setup-node v7.0.0。工
 CI检查Host核心和Node层；没有运行Tauri桌面窗口、系统通知/托盘、原生选择器、真实模型认证、物理iOS/Android证书安装或后台行为。即使矩阵全绿，这些仍需各自的实机验收，不能据此承诺跨平台桌面发行。Windows进程树清理等平台专属行为也需专门故障验证。
 
 GitHub语法及运行器依据：[矩阵工作流](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/run-job-variations)、[运行器选择](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)。
+
+## Windows验证发现的问题
+
+首轮Windows的严格生成契约检查失败，固定Git检出换行后第二轮校验通过；没有对生成器做宽松换行比较。随后实际插件打包测试暴露作者CLI用字符串`/`前缀检查App入口，导致合法Windows路径被误拒。
+
+作者CLI现以平台路径API的relative/isAbsolute判断目录包含关系，同时修正输出目录不能在源包内的检查。用例覆盖Windows盘符、大小写、混合分隔符、UNC共享路径，以及POSIX路径、相邻同前缀目录、父级跳转和不同驱动器；实际CLI继续验证打包/检查成功与源包内输出拒绝。远程全矩阵结果在实际通过后再记录。
