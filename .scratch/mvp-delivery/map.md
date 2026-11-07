@@ -6,6 +6,10 @@
 
 ## Decisions-so-far
 
+- [03 首个真实Agent](issues/03-first-agent-cli.md)：按原始验收复核并关闭；本轮真实Codex对话再次end_turn，既有真实批准/拒绝、取消进程/只读恢复和结构化输入结果报告重新核对通过。Claude/原生/真机继续各自验收。
+
+- [105 Host跨平台CI](issues/105-host-platform-ci.md)：三平台真实运行42322487387全部通过；修复Windows检出换行、打包路径和Node Runner规范路径三处差异。Host CI关闭，原生/物理设备仍独立验收。
+
 - [104 会话修改对账](issues/104-session-metadata-receipts.md)：修复旧重命名/归档请求重试覆盖新状态；共享请求、原子持久回执和正式页面手动重试接入，存储故障及各端验证见票据。
 
 - [103 会话控制共享契约](issues/103-session-control-contracts.md)：配置实际请求及配置/元数据、决定和上下文选择成功回执接生成链路；正式配置入口统一构造器，动态Agent值与回答语义保持。验证与边界见票据。

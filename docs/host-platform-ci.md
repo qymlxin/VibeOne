@@ -13,7 +13,7 @@ Action使用经核对的固定提交：checkout v7.0.1、setup-node v7.0.0。工
 
 ## 结果与限制
 
-本机完整check、原生5项单元检查、workspace Clippy与新增隔离Host冒烟已通过。远程矩阵首次结果仍待核对，不能仅凭工作流文件存在宣称Linux/Windows通过。
+本机完整check、原生5项单元检查、workspace Clippy与新增隔离Host冒烟已通过。真实远程运行 [42322487387](https://github.com/qymlxin/VibeOne/actions/runs/42322487387)（提交d7fc47b）三平台全部通过，包含各平台独立Host启动、演示ACP、审批和重启恢复。
 
 CI检查Host核心和Node层；没有运行Tauri桌面窗口、系统通知/托盘、原生选择器、真实模型认证、物理iOS/Android证书安装或后台行为。即使矩阵全绿，这些仍需各自的实机验收，不能据此承诺跨平台桌面发行。Windows进程树清理等平台专属行为也需专门故障验证。
 
@@ -23,6 +23,6 @@ GitHub语法及运行器依据：[矩阵工作流](https://docs.github.com/en/ac
 
 首轮Windows的严格生成契约检查失败，固定Git检出换行后第二轮校验通过；没有对生成器做宽松换行比较。随后实际插件打包测试暴露作者CLI用字符串`/`前缀检查App入口，导致合法Windows路径被误拒。
 
-作者CLI现以平台路径API的relative/isAbsolute判断目录包含关系，同时修正输出目录不能在源包内的检查。用例覆盖Windows盘符、大小写、混合分隔符、UNC共享路径，以及POSIX路径、相邻同前缀目录、父级跳转和不同驱动器；实际CLI继续验证打包/检查成功与源包内输出拒绝。远程全矩阵结果在实际通过后再记录。
+作者CLI现以平台路径API的relative/isAbsolute判断目录包含关系，同时修正输出目录不能在源包内的检查。用例覆盖Windows盘符、大小写、混合分隔符、UNC共享路径，以及POSIX路径、相邻同前缀目录、父级跳转和不同驱动器；实际CLI继续验证打包/检查成功与源包内输出拒绝。第四轮实际Windows及全矩阵已通过。
 
-第三轮Windows通过了全部61项Node检查，随后Rust/Node桥接集成发现规范路径带Windows verbatim前缀时，Node主模块解析失败（EISDIR，lstat D:）。PluginHost在启动前用固定版本dunce 1.0.5规范化Runner路径，仅在等价且安全时使用兼容表示，不盲目剥离所有前缀；库说明见[dunce canonicalize](https://docs.rs/dunce/1.0.5/dunce/fn.canonicalize.html)。本机6项真实Node桥接、严格Clippy和原生5项单元通过，仍等待实际Windows复验。
+第三轮Windows通过了全部61项Node检查，随后Rust/Node桥接集成发现规范路径带Windows verbatim前缀时，Node主模块解析失败（EISDIR，lstat D:）。PluginHost在启动前用固定版本dunce 1.0.5规范化Runner路径，仅在等价且安全时使用兼容表示，不盲目剥离所有前缀；库说明见[dunce canonicalize](https://docs.rs/dunce/1.0.5/dunce/fn.canonicalize.html)。本机6项真实Node桥接、严格Clippy和原生5项单元通过，第四轮实际Windows的Rust桥接、Clippy、Host构建和隔离冒烟全部通过。

@@ -1,6 +1,6 @@
 # 105 · Host跨平台持续集成
 
-Status: claimed
+Status: resolved
 Type: task
 Blocked by: none
 
@@ -26,3 +26,7 @@ Blocked by: none
 第二轮Linux/macOS通过，Windows生成契约校验已通过，随后作者CLI pack返回Invalid App entry。实际代码用`${realpath(root)}/`做App前缀比较，不适配Windows分隔符，输出目录范围检查也有同类假设。新增containsPackagePath，使用平台relative/isAbsolute判断，保留真实路径及普通文件检查；补充POSIX、盘符大小写/混合分隔符、UNC、相邻目录/父级/跨盘及实际CLI源包内输出拒绝回归。61项Node检查和追加作者CLI/范围2项检查通过，等待远程验证，105仍claimed。
 
 第三轮Linux/macOS通过；Windows的61项Node检查已通过，Rust桥接6项则因Node主模块读取Windows规范路径失败（EISDIR，lstat D:）。PluginHost启动Runner前改用固定dunce 1.0.5兼容规范化路径，保留不能安全简化的名称与长路径，不手写截前缀。本机6项真实Node桥接、workspace严格Clippy和原生5项单元通过，继续远程验证。
+
+## Answer
+
+第四轮真实运行 [42322487387](https://github.com/qymlxin/VibeOne/actions/runs/42322487387)，提交d7fc47b，Ubuntu 24.04、Windows 2022、macOS 15全部成功；各平台的Node契约/SDK、Rust测试、严格Clippy、独立Host构建和隔离鉴权/ACP/审批/重启检查均通过。前述三轮失败逐一修复，未跳过失败步骤。Host CI缺口关闭；桌面发行、原生系统界面和物理手机验收仍独立保留。
