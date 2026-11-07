@@ -1,12 +1,13 @@
 import {AttachmentCards} from './Attachments.jsx';
-import React, {memo, useEffect, useMemo, useRef, useState} from 'react';
+import React, {memo, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {BookOpen, Brain, Check, Copy, ChevronDown, FileText, LoaderCircle, MessageSquare, Search, Terminal, Wrench, X} from 'lucide-react';
+import {BookOpen, Brain, Check, Copy, ChevronDown, ChevronRight, ExternalLink, GitCompareArrows, FileText, LoaderCircle, MessageSquare, Search, Terminal, Wrench, X} from 'lucide-react';
 import {activityTail, formatDuration, groupProcess, toolFamily} from './chat-timeline.js';
 import {ToolDetails} from './ToolDetails.jsx';
 import {describeAction,describeTool} from './tool-presentation.js';
-import {PreviewLink,markdownLink} from './PreviewLinks.jsx';
+import {PreviewContext,PreviewLink,markdownLink} from './PreviewLinks.jsx';
+import {workspacePath} from './preview-links.js';
 import {remarkSoftBreaks} from './markdown-layout.js';
 
 const markdownComponents = {
@@ -48,15 +49,26 @@ function ActivityItem({activity,onInspect}) {
     {open && (type==='tool' ? <ToolDetails tool={item}/> : <div className="desktop-process-thought"><MarkdownBody text={text}/><Truncated item={item}/></div>)}
   </details>;
 }
+function ReadFiles({activity,onInspect}) {
+  const preview=useContext(PreviewContext);
+  const {item}=activity,action=describeAction(item);
+  if(!action.paths.length||['failed','cancelled'].includes(item.status))return <ActivityItem activity={activity} onInspect={onInspect}/>;
+  return <div className="desktop-read-files" data-history-order={item.historyOrder}>{action.paths.map(path=>{
+    const relative=workspacePath(path,preview?.workspace);
+    const name=path.split(/[\\/]/).at(-1);
+    return <button key={path} className="event-file" title={relative?path:`${path} · 不在当前工作区，无法预览`} disabled={!relative||!preview} onClick={()=>{onInspect();preview.openFile(relative);}}><BookOpen size={14}/>{action.label}<span>{name}</span><ExternalLink size={12}/></button>;
+  })}</div>;
+}
 function ToolGroup({group,onInspect}) {
   const Icon=familyIcon[group.family];
   const failed=group.items.some(activity=>activity.item.status==='failed');
   const working=group.items.some(activity=>['pending','in_progress'].includes(activity.item.status));
-  const completed=group.items.filter(activity=>activity.item.status==='completed').length;
-  const label=completed===group.items.length?({read:'已读取文件',command:'已运行命令',file:'已处理文件',web:'已搜索与浏览网页'}[group.family] ?? familyLabel[group.family]):familyLabel[group.family];
+  const completed=group.items.every(activity=>activity.item.status==='completed');
+  const count=new Set(group.items.flatMap(activity=>describeAction(activity.item).paths)).size;
+  const label=completed?({read:count?`已读取 ${count} 个文件`:'已读取文件',command:'已运行命令',file:'已处理文件',web:'已搜索与浏览网页'}[group.family] ?? familyLabel[group.family]):familyLabel[group.family];
   return <details className="event-group desktop-tool-group" data-history-order={group.items[0]?.item.historyOrder} onToggle={event=>{if(event.currentTarget.open)onInspect();}}>
-    <summary><Icon size={13}/><span>{label}</span><span>{group.items.length} 项</span><span>{failed?'含失败':working?'执行中':completed===group.items.length?'已完成':''}</span><ChevronDown size={12}/></summary>
-    <div className="desktop-tool-group-body">{group.items.map(activity=><ActivityItem key={activity.id} activity={activity} onInspect={onInspect}/>)}</div>
+    <summary><Icon size={16}/>{label}{(failed||working)&&<small>{failed?'含失败':'执行中'}</small>}<ChevronRight size={14}/></summary>
+    <div className={group.family==='read'?'event-files':'desktop-tool-group-body'}>{group.items.map(activity=>group.family==='read'?<ReadFiles key={activity.id} activity={activity} onInspect={onInspect}/>:<ActivityItem key={activity.id} activity={activity} onInspect={onInspect}/>)}</div>
   </details>;
 }
 function useVisibleMotion(ref,enabled) {
@@ -91,16 +103,16 @@ export function ActivityFeed({turn,status,hasInput,onReadHistory}) {
   const preview=[...activity].sort((a,b)=>(a.item.updatedOrder ?? a.item.activityOrder ?? 0)-(b.item.updatedOrder ?? b.item.activityOrder ?? 0)).slice(-3);
   const last=preview.at(-1);
   const runningLabel=last?.type==='thought'?'思考中':last?.type==='tool' && ['in_progress','pending'].includes(last.item.status)?'正在执行':turn.answer?.text?'正在回复':'正在处理';
-  const label=turn.id==='legacy-tools'?'早期工具记录（轮次未知）':live?({starting:'正在准备',requires_action:hasInput?'等待补充信息':'等待审批',cancelling:'正在停止'}[status] ?? runningLabel):({completed:'已完成',cancelled:'已停止',failed:'处理未完成',interrupted:'已中断'}[run?.status] ?? '处理记录');
+  const label=turn.id==='legacy-tools'?'早期工具记录（轮次未知）':live?({starting:'正在准备',requires_action:hasInput?'等待补充信息':'等待审批',cancelling:'正在停止'}[status] ?? runningLabel):({completed:'已处理',cancelled:'已停止',failed:'处理未完成',interrupted:'已中断'}[run?.status] ?? '处理记录');
   const elapsed=Math.max(0,Math.floor(((live?tick:run?.finishedAt ?? tick)-(run?.startedAt ?? mountedAt))/1000));
   const latestThought=preview.findLast(item=>item.type==='thought')?.id;
   const StatusElement=activity.length?'button':'div';
   return <section className="desktop-activity" aria-label="Agent 处理过程" data-live={live}>
-    <StatusElement className="turn-status desktop-activity-toggle" type={activity.length?"button":undefined} aria-expanded={activity.length?expanded:undefined} onClick={activity.length?()=>{setExpanded(value=>!value);if(!expanded)onReadHistory();}:undefined}>
-      {live ? <LoaderCircle className="desktop-spin" size={13} aria-hidden="true"/> : run?.status==='completed'?<Check size={13} aria-hidden="true"/>:run?.status==='failed'?<X size={13} aria-hidden="true"/>:<Terminal size={13} aria-hidden="true"/>}
+    <StatusElement className="turn-status desktop-activity-toggle" type={activity.length?"button":undefined} aria-label={activity.length?`${label}，${expanded?'收起过程':'查看过程'}`:undefined} aria-expanded={activity.length?expanded:undefined} onClick={activity.length?()=>{setExpanded(value=>!value);if(!expanded)onReadHistory();}:undefined}>
+      {live&&<LoaderCircle className="desktop-spin" size={13} aria-hidden="true"/>}
       <span ref={motionTarget} role={live?'status':undefined} className={motion?'thinking-shimmer':''}>{label}</span>
       {(live || run?.finishedAt) && <time>{formatDuration(elapsed)}</time>}
-      {activity.length>0 && <><span className="desktop-activity-count">{activity.length} 项过程</span><span>{expanded?'收起过程':'查看过程'}</span><ChevronDown size={13} className={expanded?'expanded':''}/></>}
+      {activity.length>0 && <ChevronRight size={13} className={expanded?'expanded':''}/>}
     </StatusElement>
     {!expanded && live && <div className="desktop-activity-preview" aria-label="最新处理动态">
       {preview.map(item=><div key={item.id} className={`desktop-activity-preview-row ${item.type}`}><span>{typeLabel[item.type]}</span><span className={motion && item.id===latestThought?'thinking-shimmer':''}>{activityTail(item.text) || '正在接收摘要…'}</span>{item.type==='tool' && <span>{toolStatus[item.item.status] ?? item.item.status}</span>}</div>)}
@@ -121,7 +133,9 @@ export function AgentResponse({turn,name,status,hasInput,onReadHistory,onChanges
   if (!turn.process.length && !turn.answer && !turn.live && !turn.run?.finishedAt) return null;
   return <section className="assistant-message desktop-agent-turn" aria-label={`${name} 的回复`}>
     <ActivityFeed turn={{...turn,activity:turn.process}} status={status} hasInput={hasInput} onReadHistory={onReadHistory}/>
-    {turn.answer && <article className="desktop-message assistant desktop-agent-reply" data-history-order={turn.answer.historyOrder}><div><MarkdownBody text={turn.answer.text}/><Truncated item={turn.answer}/>{!turn.live&&<AnswerActions text={turn.answer.text} name={name}/>}</div></article>}
-    {changeCount>0&&!turn.live&&<button className="desktop-change-summary" onClick={onChanges}><FileText size={15}/><span>查看工作区当前变更<small>{changeCount} 个文件 · 包含用户和其他工具的修改</small></span><ChevronDown size={14}/></button>}
+    {turn.answer && <article className="desktop-message assistant desktop-agent-reply" data-history-order={turn.answer.historyOrder}><div><MarkdownBody text={turn.answer.text}/><Truncated item={turn.answer}/></div></article>}
+    {changeCount>0&&!turn.live&&<button className="change-summary" onClick={onChanges}><GitCompareArrows size={16}/><div><strong>查看工作区当前变更</strong><span>{changeCount} 个文件 · 包含用户和其他工具的修改</span></div><ChevronRight size={15}/></button>}
+    {turn.answer&&!turn.live&&<AnswerActions text={turn.answer.text} name={name}/>}
+
   </section>;
 }

@@ -726,7 +726,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
           </div>
         ) : null}
         {session.stopReason ? (
-          <p className="desktop-turn-end">
+          <p className={`desktop-turn-end ${session.stopReason==='end_turn'?'visually-hidden':''}`} role="status">
             {session.stopReason === "cancelled"
               ? "本轮已停止"
               : session.stopReason === "end_turn"

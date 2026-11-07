@@ -263,7 +263,7 @@ test(
     assert.ok(await liveActivity.locator('.desktop-activity-preview-row').count()<=3);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-chat-activity-mobile.png')});
-    await page.getByText('本轮执行结束',{exact:true}).waitFor();
+    await page.getByText('本轮执行结束',{exact:true}).waitFor({state:'attached'});
 
     await page.getByRole('textbox',{name:'发送任务'}).fill('/input-choices');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
@@ -282,7 +282,7 @@ test(
     await page.getByRole('textbox',{name:'发送任务'}).fill('/rich-tools');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
     await page.getByText('工具视图演示已完成。没有搜索网页或执行命令。',{exact:true}).waitFor();
-    await page.getByText('本轮执行结束',{exact:true}).waitFor();
+    await page.getByText('本轮执行结束',{exact:true}).waitFor({state:'attached'});
     const mobileTool=page.locator('.desktop-turn').last().getByRole('region',{name:'Agent 处理过程'});
     await mobileTool.getByRole('button').click();
     await mobileTool.locator('.desktop-tool-group').first().locator(':scope > summary').click();
@@ -378,7 +378,7 @@ test(
     await page.screenshot({path:join(tmpdir(),'vibeone-mobile-attachment.png')});
     await page.getByRole("textbox", { name: "发送任务" }).fill("手机新建会话");
     await page.getByRole("button", { name: "发送消息", exact: true }).click();
-    await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000}).catch(async error=>{
+    await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000,state:"attached"}).catch(async error=>{
       await page.screenshot({path:join(tmpdir(),'vibeone-remote-send-failure.png')});
       const snapshot=await call('/snapshot');
       throw Error(`${error.message}\n${(await page.locator('body').innerText()).slice(-5000)}\n${JSON.stringify(snapshot.sessions.map(session=>({title:session.title,status:session.status,error:session.error,queue:session.queue?.length})))}`);

@@ -31,11 +31,13 @@ test(
     git('add','tracked.txt');git('-c','user.name=Test','-c','user.email=test@example.com','commit','-m','fixture');
     await writeFile(join(directory,'tracked.txt'),'staged\nkept\n');git('add','tracked.txt');
     await writeFile(join(directory,'tracked.txt'),'unstaged\nkept\n');
+    let hostErrors='';
     let child = spawn(
       resolve("target/debug/vibeone-host"),
       ["serve", "--data-dir", directory],
-      { stdio: "ignore" },
+      { stdio: ["ignore","ignore","pipe"] },
     );
+    child.stderr.on("data",chunk=>{hostErrors=(hostErrors+chunk.toString()).slice(-2000);});
     let exited = once(child, "exit");
     const frontend = "http://127.0.0.1:5174";
     let vite;
@@ -67,7 +69,7 @@ test(
       }
       await sleep(40);
     }
-    assert.ok(connection);
+    assert.ok(connection,`Test Host failed to start: ${hostErrors}; exit=${child.exitCode}`);
     // Seed a malformed legacy catalog row only while this disposable Host is stopped.
     await fetch(`${connection.url}/v1/host/stop`,{method:'POST',headers:{Authorization:`Bearer ${connection.token}`}});
     await exited;
@@ -377,7 +379,7 @@ test(
     await page.getByRole('option',{name:/composer-review/}).click();
     await composer.fill('桌面集成测试 /thought');
     await composer.press('Enter');
-    await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000}).catch(async error=>{throw new Error(`${error.message}\nReact errors: ${JSON.stringify(errors)}\n${(await page.locator("body").innerText()).slice(-6000)}`);});
+    await page.getByText("本轮执行结束", { exact: true }).waitFor({timeout:8000,state:"attached"}).catch(async error=>{throw new Error(`${error.message}\nReact errors: ${JSON.stringify(errors)}\n${(await page.locator("body").innerText()).slice(-6000)}`);});
     assert.equal(await page.getByRole('button',{name:'移除引用 preview.txt'}).count(),0);
     assert.equal(await page.getByRole('button',{name:'移除附件 pixel.png'}).count(),0);
     assert.equal(await page.getByRole('listbox',{name:'指令建议'}).count(),0,'successful send closes stale command suggestions');
@@ -485,7 +487,7 @@ test(
     assert.deepEqual(await liveProcess.locator('.desktop-activity-history').evaluate(body=>[...body.children].map(node=>node.classList.contains('desktop-process-note')?'note':node.classList.contains('thought')?'thought':'tools')),['note','thought','tools']);
     await liveProcess.getByRole('button').click();
     await page.getByText('演示处理已完成。以上思考摘要与工具事件用于验证实时活动视图，没有读取文件或执行命令。',{exact:true}).waitFor();
-    await page.getByText('本轮执行结束',{exact:true}).waitFor();
+    await page.getByText('本轮执行结束',{exact:true}).waitFor({state:'attached'});
     assert.deepEqual(await page.locator('.desktop-turn').last().evaluate(turn=>[...turn.querySelectorAll('.desktop-message.assistant,.desktop-activity')].map(node=>node.classList.contains('desktop-activity')?'activity':'message')),['activity','message'],'the final reply stays outside the single process disclosure');
     const latestProcess=page.getByRole('region',{name:'Agent 处理过程'}).last();
     assert.equal(await latestProcess.getByRole('button').getAttribute('aria-expanded'),'false');
@@ -711,14 +713,14 @@ test(
         element.scrollHeight - element.scrollTop - element.clientHeight < 56
       );
     });
-    await page.getByText("本轮执行结束", { exact: true }).waitFor();
+    await page.getByText("本轮执行结束", { exact: true }).waitFor({state:"attached"});
 
     await page.setViewportSize({width:1360,height:900});
     await page.getByRole('textbox',{name:'发送任务'}).fill('/format');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
     const formatted=page.locator('.desktop-message.assistant').last();
     await formatted.locator('pre code').filter({hasText:'second'}).waitFor();
-    await page.getByText('本轮执行结束',{exact:true}).waitFor();
+    await page.getByText('本轮执行结束',{exact:true}).waitFor({state:'attached'});
     const layout=await formatted.locator('.desktop-message-text').evaluate(element=>{
       const list=element.querySelector('ol'), paragraph=element.querySelector('p'), firstItem=list.querySelector('li'), firstParagraph=firstItem.querySelector('p');
       return {whiteSpace:getComputedStyle(element).whiteSpace,gap:list.getBoundingClientRect().top-paragraph.getBoundingClientRect().bottom,itemGap:firstParagraph.getBoundingClientRect().top-firstItem.getBoundingClientRect().top,code:element.querySelector('pre code').textContent};
@@ -729,7 +731,7 @@ test(
     await page.getByRole('textbox',{name:'发送任务'}).fill('/rich-tools');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
     await page.getByText('工具视图演示已完成。没有搜索网页或执行命令。',{exact:true}).waitFor();
-    await page.getByText('本轮执行结束',{exact:true}).waitFor();
+    await page.getByText('本轮执行结束',{exact:true}).waitFor({state:'attached'});
     const rich=page.locator('.desktop-turn').last().getByRole('region',{name:'Agent 处理过程'});
     await rich.getByRole('button').click();
     await rich.locator('.desktop-tool-group').first().locator(':scope > summary').click();
@@ -756,9 +758,10 @@ test(
     await page.getByText('文件读取视图演示完成。没有实际读取文件。',{exact:true}).waitFor();
     const reads=page.locator('.desktop-turn').last();
     await reads.locator('.desktop-activity-toggle').click();
-    await reads.getByText('已读取文件',{exact:true}).click();
-    await reads.getByText('已读取 main.rs',{exact:true}).click();
-    await reads.locator('.desktop-tool-files code').getByText('/demo/src/main.rs',{exact:true}).waitFor();
+    await reads.getByText('已读取 2 个文件',{exact:true}).click();
+    const readFileButton=reads.getByRole('button',{name:/已读取 main.rs/});
+    await readFileButton.waitFor();assert.equal(await readFileButton.isDisabled(),true,'paths outside the workspace cannot open a preview');
+    assert.match(await readFileButton.getAttribute('title'),/\/demo\/src\/main.rs/);
     assert.equal(await reads.locator('.desktop-tool-raw[open]').count(),0);
     const navigation=page.getByRole('navigation',{name:'对话导航'});
     assert.equal(await navigation.getByRole('button').count(),await page.locator('.desktop-turn[data-turn-id]').count());

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" role="img" aria-labelledby="title desc">
+<title id="title">对话折叠层级</title><desc id="desc">整轮过程折叠入口下按顺序显示说明和工具组，工具组可独立展开；最终回答及变更入口始终在过程外。</desc>
+<rect width="960" height="420" fill="#fff"/>
+<g font-family="system-ui,-apple-system,sans-serif" fill="#1a1c1f">
+<text x="32" y="36" font-size="21" font-weight="600">对话过程：两层折叠，最终回答独立显示</text>
+<rect x="32" y="62" width="540" height="246" rx="12" fill="#f5f5f5" stroke="#ddd"/>
+<text x="52" y="92" font-size="16" font-weight="600">第一层 · 已处理 / 耗时 ＋ 展开按钮</text>
+<path d="M52 108H552" stroke="#ddd"/>
+<text x="68" y="138" font-size="14">说明、思考摘要，按真实事件顺序显示</text>
+<rect x="68" y="156" width="468" height="104" rx="8" fill="#fff" stroke="#ddd"/>
+<text x="84" y="183" font-size="15" font-weight="600">第二层 · 连续同类工具组</text>
+<text x="100" y="214" font-size="14">已读取 one.md → 右侧文件预览</text>
+<text x="100" y="239" font-size="14">命令 / 搜索 → 展开单项实际详情</text>
+<text x="68" y="286" font-size="13" fill="#686868">收起第一层：只隐藏本轮中间过程</text>
+<rect x="32" y="328" width="540" height="66" rx="10" fill="#fff" stroke="#aaa"/>
+<text x="52" y="355" font-size="16" font-weight="600">最终回答 · 始终保留</text>
+<text x="52" y="380" font-size="13" fill="#686868">工作区当前变更入口 → 回答操作</text>
+<path d="M542 214H634" fill="none" stroke="#777" stroke-width="1.5"/>
+<path d="m626 209 8 5-8 5" fill="none" stroke="#777" stroke-width="1.5"/>
+<rect x="650" y="154" width="278" height="110" rx="10" fill="#f5f5f5" stroke="#ddd"/>
+<text x="670" y="186" font-size="16" font-weight="600">右侧预览面板</text>
+<text x="670" y="215" font-size="14">仅打开当前工作区内的路径</text>
+<text x="670" y="240" font-size="13" fill="#686868">不虚构读取、层级或执行结果</text>
+</g></svg>
