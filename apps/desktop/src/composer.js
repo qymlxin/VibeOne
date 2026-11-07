@@ -38,8 +38,13 @@ export const sessionCommands = [
 ];
 export function commandOptions(commands, query, skills = []) {
   const reserved=new Set(sessionCommands.map(item=>item.name));
-  const agent=(Array.isArray(commands)?commands:[]).filter(item=>typeof item.name==='string'&&!reserved.has(item.name)).map(item=>({...item,source:'Agent 指令'}));
-  return [...sessionCommands,...agent,...skills.filter(item=>!agent.some(command=>command.name===item.name)&&!reserved.has(item.name)).map(item=>({...item,source:'技能'}))]
+  const advertised=(Array.isArray(commands)?commands:[]).filter(item=>typeof item.name==='string');
+  const agent=advertised.filter(item=>!item.name.startsWith('$')&&!reserved.has(item.name)).map(item=>({...item,source:'Agent 指令'}));
+  const commandNames=new Set(agent.map(item=>item.name));
+  const localSkills=skills.filter(item=>!commandNames.has(item.name)&&!reserved.has(item.name)).map(item=>({...item,source:'技能'}));
+  const localNames=new Set(localSkills.map(item=>item.name));
+  const agentSkills=advertised.filter(item=>item.name.startsWith('$')&&item.name.length>1&&!localNames.has(item.name.slice(1))&&!commandNames.has(item.name.slice(1))).map(item=>({...item,id:`agent-skill:${item.name}`,name:item.name.slice(1),kind:'skill',nativeCommand:item.name,source:'Agent 技能'}));
+  return [...sessionCommands,...agent,...localSkills,...agentSkills]
     .filter(item=>(item.name+' '+(item.label??'')+' '+(item.description??'')).toLowerCase().includes(query.toLowerCase())).slice(0,100);
 }
 export function configCategory(option){

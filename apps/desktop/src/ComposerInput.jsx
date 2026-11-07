@@ -1,8 +1,8 @@
 import React,{useEffect,useImperativeHandle,useId,useLayoutEffect,useRef,useState} from 'react';
-import {File,Folder,Slash,X,AtSign,RefreshCw,BookOpen,Users,Terminal,GitBranch,History,ChevronRight,ChevronLeft,Box,Brain,SlidersHorizontal,Check} from 'lucide-react';
+import {File,Folder,X,RefreshCw,ChevronRight,ChevronLeft,Check} from 'lucide-react';
+import {ComposerOptionIcon} from './ComposerOptionIcon.jsx';
 import {composerToken,replaceToken,commandOptions,referenceOptions,configCategory} from './composer.js';
 import {discoverComposerSkills} from './composer-skills.js';
-import {SessionAvatar} from './SessionIdentity.jsx';
 import {configChoices,canConfigure} from './agent-config.js';
 import {configureAgent} from '@vibeone/client-contracts';
 import './composer.css';
@@ -10,6 +10,7 @@ import './composer.css';
 export function ComposerInput({session,workbench,value,onChange,files,onFiles,onSubmit,onPanel,disabled,online,placeholder,inputActions,agents=[],group=false,configTargets=[]}) {
   const input=useRef(null),root=useRef(null),cache=useRef(new Map()),selection=useRef(null),dismissed=useRef(false),restoringSelection=useRef(false);
   const [token,setToken]=useState(null),[selected,setSelected]=useState(0),[listing,setListing]=useState(null),[error,setError]=useState('');
+  const [commandSection,setCommandSection]=useState('commands');
   const [submenu,setSubmenu]=useState(null),[referenceFilter,setReferenceFilter]=useState('all'),[configBusy,setConfigBusy]=useState(false);
   const [refresh,setRefresh]=useState(0),[skillRefresh,setSkillRefresh]=useState(0);
   const [skills,setSkills]=useState([]),[skillError,setSkillError]=useState(''),[skillsLoading,setSkillsLoading]=useState(false);
@@ -56,8 +57,11 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
   const target=targets.find(item=>item.session?.id===submenu?.targetId)??(targets.length===1?targets[0]:null);
   const configs=(target?.session?.agentState?.configOptions??[]).filter(option=>configCategory(option)===submenu?.kind);
   const controlOptions=submenu?(target?configs.flatMap(option=>option.type==='boolean'?[true,false].map(value=>({name:String(value),label:value?'开启':'关闭',kind:'config',option,value,current:option.currentValue===value})):configChoices(option).map(choice=>({...choice,label:choice.name??choice.value,description:choice.description??option.name,kind:'config',option,current:option.currentValue===choice.value}))):targets.map(item=>({name:item.name,label:item.name,description:'配置此成员的'+({model:'模型',reasoning:'思考强度',mode:'工作模式'})[submenu.kind],kind:'target',targetId:item.session.id}))) : [];
-  const options=token?.kind==='/'?(submenu?controlOptions:commandOptions(group?[]:session.agentState?.commands,token.query,skills)):[...(referenceFilter==='files'?[]:mentions),...(referenceFilter==='agents'?[]:referenceOptions(listing?.entries,query,[],directory))];
-  useEffect(()=>setSelected(0),[token?.query,listing,skills]);
+  const allCommands=commandOptions(group?[]:session.agentState?.commands,token?.query??'',skills);
+  const commands=allCommands.filter(item=>item.kind!=='skill'),skillOptions=allCommands.filter(item=>item.kind==='skill');
+  const options=token?.kind==='/'?(submenu?controlOptions:commandSection==='skills'?skillOptions:commands):[...(referenceFilter==='files'?[]:mentions),...(referenceFilter==='agents'?[]:referenceOptions(listing?.entries,query,[],directory))];
+  useEffect(()=>setSelected(0),[token?.query,listing,skills,commandSection]);
+  useEffect(()=>{if(token?.kind!=='/')setCommandSection('commands');},[token?.kind]);
   useEffect(()=>{root.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({block:'nearest'});},[selected,token?.query,submenu,listing,skills]);
   const update=(text,caret)=>{setSubmenu(null);dismissed.current=false;onChange(text);setToken(composerToken(text,caret));setError('');};
   const choose=async(item,referenceDirectory=false)=>{
@@ -77,6 +81,7 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
       if(files.length>=5){setError('每轮最多引用 5 个文件或文件夹');return;}
       onFiles([...files,path]);
     }else if(item.kind==='agent'){insertion='@'+item.name+' ';
+    }else if(item.kind==='skill'&&item.nativeCommand){insertion=`/${item.nativeCommand} `;
     }else if(item.kind==='skill'){
         if(!files.includes(item.path)&&files.length>=5){setError('每轮最多引用 5 个文件或文件夹，请先移除一个引用');return;}
         if(!files.includes(item.path))onFiles([...files,item.path]);
@@ -106,19 +111,20 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
       {token.kind==='@'&&directory&&<button type="button" className="composer-parent" onClick={()=>{const parent=directory.replace(/\/$/,'').split('/').slice(0,-1).join('/');const insertion=parent?'@\"'+parent+'/':'@';const next=replaceToken(value,token,insertion),caret=token.start+insertion.length;selection.current={text:next,caret};update(next,caret);}}>‹ 上级目录 · {directory}</button>}
       {token.kind==='@'&&listing&&workbench.features?.includes('directoryReferences')&&<button type="button" className="composer-parent" onClick={()=>choose({path:directory||'./'},true)}><Folder size={14}/> 引用{directory||'当前工作区'}文件夹 <small>仅目录清单</small></button>}
       {token.kind==='@'&&!directory&&<div className="composer-filters" aria-label="引用类型">{[['all','全部'],['agents','Agent'],['files','文件']].map(([key,label])=><button type="button" aria-pressed={referenceFilter===key} key={key} onClick={()=>{setReferenceFilter(key);setSelected(0);}}>{label}</button>)}</div>}
-      <div id={listId} role="listbox" aria-label={token.kind==='/'?'指令建议':'引用建议'}>{options.map((item,index)=><React.Fragment key={item.kind==='config'?`${item.option.configId}:${item.value}`:item.id??item.path??item.name}>
-        {token.kind==='/'&&!submenu&&(index===0||item.source!==options[index-1].source)&&<div className="composer-category" role="presentation">{item.source}</div>}
+      {token.kind==='/'&&!submenu&&<div className="composer-sections" aria-label="建议分区">{[['commands','指令',commands.length],['skills','技能',skillOptions.length]].map(([key,label,count])=><button key={key} type="button" aria-pressed={commandSection===key} onMouseDown={event=>event.preventDefault()} onClick={()=>{setCommandSection(key);setSelected(0);setError('');}}>{label}<span>{key==='skills'&&skillsLoading?'…':count}</span></button>)}</div>}
+      <div id={listId} role="listbox" aria-label={token.kind==='/'?(commandSection==='skills'&&!submenu?'技能建议':'指令建议'):'引用建议'}>{options.map((item,index)=><React.Fragment key={item.kind==='config'?`${item.option.configId}:${item.value}`:item.id??item.path??item.name}>
+        {token.kind==='/'&&!submenu&&commandSection==='commands'&&(index===0||item.source!==options[index-1].source)&&<div className="composer-category" role="presentation">{item.source}</div>}
         {token.kind==='@'&&(index===0||(item.kind==='agent')!==(options[index-1].kind==='agent'))&&<div className="composer-category" role="presentation">{item.kind==='agent'?'Agent':item.kind==='skill'?'技能':'文件与文件夹'}</div>}
         <button type="button" role="option" disabled={configBusy} id={`${listId}-${index}`} aria-selected={index===selected} key={item.kind==='config'?`${item.option.configId}:${item.value}`:item.id??item.path??item.name} onPointerMove={()=>setSelected(index)} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(item)}>
-        {item.control==='model'?<Box size={16}/>:item.control==='reasoning'?<Brain size={16}/>:item.control==='mode'?<SlidersHorizontal size={16}/>:item.kind==='agent'?<SessionAvatar color={item.color} shape={item.shape}/>:item.kind==='skill'?<BookOpen size={16}/>:item.panel==='terminal'?<Terminal size={16}/>:item.panel==='changes'?<GitBranch size={16}/>:item.panel==='runs'?<History size={16}/>:token.kind==='/'?<Slash size={16}/>:item.kind==='directory'?<Folder size={16}/>:<File size={16}/>}
-        <span><strong>{item.label??item.name}</strong><small>{item.description??(item.kind==='directory'?'打开目录':item.path)}</small></span>{item.control||item.kind==='target'?<ChevronRight className="composer-option-tail" size={14}/>:item.current?<Check className="composer-option-tail" size={14}/>:item.kind==='skill'?<small className="composer-option-source">项目</small>:null}
+        <ComposerOptionIcon item={item}/>
+        <span><strong>{item.label??item.name}</strong><small>{item.description??(item.kind==='directory'?'打开目录':item.path)}</small></span>{item.control||item.kind==='target'?<ChevronRight className="composer-option-tail" size={14}/>:item.current?<Check className="composer-option-tail" size={14}/>:item.kind==='skill'?<small className="composer-option-source">{item.nativeCommand?'Agent':'项目'}</small>:null}
       </button></React.Fragment>)}</div>
-      {!options.length&&<p role={error?'alert':undefined}>{error|| (submenu?(target?'此 Agent 尚未提供这项配置，连接后会显示可用选项':'此会话组没有可配置成员'):token.kind==='@'&&!listing?'正在读取目录…':token.kind==='/'?'未找到指令，按 Enter 仍可发送给 Agent':'没有匹配项，可刷新目录或返回上级')}</p>}
+      {!options.length&&<p role={error?'alert':undefined}>{error|| (submenu?(target?'此 Agent 尚未提供这项配置，连接后会显示可用选项':'此会话组没有可配置成员'):token.kind==='@'&&!listing?'正在读取目录…':token.kind==='/'?(commandSection==='skills'?'未找到匹配的项目技能':'未找到指令，按 Enter 仍可发送给 Agent'):'没有匹配项，可刷新目录或返回上级')}</p>}
       {options.length>0&&error&&<p role="alert">{error}</p>}
-      {token.kind==='/'&&!submenu&&skillsLoading&&<p role="status">正在读取项目技能…</p>}
-      {token.kind==='/'&&!submenu&&skillError&&<p role="alert">{skillError} <button type="button" className="composer-retry" onClick={()=>setSkillRefresh(count=>count+1)}>重试技能目录</button></p>}
+      {token.kind==='/'&&!submenu&&commandSection==='skills'&&skillsLoading&&<p role="status">正在读取项目技能…</p>}
+      {token.kind==='/'&&!submenu&&commandSection==='skills'&&skillError&&<p role="alert">{skillError} <button type="button" className="composer-retry" onClick={()=>setSkillRefresh(count=>count+1)}>重试技能目录</button></p>}
       {listing?.truncated&&token.kind==='@'&&<p>目录仅显示前 300 项，请输入更具体的子目录。</p>}
-      <footer><span>{configBusy?'正在应用配置…':token.kind==='/'?'技能与配置随 Agent 能力提供':'文件会作为上下文随消息发送'}</span><span>↑↓ 选择 <kbd>↵</kbd> 确认</span></footer>
+      <footer><span>{configBusy?'正在应用配置…':token.kind==='/'?(commandSection==='skills'?'选择技能后，说明会作为任务上下文发送':'指令与配置由当前 Agent 提供'):'文件会作为上下文随消息发送'}</span><span>↑↓ 选择 <kbd>↵</kbd> 确认</span></footer>
     </div>}
     <textarea ref={input} aria-label={group?"发送组消息":"发送任务"} aria-haspopup="listbox" aria-autocomplete="list" aria-controls={token?listId:undefined} aria-expanded={!!token} aria-activedescendant={token&&options[selected]?`${listId}-${selected}`:undefined} disabled={disabled} value={value} placeholder={placeholder}
       onChange={event=>update(event.target.value,event.target.selectionStart)}
@@ -132,7 +138,7 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
         if(token&&['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();setSelected(index=>(index+(event.key==='ArrowDown'?1:-1)+Math.max(1,options.length))%Math.max(1,options.length));return;}
         if(token&&['Enter','Tab'].includes(event.key)&&!event.shiftKey){
           if(options[selected]){event.preventDefault();choose(options[selected]);return;}
-          if(event.key==='Enter'){event.preventDefault();if(submenu)return;if(token.kind==='/'){setToken(null);onSubmit();}return;}
+          if(event.key==='Enter'){event.preventDefault();if(submenu||commandSection==='skills'&&token.kind==='/')return;if(token.kind==='/'){setToken(null);onSubmit();}return;}
           setToken(null);return;
         }
         if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();onSubmit();}

@@ -162,3 +162,10 @@ test('group references deliver authorized text and reject binary or oversized co
  assert.equal(configCategory({category:'model'}),'model');
  assert.equal(configCategory({configId:'reasoning_effort'}),'reasoning');
 });
+
+test('Agent advertised dollar skills belong to skills, keep their wire command and prefer project skills',()=>{
+ const options=commandOptions([{name:'plan'},{name:'$reviewer',description:'Review code'},{name:'$local'}],'',[{name:'local',kind:'skill',path:'.agents/skills/local/SKILL.md'}]);
+ assert.equal(options.find(o=>o.name==='plan').source,'Agent 指令');
+ const skill=options.find(o=>o.name==='reviewer');assert.equal(skill.kind,'skill');assert.equal(skill.nativeCommand,'$reviewer');assert.equal(skill.source,'Agent 技能');
+ assert.equal(options.filter(o=>o.name==='local').length,1);assert.equal(options.find(o=>o.name==='local').path,'.agents/skills/local/SKILL.md');
+});
