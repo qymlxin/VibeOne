@@ -5,7 +5,10 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-import {Plus,Plug} from 'lucide-react';
+import {Plug,Search,ArrowLeft,Download,FolderOpen} from 'lucide-react';
+import {PluginIcon} from './plugin-presentation.jsx';
+import './plugin-center.css';
+import {LocalPluginInstall} from './LocalPluginInstall.jsx';
 import {invoke,streamChannel} from './native.js';
 import {pluginServices} from "./plugin-services.js";
 import {RemotePluginInstall} from './RemotePluginInstall.jsx';
@@ -223,9 +226,10 @@ export function PluginManager({ workbench, plugins }) {
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [result, setResult] = useState(undefined);
-  const installTrigger=useRef(null);
+  const installTrigger=useRef(null),listRef=useRef(null);
+  const [view,setView]=useState('installed'),[query,setQuery]=useState(''),[stateFilter,setStateFilter]=useState('all');
   const [packageSource,setPackageSource]=useState(null);
-  const [installOpen,setInstallOpen]=useState(false),[selectedPlugin,setSelectedPlugin]=useState(null);
+  const [selectedPlugin,setSelectedPlugin]=useState(null);
   async function run(action) {
     setBusy(true);
     setError("");
@@ -237,142 +241,35 @@ export function PluginManager({ workbench, plugins }) {
       setBusy(false);
     }
   }
+  const records=(workbench.plugins??[]).filter(plugin=>(stateFilter==='all'||(stateFilter==='enabled')===!!plugin.enabled)&&`${plugin.name} ${plugin.id}`.toLowerCase().includes(query.toLowerCase()));
+  const active=records.find(p=>p.id===selectedPlugin)??records[0];
   return (
-    <section className="desktop-plugin-settings"><RemotePluginInstall workbench={workbench} plugins={plugins} source={workbench.plugins?.find(p=>p.id===selectedPlugin)?.source}/>
+    <section className="desktop-plugin-settings plugin-center">
+      <header className="plugin-center-toolbar"><nav aria-label="插件视图"><button aria-current={view==='installed'?'page':undefined} onClick={()=>{setView('installed');}}>已安装<span>{workbench.plugins?.length??0}</span></button><button aria-current={view==='discover'?'page':undefined} onClick={()=>{setView('discover');}}>获取插件</button></nav><button className="plugin-local-trigger" onClick={()=>{setView('local');setPackageSource(null);setInspection(null);setPath('');setTrusted(false);}}><FolderOpen size={14}/>从本地安装</button></header>
+      {view==='discover'&&<RemotePluginInstall workbench={workbench} plugins={plugins} source={workbench.plugins?.find(p=>p.id===selectedPlugin)?.source}/>}
 
-      <p>
-        JS 插件作为可信本机代码运行。支持安装、更新、停用、动态面板与后台命令。
-      </p>
-      <details className="desktop-plugin-install" open={installOpen} onToggle={event=>setInstallOpen(event.currentTarget.open)}><summary ref={installTrigger}><Plus size={14}/>安装 / 更新本地插件</summary>
-      <button
-        onClick={() => {
-          setPackageSource(null);setPath(workbench.examplePluginPath);
-          setInspection(null);
-          setTrusted(false);
-        }}
-      >
-        选择内置示例插件
-      </button>
-      <div className="desktop-management-form">
-        <label>
-          插件目录
-          <input
-            value={path}
-            onChange={(event) => {
-              setPackageSource(null);setPath(event.target.value);
-              setInspection(null);
-              setTrusted(false);
-            }}
-          />
-        </label>
-        <button
-          disabled={busy}
-          onClick={() =>
-            void run(async () => {
-              const next = await chooseWorkspace();
-              if (next) {
-                setPackageSource(null);setPath(next);
-                setInspection(null);
-                setTrusted(false);
-              }
-            })
-          }
-        >
-          选择插件目录
-        </button>
-        <button
-          disabled={busy || !path}
-          onClick={() =>
-            void run(async () => {
-              setInspection(await workbench.managePlugin("inspect", { path }));
-              setTrusted(false);
-            })
-          }
-        >
-          检查插件
-        </button>
-        {inspection && (
-          <>
-            <p>
-              {inspection.name ?? inspection.id} · {inspection.version}
-            </p>
-            <p>
-              声明权限：{(inspection.hostRequirements ?? []).join("、") || "无"}
-            </p>
-            <p>
-              扩展点：
-              {(inspection.contributions ?? [])
-                .map((item) => item.kind)
-                .join("、")}
-            </p>
-            {(workbench.workspaces ?? []).map((workspace) => (
-              <label key={workspace.id}>
-                <span>
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(workspace.id)}
-                    onChange={(event) =>
-                      setSelected((current) =>
-                        event.target.checked
-                          ? [...current, workspace.id]
-                          : current.filter((id) => id !== workspace.id),
-                      )
-                    }
-                  />
-                  允许访问 {workspace.name}
-                </span>
-              </label>
-            ))}
-            <label>
-              插件配置（JSON）
-              <textarea
-                value={config}
-                onChange={(event) => setConfig(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>
-                <input
-                  type="checkbox"
-                  checked={trusted}
-                  onChange={(event) => setTrusted(event.target.checked)}
-                />
-                信任此本地插件及上述权限
-              </span>
-            </label>
-            <button
-              disabled={!trusted || busy}
-              onClick={() =>
-                void run(() =>
-                  plugins.install({
-                    path,
-                    source:packageSource,
-                    trusted,
-                    workspaces: selected,
-                    config: JSON.parse(config),
-                    expectedManifest: inspection,
-                  }).then(()=>{setInstallOpen(false);setSelectedPlugin(inspection.id);installTrigger.current?.focus();}),
-                )
-              }
-            >
-              安装 / 更新并启用
-            </button>
-          </>
-        )}
-      </div>
-      </details>
-      {!installOpen&&<div className="settings-master-detail desktop-settings-object-layout"><aside className="settings-object-list desktop-settings-object-list"><h2>已安装<span>{workbench.plugins?.length??0}</span></h2>{(workbench.plugins??[]).map(plugin=><button key={plugin.id} className={(selectedPlugin??workbench.plugins?.[0]?.id)===plugin.id?'selected':''} onClick={()=>setSelectedPlugin(plugin.id)}><span className="provider-symbol desktop-provider-symbol"><Plug size={16}/></span><span><strong>{plugin.name??plugin.id}</strong><small>{plugin.version} · {plugin.enabled?'已启用':'已停用'}</small></span></button>)}{!workbench.plugins?.length&&<p>尚未安装本地插件。</p>}</aside><div className="settings-object-detail desktop-settings-object-detail">
-      {(workbench.plugins ?? []).filter(plugin=>plugin.id===(selectedPlugin??workbench.plugins?.[0]?.id)).map((plugin) => (
+
+      <section className="plugin-local-form" hidden={view!=='local'}><header><button ref={installTrigger} onClick={()=>{setView('installed');}}><ArrowLeft size={14}/>返回已安装</button><h2>安装与配置</h2><p>选择插件包目录，检查所需权限后启用。</p></header>
+      <LocalPluginInstall path={path} inspection={inspection} busy={busy} workspaces={workbench.workspaces??[]} selected={selected} config={config} trusted={trusted}
+        onPath={value=>{setPackageSource(null);setPath(value);setInspection(null);setTrusted(false);}}
+        onSelected={value=>{setSelected(value);setTrusted(false);}} onConfig={value=>{setConfig(value);setTrusted(false);}} onTrusted={setTrusted}
+        onChoose={()=>void run(async()=>{const next=await chooseWorkspace();if(next){setPackageSource(null);setPath(next);setInspection(null);setTrusted(false);}})}
+        onInspect={()=>void run(async()=>{setInspection(await workbench.managePlugin('inspect',{path}));setTrusted(false);})}
+        onExample={()=>{setPackageSource(null);setPath(workbench.examplePluginPath);setInspection(null);setTrusted(false);}}
+        onInstall={()=>void run(()=>plugins.install({path,source:packageSource,trusted,workspaces:selected,config:JSON.parse(config),expectedManifest:inspection}).then(()=>{setView('installed');setSelectedPlugin(inspection.id);requestAnimationFrame(()=>listRef.current?.querySelector('button.selected')?.focus());}))}/>
+      </section>
+      {view==='installed'&&<div className="plugin-installed-layout"><aside className="plugin-installed-list" aria-label="已安装插件"><label className="plugin-list-search"><Search size={14}/><input aria-label="搜索已安装插件" placeholder="搜索插件…" value={query} onChange={event=>setQuery(event.target.value)}/></label><div className="plugin-list-filter"><span>{records.length} 个插件</span><select aria-label="筛选插件状态" value={stateFilter} onChange={event=>setStateFilter(event.target.value)}><option value="all">全部状态</option><option value="enabled">已启用</option><option value="disabled">已停用</option></select></div><div className="plugin-installed-items" ref={listRef}>{records.map(plugin=><button key={plugin.id} aria-pressed={active?.id===plugin.id} className={active?.id===plugin.id?'selected':''} onClick={()=>setSelectedPlugin(plugin.id)}><span className="plugin-list-icon"><PluginIcon plugin={plugin} size={19}/></span><span><strong>{plugin.name??plugin.id}</strong><small>v{plugin.version} · {plugin.enabled?'已启用':'已停用'}</small></span><i className={plugin.enabled?'enabled':''}/></button>)}</div>{!records.length&&<p className="plugin-list-empty">{query||stateFilter!=='all'?'未找到匹配的插件':'暂无插件'}</p>}</aside><div className="plugin-installed-detail">
+      {active&&[active].map((plugin) => (
         <PluginDetails key={plugin.id} plugin={plugin} workspaces={workbench.workspaces??[]} busy={busy}
           onEnable={()=>void run(()=>plugins.install({path:plugin.path,trusted:true,workspaces:plugin.workspaces,config:plugin.config,source:plugin.source,expectedManifest:plugin.manifest}))}
           onDisable={()=>void run(()=>plugins.disable(plugin.id))}
-          onConfigure={()=>{setPackageSource(plugin.source);setInstallOpen(true);setPath(plugin.path);setInspection(plugin.manifest);setSelected(plugin.workspaces);setConfig(JSON.stringify(plugin.config,null,2));setTrusted(false);}}
+          onUpdate={()=>{setSelectedPlugin(plugin.id);setView('discover');}}
+          onConfigure={()=>{setView('local');setPackageSource(plugin.source);setPath(plugin.path);setInspection(plugin.manifest);setSelected(plugin.workspaces);setConfig(JSON.stringify(plugin.config,null,2));setTrusted(false);}}
           onInvoke={item=>void run(async()=>setResult(await workbench.invokePlugin(plugin.id,{handler:item.binding.handler,input:{path:'.'},workspaceId:plugin.workspaces[0]})))}>      {plugins.registrations.filter(app=>app.identity.pluginId===plugin.id).map((app) => (
         <PluginBoundary
           key={`${app.identity.pluginId}:${app.identity.generation}`}
         >
-          <section>
-            <h3>{app.identity.pluginId}</h3>
+          <section className="plugin-app-settings">
             {[...app.panels].filter(([id])=>!plugin.manifest.contributions.some(c=>c.id===id&&c.surface==='workspace.tool')).concat([...app.settings]).map(([id, Component]) => (
               <Component
                 key={id}
@@ -390,10 +287,10 @@ export function PluginManager({ workbench, plugins }) {
 </PluginDetails>
 
       ))}
-      {!workbench.plugins?.length&&<div className="desktop-settings-empty"><Plug size={26}/><p>安装本地插件后，在这里查看运行状态与授权范围。</p></div>}</div></div>}
-      {!!workbench.operations?.length&&<details className="desktop-settings-group" aria-label="最近后台操作"><summary>最近后台操作 · {workbench.operations.length}</summary><p>操作在主机执行。关闭页面不会取消已受理的操作；中断记录不会自动重试。</p>{workbench.operations.map(operation=>{const display=operationPresentation(operation);return <div className="desktop-settings-row" key={operation.id}><div><strong>{display.title}</strong><p>{display.plugin} · {display.time}</p></div><span>{display.state}</span><button type="button" disabled={busy||workbench.phase!=='online'} aria-label={`查看操作结果 ${operation.id}`} onClick={()=>void run(async()=>{const record=await workbench.read(`/operations/${operation.id}`);setResult(record.state==='succeeded'?record.result:{state:record.state,...record.error});})}>查看结果</button></div>;})}</details>}
+      {!active&&<div className="plugin-center-empty"><Plug size={30} strokeWidth={1.5}/><h2>{query||stateFilter!=='all'?'没有匹配的插件':'为工作台添加功能'}</h2><p>{query||stateFilter!=='all'?'换个名称或筛选条件试试。':'文件、终端、网页等功能都可以独立安装和更新。'}</p>{!query&&stateFilter==='all'&&<button className="plugin-primary" onClick={()=>setView('discover')}><Download size={14}/>获取插件</button>}</div>}</div></div>}
+      {!!workbench.operations?.length&&<details className="plugin-diagnostics" aria-label="最近后台操作"><summary>最近后台操作 · {workbench.operations.length}</summary><p>操作在主机执行。关闭页面不会取消已受理的操作；中断记录不会自动重试。</p>{workbench.operations.map(operation=>{const display=operationPresentation(operation);return <div className="desktop-settings-row" key={operation.id}><div><strong>{display.title}</strong><p>{display.plugin} · {display.time}</p></div><span>{display.state}</span><button type="button" disabled={busy||workbench.phase!=='online'} aria-label={`查看操作结果 ${operation.id}`} onClick={()=>void run(async()=>{const record=await workbench.read(`/operations/${operation.id}`);setResult(record.state==='succeeded'?record.result:{state:record.state,...record.error});})}>查看结果</button></div>;})}</details>}
       {!!workbench.pluginEvents?.length && (
-        <details>
+        <details className="plugin-diagnostics">
           <summary>插件执行进度</summary>
           {workbench.pluginEvents.map((event, index) => (
             <pre className="desktop-diagnostic" key={index}>
@@ -403,9 +300,7 @@ export function PluginManager({ workbench, plugins }) {
         </details>
       )}
       {result !== undefined && (
-        <pre className="desktop-diagnostic">
-          {JSON.stringify(result, null, 2)}
-        </pre>
+        <details className="plugin-diagnostics" open><summary>操作结果</summary><pre className="desktop-diagnostic">{JSON.stringify(result,null,2)}</pre></details>
       )}
       {(error || plugins.error) && <p role="alert">{error || plugins.error}</p>}
     </section>
