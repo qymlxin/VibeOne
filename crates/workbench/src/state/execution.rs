@@ -591,6 +591,9 @@ impl Workbench {
         } else {
             vec![json!({"type":"text","text":text})]
         };
+        if let Some(instructions) = self.space_instructions(&id) {
+            blocks.insert(0, json!({"type":"text","text":instructions}));
+        }
         blocks.extend(
             self.attachment_blocks(&id, attachment_ids, &capabilities)
                 .await

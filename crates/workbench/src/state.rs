@@ -21,6 +21,7 @@ mod operations;
 mod outbox;
 mod probe;
 mod projects;
+mod spaces;
 mod sync;
 use vibeone_storage::{SavedSession, Store, Workspace};
 
@@ -79,6 +80,7 @@ pub struct Workbench {
     catalog: Mutex<HashMap<String, HashMap<String, Value>>>,
     stopping: AtomicBool,
     probe_gate: tokio::sync::Mutex<()>,
+    space_gate: tokio::sync::Mutex<()>,
     storage_error: Mutex<Option<String>>,
 }
 
@@ -151,6 +153,16 @@ impl Workbench {
                     .map_err(|error| error.to_string())?;
             }
         }
+        for (kind, id, mut value) in store.catalog().await.map_err(|error| error.to_string())? {
+            if kind == "space-thread" && value["state"] == "running" {
+                value["state"] = json!("interrupted");
+                value["error"] = json!("主机重启，协作已中断，未自动重放");
+                store
+                    .put_catalog(&kind, &id, &value)
+                    .await
+                    .map_err(|error| error.to_string())?;
+            }
+        }
         let mut sessions = HashMap::new();
         for saved in store.sessions().await.map_err(|error| error.to_string())? {
             let saved = history::prepare(&store, saved).await?;
@@ -184,6 +196,7 @@ impl Workbench {
             catalog: Mutex::new(catalog),
             stopping: AtomicBool::new(false),
             probe_gate: tokio::sync::Mutex::new(()),
+            space_gate: tokio::sync::Mutex::new(()),
             storage_error: Mutex::default(),
         }))
     }
@@ -401,6 +414,7 @@ impl Workbench {
                     "directoryReferences",
                     "providerProbe",
                     "providerModels",
+                    "projectSpaces",
                     "initialSessionModel",
                     "upstreamResume",
                     "conversationHistory",
@@ -1037,6 +1051,30 @@ impl Workbench {
         mut request: crate::contracts::UpdateSessionRequest,
     ) -> Result<(), DomainError> {
         self.command_available()?;
+        if self
+            .catalog("space-agent")
+            .iter()
+            .any(|a| a["sessionId"] == id && a["steward"] == true)
+            && (request.archived == Some(true)
+                || request.title.as_deref().is_some_and(|name| name != "管家"))
+        {
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "管家身份固定，不能重命名或归档",
+            ));
+        }
+        if self
+            .catalog("space-agent")
+            .iter()
+            .any(|a| a["sessionId"] == id && a["steward"] == true)
+            && (request.archived == Some(true)
+                || request.title.as_deref().is_some_and(|s| s != "管家"))
+        {
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "项目管家不能重命名或归档",
+            ));
+        }
         let entry = self.command_entry(id)?;
         let _catalog = if request.archived == Some(false) {
             Some(self.catalog_gate.lock().await)

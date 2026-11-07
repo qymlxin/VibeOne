@@ -48,8 +48,9 @@ fn domain_fail(error: crate::domain_error::DomainError) -> (StatusCode, Json<Val
         Json(json!({"code":error.kind.code(),"error":error.message})),
     )
 }
-const ORIGINS: [&str; 5] = [
+const ORIGINS: [&str; 6] = [
     "tauri://localhost",
+    "vibeone://app",
     "http://tauri.localhost",
     "https://tauri.localhost",
     "http://127.0.0.1:5174",
@@ -144,6 +145,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/sync",get(sync_view))
         .route("/v1/workspaces",post(import_workspace))
         .route("/v1/projects",get(project_list).post(project_save))
+        .route("/v1/spaces",get(space_list).post(space_command))
         .route("/v1/profiles",get(profile_catalog).post(profile))
         .route("/v1/providers/{id}/probe",post(provider_probe))
         .route("/v1/providers/{id}/models",post(provider_models))
@@ -988,6 +990,16 @@ async fn project_list(
 }
 async fn project_save(State(state): State<Server>, Json(body): Json<Value>) -> ApiResult {
     domain_command(async move { state.workbench.save_project(body).await })
+        .await
+        .map(Json)
+        .map_err(domain_fail)
+}
+
+async fn space_list(State(state): State<Server>) -> Json<Value> {
+    Json(state.workbench.space_catalog())
+}
+async fn space_command(State(state): State<Server>, Json(body): Json<Value>) -> ApiResult {
+    domain_command(async move { state.workbench.space_command(body).await })
         .await
         .map(Json)
         .map_err(domain_fail)
