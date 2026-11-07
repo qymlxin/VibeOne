@@ -567,6 +567,53 @@ mod tests {
         store.close().await;
     }
     #[tokio::test]
+    async fn artifact_and_receipt_are_committed_together_or_not_at_all() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).await.unwrap();
+        sqlx::query("CREATE TRIGGER fail_artifact_receipt BEFORE INSERT ON catalog WHEN NEW.kind='artifact-command' BEGIN SELECT RAISE(ABORT,'injected artifact receipt failure'); END").execute(&store.pool).await.unwrap();
+        let artifact = json!({"id":"artifact","content":{"text":"saved"}});
+        let receipt = json!({"artifactId":"artifact"});
+        assert!(
+            store
+                .put_catalog_with_receipt(
+                    "artifact",
+                    "artifact",
+                    &artifact,
+                    Some(("artifact-command", "intent", &receipt))
+                )
+                .await
+                .is_err()
+        );
+        assert!(store.catalog().await.unwrap().is_empty());
+        assert_eq!(store.cursor().await.unwrap(), 0);
+        sqlx::query("DROP TRIGGER fail_artifact_receipt")
+            .execute(&store.pool)
+            .await
+            .unwrap();
+        store
+            .put_catalog_with_receipt(
+                "artifact",
+                "artifact",
+                &artifact,
+                Some(("artifact-command", "intent", &receipt)),
+            )
+            .await
+            .unwrap();
+        store.close().await;
+        let store = Store::open(dir.path()).await.unwrap();
+        let rows = store.catalog().await.unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(
+            rows.iter()
+                .any(|(kind, _, value)| kind == "artifact" && value == &artifact)
+        );
+        assert!(
+            rows.iter()
+                .any(|(kind, _, value)| kind == "artifact-command" && value == &receipt)
+        );
+        store.close().await;
+    }
+    #[tokio::test]
     async fn restart_invalidates_requests_and_never_replays_pending_input() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(dir.path()).await.unwrap();

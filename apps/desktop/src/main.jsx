@@ -29,6 +29,7 @@ import { ComposerInput } from "./ComposerInput.jsx";
 import { commandPanel } from "./composer.js";
 import {useStopCommand} from './use-stop-command.js';
 import {useQueueCommands} from './use-queue-commands.js';
+import {useArtifactCapture} from './use-artifact-capture.js';
 import { useNotifications } from "./notifications.js";
 import { RemoteSettings, PhoneGate } from "./Remote.jsx";
 import { isNative } from "./api.js";
@@ -492,6 +493,7 @@ function Conversation({ session, workbench, online, act }) {
   const lastRun=session.runs?.at(-1);
   const stopCurrentRun=useStopCommand(workbench,session);
   const queueCommands=useQueueCommands(workbench,session.id);
+  const artifactCapture=useArtifactCapture(workbench,session.id);
   useEffect(()=>{let stale=false;setChangeSummary(null);if(online&&lastRun?.finishedAt)workbench.call(`/sessions/${session.id}/changes`).then(value=>{if(!stale)setChangeSummary(value);}).catch(()=>{});return()=>{stale=true;};},[session.id,lastRun?.id,lastRun?.finishedAt,online,workbench.call]);
   const openFile=useCallback(path=>{setFileTarget({path,key:crypto.randomUUID()});setTab('files');},[]);
   const previewContext=useMemo(()=>({workspace:session.workspace,sessionId:session.id,read:workbench.read,openUrl,openFile}),[session.workspace,session.id,workbench.read,openUrl,openFile]);
@@ -879,7 +881,7 @@ function Conversation({ session, workbench, online, act }) {
         </div>
       </div>
       </div>
-      {tab!=="chat" && <><SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}}/><aside style={expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className={`desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',browser:'网址浏览',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon desktop-expand-preview" aria-label={expandedPanel?'恢复面板宽度':'扩大预览'} onClick={()=>setExpandedPanel(!expandedPanel)}>{expandedPanel?<Minimize2 size={15}/>:<Maximize2 size={15}/>}</button><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl} canBack={browserHistory.index>0} canForward={browserHistory.index<browserHistory.urls.length-1} onBack={()=>setBrowserHistory(previous=>({...previous,index:Math.max(0,previous.index-1)}))} onForward={()=>setBrowserHistory(previous=>({...previous,index:Math.min(previous.urls.length-1,previous.index+1)}))}/>:<SessionTools key={tab} session={history.session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget} onLocateRun={locateRun} availableRunIds={turns.map(turn=>turn.id)}/>}</aside></>}
+      {tab!=="chat" && <><SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}}/><aside style={expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className={`desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',browser:'网址浏览',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon desktop-expand-preview" aria-label={expandedPanel?'恢复面板宽度':'扩大预览'} onClick={()=>setExpandedPanel(!expandedPanel)}>{expandedPanel?<Minimize2 size={15}/>:<Maximize2 size={15}/>}</button><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl} canBack={browserHistory.index>0} canForward={browserHistory.index<browserHistory.urls.length-1} onBack={()=>setBrowserHistory(previous=>({...previous,index:Math.max(0,previous.index-1)}))} onForward={()=>setBrowserHistory(previous=>({...previous,index:Math.min(previous.urls.length-1,previous.index+1)}))}/>:<SessionTools key={tab} artifactCapture={artifactCapture} session={history.session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget} onLocateRun={locateRun} availableRunIds={turns.map(turn=>turn.id)}/>}</aside></>}
       </div>
     </PreviewContext.Provider>
   );

@@ -3,8 +3,9 @@ import {ChevronRight,FileText,Folder,PanelRight,Search} from 'lucide-react';
 import {codeLines} from './code-lines.js';
 import './file-explorer.css';
 const clean=path=>path.replace(/^\.\//,'');
-export function FileExplorer({session,workbench,tab,fileTarget}){
- const [directories,setDirectories]=useState(()=>Object.create(null)),[expanded,setExpanded]=useState(new Set(['.'])),[result,setResult]=useState(null),[preview,setPreview]=useState(null),[selected,setSelected]=useState(null),[filter,setFilter]=useState(''),[showTree,setShowTree]=useState(true),[path,setPath]=useState('.'),[pathDraft,setPathDraft]=useState('.'),[navigating,setNavigating]=useState(false),[directoryErrors,setDirectoryErrors]=useState(()=>Object.create(null)),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:capture}){
+ const online=workbench.phase==='online';
+ const [directories,setDirectories]=useState(()=>Object.create(null)),[expanded,setExpanded]=useState(new Set(['.'])),[result,setResult]=useState(null),[preview,setPreview]=useState(null),[selected,setSelected]=useState(null),[filter,setFilter]=useState(''),[showTree,setShowTree]=useState(true),[path,setPath]=useState('.'),[pathDraft,setPathDraft]=useState('.'),[navigating,setNavigating]=useState(false),[directoryErrors,setDirectoryErrors]=useState(()=>Object.create(null)),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const generation=useRef(0),selectionId=useRef(0),pending=useRef(new Map()),navigationId=useRef(0);
  const root=useRef(null);
  async function directory(path='.',epoch=generation.current){
@@ -37,10 +38,10 @@ export function FileExplorer({session,workbench,tab,fileTarget}){
    catch(reason){if(epoch===generation.current)setError(reason.message??String(reason));}
    finally{if(epoch===generation.current)setBusy(false);}
  }
- useEffect(()=>{const epoch=++generation.current;selectionId.current++;pending.current=new Map();navigationId.current++;setNavigating(false);setDirectoryErrors(Object.create(null));setDirectories(Object.create(null));setExpanded(new Set(['.']));setResult(null);setPreview(null);setSelected(null);setPath('.');setPathDraft('.');setFilter('');setNotice('');void load(epoch,'.');return()=>{generation.current++;selectionId.current++;};},[session.id,tab]);
+ useEffect(()=>{const epoch=++generation.current;selectionId.current++;pending.current=new Map();navigationId.current++;setNavigating(false);setDirectoryErrors(Object.create(null));setDirectories(Object.create(null));setExpanded(new Set(['.']));setResult(null);setPreview(null);setSelected(null);setPath('.');setPathDraft('.');setFilter('');void load(epoch,'.');return()=>{generation.current++;selectionId.current++;};},[session.id,tab]);
  async function inspect(file,staged=false){
    const id=++selectionId.current,epoch=generation.current;
-   setSelected({...file,stagedView:staged});setPreview(null);setError('');setNotice('');
+   setSelected({...file,stagedView:staged});setPreview(null);setError('');
    try{const value=await workbench.call(`/sessions/${session.id}/${tab==='changes'&&!file.untracked?'diff':'file'}?path=${encodeURIComponent(file.path)}&staged=${staged}`);if(id===selectionId.current&&epoch===generation.current)setPreview({...value,isDiff:tab==='changes'&&!file.untracked});}
    catch(reason){if(id===selectionId.current&&epoch===generation.current)setError(reason.message??String(reason));}
  }
@@ -55,14 +56,17 @@ export function FileExplorer({session,workbench,tab,fileTarget}){
   <header><h2>{tab==='changes'?'工作区变更':'工作区文件'}</h2><div><button onClick={()=>{void load();if(selected)void inspect(selected,selected.stagedView);for(const path of expanded)if(path!=='.')void directory(path);}} disabled={busy||navigating}>刷新</button><button aria-label={showTree?'收起文件列表':'显示文件列表'} aria-pressed={showTree} onClick={()=>setShowTree(!showTree)}><PanelRight size={14}/></button></div></header>
   {tab==='files'&&<><form className="explorer-path" onSubmit={event=>{event.preventDefault();void navigate(pathDraft);}}><input aria-label="浏览目录" value={pathDraft} disabled={navigating} onChange={event=>setPathDraft(event.target.value)}/><button disabled={busy||navigating}>打开目录</button></form><nav className="explorer-breadcrumbs" aria-label="当前目录">{trail.map((item,index)=><React.Fragment key={item.path}>{index>0&&<ChevronRight size={12} aria-hidden="true"/>}<button title={item.path} disabled={navigating} aria-current={index===trail.length-1?'page':undefined} onClick={()=>void navigate(item.path)}>{item.name}</button></React.Fragment>)}</nav></>}
   {tab==='changes'&&<p className="explorer-notice">{result?.branch&&<strong>{result.branch} · </strong>}{result?.notice}</p>}
-  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}{(busy||navigating)&&<p role="status">正在读取…</p>}
+  {error&&<p role="alert">{error}</p>}{(busy||navigating)&&<p role="status">正在读取…</p>}
+  {capture.busy&&<p role="status">正在确认产物保存…</p>}
+  {capture.notice&&<p role="status">{capture.notice}</p>}
+  {capture.failure&&<div className="explorer-capture-failure" role="alert"><p>保存 {capture.failure.path} 未确认：{capture.failure.message}</p><button disabled={!online||capture.busy} onClick={()=>void capture.retry()}>重试保存产物</button><button disabled={capture.busy} aria-label="关闭产物保存提示" onClick={capture.dismiss}>关闭提示</button></div>}
   <div className={`explorer-workspace ${showTree?'with-tree':''}`}>
    <article className="desktop-file-preview explorer-preview">
     {selected?<><header><strong title={selected.path}>{selected.path}</strong><button onClick={()=>{selectionId.current++;setSelected(null);setPreview(null);}}>关闭预览</button></header>
      {tab==='changes'&&!selected.untracked&&<div className="explorer-diff-modes"><button aria-pressed={!selected.stagedView} onClick={()=>void inspect(selected,false)}>未暂存差异</button><button aria-pressed={!!selected.stagedView} onClick={()=>void inspect(selected,true)}>已暂存差异</button></div>}
      {!preview&&!error&&<p role="status">正在读取文件…</p>}
      {preview&&<>{preview.binary?<p>二进制文件 · {preview.size} 字节</p>:<>
-       <div className="explorer-code-heading"><span>{preview.isDiff?'统一差异':'UTF-8 · 只读'}</span>{preview.isDiff&&<span><em>+{lines.added}</em> <b>−{lines.removed}</b></span>}{tab==='files'&&(!workbench.device||workbench.device.role==='operator')&&<button onClick={async()=>{try{await workbench.call(`/sessions/${session.id}/artifacts`,{path:preview.path});setNotice('已保存文本产物');}catch(reason){setError(reason.message??String(reason));}}}>保存为文本产物</button>}</div>
+       <div className="explorer-code-heading"><span>{preview.isDiff?'统一差异':'UTF-8 · 只读'}</span>{preview.isDiff&&<span><em>+{lines.added}</em> <b>−{lines.removed}</b></span>}{tab==='files'&&(!workbench.device||workbench.device.role==='operator')&&<button disabled={!online||capture.busy||!!capture.failure} onClick={()=>void capture.save(preview.path)}>保存为文本产物</button>}</div>
        {preview.text?<pre className="explorer-code">{lines.rows.map((row,index)=><span className={`explorer-code-line ${row.kind}`} key={index}><span className="explorer-line-number" aria-hidden="true">{row.line??''}</span><code>{row.text||' '}</code></span>)}</pre>:<p>{preview.isDiff?'当前范围没有文本差异。':'空文件'}</p>}
        {lines.clipped&&<p>超过 5,000 行，当前预览仅显示前 5,000 行。</p>}
      </>}{preview.truncated&&<p>内容超过显示上限，已截断。</p>}</>}

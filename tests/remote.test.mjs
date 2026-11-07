@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import https from "node:https";
 import {tmpdir} from "node:os";
-import { readFile, mkdir } from "node:fs/promises";
+import { readFile, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { chromium } from "@playwright/test";
@@ -33,6 +33,9 @@ test(
     await call(`/sessions/${invisible.id}/cancel`,{key:'hidden-stop-receipt'});
     await call(`/sessions/${visible.id}/queue`,{key:'visible-queue-receipt'});
     await call(`/sessions/${invisible.id}/queue`,{key:'hidden-queue-receipt'});
+    await writeFile(join(directory,'owner-artifact.txt'),'owner snapshot');await writeFile(join(directory,'mobile-artifact.txt'),'phone snapshot original');await writeFile(join(hidden,'hidden-artifact.txt'),'hidden snapshot');
+    await call(`/sessions/${visible.id}/artifacts`,{path:'owner-artifact.txt',key:'visible-artifact-receipt'});
+    await call(`/sessions/${invisible.id}/artifacts`,{path:'hidden-artifact.txt',key:'hidden-artifact-receipt'});
     const remote = await call("/remote", {
       enabled: true,
       ip: "127.0.0.1",
@@ -145,6 +148,7 @@ test(
     assert.equal((await request('/v1/profiles',privateProfileCommand,cookie)).status,403,'known configuration receipts remain owner-only');
     assert.equal((await request(`/v1/sessions/${visible.id}/cancel`,{key:'visible-stop-receipt'},cookie)).status,403,'stop receipts do not grant viewer execution rights');
     assert.equal((await request(`/v1/sessions/${visible.id}/queue`,{key:'visible-queue-receipt'},cookie)).status,403);
+    assert.equal((await request(`/v1/sessions/${visible.id}/artifacts`,{path:'owner-artifact.txt',key:'visible-artifact-receipt'},cookie)).status,403);
     assert.equal((await request('/v1/plugin-lifecycle/operations',{key:'remote-denied',action:'inspect',input:{path:directory}},cookie)).status,403);
     assert.equal((await request(`/v1/sessions/${visible.id}/attachments`,{name:'forbidden.txt',mimeType:'text/plain',data:'dGV4dA=='},cookie)).status,403);
     assert.equal((await request(`/v1/sessions/${visible.id}/context/resume`,{},cookie)).status,403);
@@ -210,6 +214,7 @@ test(
     assert.equal(await page.evaluate(async body=>(await fetch('/v1/profiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).status,privateProfileCommand),403,'operator devices cannot replay Owner configuration commands');
     assert.equal(await page.evaluate(async id=>(await fetch(`/v1/sessions/${id}/cancel`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'hidden-stop-receipt'})})).status,invisible.id),403,'operator stop receipts remain scoped to authorized workspaces');
     assert.equal(await page.evaluate(async id=>(await fetch(`/v1/sessions/${id}/queue`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'hidden-queue-receipt'})})).status,invisible.id),403);
+    assert.equal(await page.evaluate(async id=>(await fetch(`/v1/sessions/${id}/artifacts`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:'hidden-artifact.txt',key:'hidden-artifact-receipt'})})).status,invisible.id),403);
     const replays=await page.evaluate(async({directory,hidden})=>{
       const replay=async(workspace,key)=>{const response=await fetch('/v1/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'demo',workspace,key})});return {status:response.status,body:await response.json()};};
       return [await replay(directory,'visible-creation'),await replay(hidden,'hidden-creation')];
@@ -313,6 +318,18 @@ test(
     );
     await page.getByRole('button',{name:'文件',exact:true}).click();
     await page.getByRole('complementary',{name:'工作区预览'}).waitFor();
+    const explorer=page.getByRole('region',{name:'文件浏览器',exact:true});
+    await explorer.getByRole('textbox',{name:'筛选文件',exact:true}).fill('mobile-artifact.txt');await explorer.getByRole('button',{name:'mobile-artifact.txt',exact:true}).click();
+    const saveArtifact=explorer.getByRole('button',{name:'保存为文本产物',exact:true});await saveArtifact.waitFor();assert.ok((await saveArtifact.boundingBox()).height>=44);
+    const artifactBodies=[];const lostArtifact=async route=>{if(route.request().method()!=='POST'){await route.continue();return;}artifactBodies.push(route.request().postDataJSON());const response=await route.fetch();if(artifactBodies.length===1){await rm(join(directory,'mobile-artifact.txt'));await route.abort('failed');}else await route.fulfill({response});};
+    await page.route('**/v1/sessions/*/artifacts',lostArtifact);await saveArtifact.click();
+    await explorer.getByRole('button',{name:'重试保存产物',exact:true}).waitFor();await explorer.getByRole('button',{name:'关闭预览',exact:true}).click();
+    await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-artifact-retry-mobile.png')});
+    assert.ok((await explorer.getByRole('button',{name:'重试保存产物',exact:true}).boundingBox()).height>=44);
+    await explorer.getByRole('button',{name:'重试保存产物',exact:true}).click();await explorer.getByText('已保存文本产物：mobile-artifact.txt',{exact:true}).waitFor();
+    assert.equal(artifactBodies.length,2);assert.equal(typeof artifactBodies[0].key,'string');assert.deepEqual(artifactBodies[0],artifactBodies[1]);await page.unroute('**/v1/sessions/*/artifacts',lostArtifact);
+    const saved=await call(`/sessions/${visible.id}/artifacts`);assert.equal(saved.filter(item=>item.path==='mobile-artifact.txt').length,1);assert.equal(saved.find(item=>item.path==='mobile-artifact.txt').content.text,'phone snapshot original');
+    assert.equal(saved.find(item=>item.path==='mobile-artifact.txt').runId,waitingRun.runs.at(-1).id,'snapshots link the last started execution, never a newer withdrawn queue item');
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-live-tools-mobile.png')});
     await page.getByRole('button',{name:'收起右侧面板',exact:true}).click();

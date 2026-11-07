@@ -408,6 +408,7 @@ impl Workbench {
                     "profileCommandIdempotency",
                     "stopCommandIdempotency",
                     "queueCommandIdempotency",
+                    "artifactCaptureIdempotency",
                     "structuredErrors",
                 ]
                 .into_iter()

@@ -129,6 +129,31 @@ pub struct QueueResponse {
     pub updated: bool,
 }
 
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CaptureArtifactRequest {
+    pub path: String,
+    pub key: Option<String>,
+}
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ArtifactContent {
+    pub path: String,
+    pub size: u64,
+    pub binary: bool,
+    pub truncated: bool,
+    pub text: String,
+}
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactRecord {
+    pub id: String,
+    pub session_id: String,
+    pub run_id: Option<String>,
+    pub path: String,
+    pub content: ArtifactContent,
+    pub created_at: u64,
+    pub source: String,
+}
+
 #[derive(Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelRequest {
@@ -549,6 +574,8 @@ pub fn schemas() -> Value {
         "SubmitMessageRequest":schema_for!(SubmitMessageRequest),
         "QueueRequest":schema_for!(QueueRequest),
         "QueueResponse":schema_for!(QueueResponse),
+        "CaptureArtifactRequest":schema_for!(CaptureArtifactRequest),
+        "ArtifactRecord":schema_for!(ArtifactRecord),
         "CancelRequest":schema_for!(CancelRequest),
         "CancelResponse":schema_for!(CancelResponse),
         "UpdateSessionRequest":schema_for!(UpdateSessionRequest),

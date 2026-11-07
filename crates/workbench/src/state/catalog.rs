@@ -107,23 +107,18 @@ impl Workbench {
         self.put_catalog_with_receipt_locked(kind, id, value, None)
             .await
     }
-    async fn put_catalog_with_receipt_locked(
+    pub(super) async fn put_catalog_with_receipt_locked(
         &self,
         kind: &str,
         id: &str,
         value: Value,
-        receipt: Option<(&str, &Value)>,
+        receipt: Option<(&str, &str, &Value)>,
     ) -> Result<(), DomainError> {
         self.command_available()?;
         let _sync = self.sync_gate.lock().await;
         let cursor = self
             .store
-            .put_catalog_with_receipt(
-                kind,
-                id,
-                &value,
-                receipt.map(|(id, value)| ("profile-command", id, value)),
-            )
+            .put_catalog_with_receipt(kind, id, &value, receipt)
             .await
             .map_err(|error| {
                 self.fail_storage(error);
@@ -137,9 +132,9 @@ impl Workbench {
         } else {
             items.insert(id.into(), value);
         }
-        if let Some((id, value)) = receipt {
+        if let Some((kind, id, value)) = receipt {
             catalog
-                .entry("profile-command".into())
+                .entry(kind.into())
                 .or_default()
                 .insert(id.into(), value.clone());
         }
@@ -343,7 +338,7 @@ impl Workbench {
                 "profile",
                 id,
                 Value::Null,
-                key.as_deref().map(|key| (key, &receipt)),
+                key.as_deref().map(|key| ("profile-command", key, &receipt)),
             )
             .await?;
             return Ok(crate::contracts::ProfileResponse::Removed { removed: true });
@@ -422,7 +417,7 @@ impl Workbench {
             "profile",
             &id,
             value,
-            key.as_deref().map(|key| (key, &receipt)),
+            key.as_deref().map(|key| ("profile-command", key, &receipt)),
         )
         .await?;
         Ok(crate::contracts::ProfileResponse::Saved(profile))

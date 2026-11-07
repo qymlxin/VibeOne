@@ -779,6 +779,97 @@
       }
     }
   },
+  "CaptureArtifactRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "CaptureArtifactRequest",
+    "type": "object",
+    "required": [
+      "path"
+    ],
+    "properties": {
+      "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "path": {
+        "type": "string"
+      }
+    }
+  },
+  "ArtifactRecord": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ArtifactRecord",
+    "type": "object",
+    "required": [
+      "content",
+      "createdAt",
+      "id",
+      "path",
+      "sessionId",
+      "source"
+    ],
+    "properties": {
+      "content": {
+        "$ref": "#/definitions/ArtifactContent"
+      },
+      "createdAt": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0
+      },
+      "id": {
+        "type": "string"
+      },
+      "path": {
+        "type": "string"
+      },
+      "runId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "sessionId": {
+        "type": "string"
+      },
+      "source": {
+        "type": "string"
+      }
+    },
+    "definitions": {
+      "ArtifactContent": {
+        "type": "object",
+        "required": [
+          "binary",
+          "path",
+          "size",
+          "text",
+          "truncated"
+        ],
+        "properties": {
+          "binary": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  },
   "CancelRequest": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "CancelRequest",

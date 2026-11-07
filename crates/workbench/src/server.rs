@@ -392,21 +392,17 @@ async fn artifacts(State(state): State<Server>, Path(id): Path<String>) -> ApiRe
 async fn capture_artifact(
     State(state): State<Server>,
     Path(id): Path<String>,
-    Json(body): Json<Value>,
-) -> ApiResult {
-    let path = body["path"]
-        .as_str()
-        .ok_or_else(|| {
-            domain_fail(crate::domain_error::DomainError::new(
-                crate::domain_error::ErrorKind::InvalidInput,
-                "请选择文件",
-            ))
-        })?
-        .to_owned();
-    domain_command(async move { state.workbench.capture_artifact(&id, &path).await })
-        .await
-        .map(Json)
-        .map_err(domain_fail)
+    Json(body): Json<CaptureArtifactRequest>,
+) -> ApiResult<ArtifactRecord> {
+    domain_command(async move {
+        state
+            .workbench
+            .capture_artifact_with_key(&id, &body.path, body.key.as_deref())
+            .await
+    })
+    .await
+    .map(Json)
+    .map_err(domain_fail)
 }
 async fn changes(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
     crate::files::changes(&workspace(&state, &id)?)
