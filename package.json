@@ -18,6 +18,7 @@
     "host:test": "cargo build -p vibeone-host && node --test tests/workbench.test.mjs tests/host-lifecycle.test.mjs tests/session-creation.test.mjs tests/profile-receipts.test.mjs tests/stop-receipts.test.mjs tests/queue-receipts.test.mjs tests/artifact-receipts.test.mjs tests/metadata-receipts.test.mjs tests/execution.test.mjs tests/workspace.test.mjs tests/plugins.test.mjs tests/attachments.test.mjs tests/history.test.mjs tests/sync.test.mjs tests/plugin-operations.test.mjs tests/plugin-lifecycle.test.mjs tests/http-errors.test.mjs tests/resource-errors.test.mjs tests/plugin-resources.test.mjs tests/plugin-errors.test.mjs tests/remote-errors.test.mjs tests/request-contracts.test.mjs tests/provider-probe.test.mjs tests/cli.test.mjs tests/context-resume.test.mjs",
     "context:desktop": "node scripts/test-context-desktop.mjs",
     "agent:resume": "cargo build -p vibeone-host && node scripts/smoke-real-resume.mjs",
+    "desktop:visual": "cargo build -p vibeone-host && node --test tests/desktop-visual.test.mjs",
     "desktop:test": "cargo build -p vibeone-host && node --test tests/desktop.test.mjs",
     "agent:smoke": "cargo build -p vibeone-host && node scripts/smoke-real-agents.mjs",
     "plugin:scan": "npm run build && cargo run -p vibeone-host -- plugin scan --workspace .",

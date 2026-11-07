@@ -3,6 +3,7 @@ import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo
 import { createRoot } from "react-dom/client";
 import {
   ArrowUp,
+  GitCompareArrows, FileCode, Terminal, Globe, Layers, Pencil, Archive,
   Maximize2,
   PanelLeft,
   ChevronRight,
@@ -56,6 +57,7 @@ import { Brand } from "./Brand.jsx";
 import "../../../prototype/src/theme.css";
 import "./workbench.css";
 import "./workspace-layout.css";
+import "./desktop-parity.css";
 
 const labels = {
   idle: "就绪",
@@ -150,13 +152,47 @@ function App() {
   };
   const renderSession=item=><SessionRow key={item.id} item={item} selected={!creating&&item.id===selected} provider={workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={sessionLabel(item)} onSelect={()=>{setSelected(item.id);setCreating(false);setShowList(false);setSettings(false);}}/>;
   return (
-    <div className={`desktop-app ${showList ? "mobile-list" : ""} ${settings?"settings-open":""} ${sidebarOpen?"":"sidebar-closed"}`}>
+    <div className={`desktop-app ${showList ? "mobile-list" : ""} ${settings?"settings-open":""} ${sidebarOpen?"":"sidebar-closed"} ${isNative()?"native-desktop":""}`}>
+        <div className="desktop-connection" data-tauri-drag-region>
+          {!settings&&<button className="desktop-sidebar-toggle" aria-label={sidebarOpen?'收起会话栏':'展开会话栏'} onClick={()=>setSidebarOpen(!sidebarOpen)}><PanelLeft size={14}/></button>}
+          <button
+            className="mobile-open-list"
+            onClick={() => setShowList(true)}
+          >
+            会话列表
+          </button>
+          <span>
+            <span className={`desktop-dot ${online ? "online" : ""}`} />
+            {online ? "工作主机 · 本机已连接" : workbench.phase === "upgrading" ? "正在重启工作主机" : "正在连接工作主机"}
+          </span>
+          <span className="desktop-window-title" data-tauri-drag-region><FolderOpen size={13}/>VibeOne<ChevronRight size={12}/>{settings?"设置":creating||!session?"新会话":session.title}</span><span className="desktop-protocol">ACP v2 · 本地运行</span>
+        </div>
       <aside className="desktop-sidebar">
         <div className="desktop-brand">
-          <Brand/>
+          <Brand/>          <button
+            className="desktop-icon"
+            aria-label="新建会话"
+            onClick={() => {
+              setCreating(true);
+              setShowList(false);
+              setSettings(false);
+            }}
+          >
+            <Plus size={17} />
+          </button>
         </div>
+        <label className="desktop-search">
+          <Search size={14} />
+          <input
+            aria-label="搜索会话"
+            ref={searchInput}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="搜索会话或工作区"
+          />
+        </label>
         <button
-          className="desktop-nav active"
+          className="desktop-nav desktop-workbench-link"
           onClick={() => {
             setSettings(false);
           }}
@@ -188,28 +224,8 @@ function App() {
           >
             {archived ? "已归档 · 查看会话" : "会话 · 查看归档"}
           </button>
-          <button
-            className="desktop-icon"
-            aria-label="新建会话"
-            onClick={() => {
-              setCreating(true);
-              setShowList(false);
-              setSettings(false);
-            }}
-          >
-            <Plus size={17} />
-          </button>
+
         </div>
-        <label className="desktop-search">
-          <Search size={14} />
-          <input
-            aria-label="搜索会话"
-            ref={searchInput}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索会话或工作区"
-          />
-        </label>
         <div className="desktop-session-view" aria-label="会话分组方式"><button aria-pressed={sessionView==='recent'} onClick={()=>setSessionView('recent')}>最近</button><button aria-pressed={sessionView==='projects'} onClick={()=>setSessionView('projects')}>按项目</button>{!workbench.device&&<button aria-label="添加项目" onClick={()=>{setSettingsTarget('workspaces');setSettings(true);setShowList(false);}}><Plus size={13}/></button>}</div>
         <div className="desktop-session-list">
           {!sessions.length?<p className="desktop-list-empty">{query?'没有匹配的会话':'从一个新会话开始'}</p>:sessionView==='recent'?sessions.map(renderSession):sessionGroups(sessions,workbench.workspaces).map(group=><section className="desktop-project-group" key={group.path}><button className="desktop-project-heading" title={group.path} aria-expanded={!!query.trim()||!collapsedProjects.has(group.path)} onClick={()=>setCollapsedProjects(previous=>{const next=new Set(previous);if(next.has(group.path))next.delete(group.path);else next.add(group.path);return next;})}><ChevronRight size={12}/><FolderOpen size={13}/><span>{group.name}</span><small>{group.sessions.length}</small></button>{(!!query.trim()||!collapsedProjects.has(group.path))&&group.sessions.map(renderSession)}</section>)}
@@ -255,20 +271,6 @@ function App() {
         </div>
       </aside>
       <main className="desktop-main">
-        <div className="desktop-connection">
-          {!settings&&<button className="desktop-sidebar-toggle" aria-label={sidebarOpen?'收起会话栏':'展开会话栏'} onClick={()=>setSidebarOpen(!sidebarOpen)}><PanelLeft size={14}/></button>}
-          <button
-            className="mobile-open-list"
-            onClick={() => setShowList(true)}
-          >
-            会话列表
-          </button>
-          <span>
-            <span className={`desktop-dot ${online ? "online" : ""}`} />
-            {online ? "工作主机 · 本机已连接" : workbench.phase === "upgrading" ? "正在重启工作主机" : "正在连接工作主机"}
-          </span>
-          <span>ACP v2 · 本地运行</span>
-        </div>
         {online &&
           workbench.providers.length > 0 &&
           workbench.apiVersion !== 3 && (
@@ -563,8 +565,13 @@ function Conversation({ session, workbench, online, act }) {
     }
     setSending(false);
   };
+  const toolNavigation=<nav className={`desktop-session-tabs ${tab==='chat'?'icon-tools':''}`} aria-label="会话视图">{[
+    ['chat','对话',MessageSquare],['changes','变更',GitCompareArrows],['files','文件',FolderOpen],['runs','执行记录',Layers],['terminal','终端',Terminal],['browser','网址浏览',Globe],['artifacts','产物',FileCode],['agent','Agent 设置',Settings2],
+  ].map(([id,label,Icon])=><button key={id} title={label} aria-label={label} aria-pressed={tab===id} onClick={()=>setTab(id)}><Icon size={14}/><span>{label}</span></button>)}</nav>;
   return (
     <PreviewContext.Provider value={previewContext}>
+      <div className="desktop-conversation-body">
+      <div className="desktop-chat-column">
       <header className="desktop-conversation-heading">
         <div>
           {editingTitle ? (
@@ -593,22 +600,22 @@ function Conversation({ session, workbench, online, act }) {
           )}
           {workbench.persistent && (
             <div className="desktop-session-actions">
-              <button
+              <button aria-label="重命名" title="重命名"
                 disabled={!online || !canOperate || metadataCommands.busy || !!metadataCommands.failure}
                 onClick={() => {
                   setTitle(session.title);
                   setEditingTitle(true);
                 }}
               >
-                重命名
+                <Pencil size={13}/>
               </button>
-              <button
+              <button aria-label={session.archived?"取消归档":"归档"} title={session.archived?"取消归档":"归档"}
                 disabled={!online || !canOperate || active || metadataCommands.busy || !!metadataCommands.failure}
                 onClick={() =>
                   void metadataCommands.execute({archived:!session.archived})
                 }
               >
-                {session.archived ? "取消归档" : "归档"}
+                <Archive size={13}/>
               </button>
             </div>
           )}
@@ -638,25 +645,9 @@ function Conversation({ session, workbench, online, act }) {
           )}
           {sessionLabel(session)}
         </span>
+        {tab==='chat'&&toolNavigation}
       </header>
-      <nav className="desktop-session-tabs" aria-label="会话视图">
-        {[
-          ["chat", "对话"],
-          ["changes", "变更"],
-          ["files", "文件"],
-          ["runs", "执行记录"],
-          ["terminal", "终端"],
-          ["browser", "网址浏览"],
-          ["artifacts", "产物"],
-          ["agent", "Agent 设置"],
-        ].map(([id, label]) => (
-          <button key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>
-            {label}
-          </button>
-        ))}
-      </nav>
-      <div className="desktop-conversation-body">
-      <div className="desktop-chat-column">
+
       <div className="desktop-timeline-shell">
       <div
         className="desktop-timeline"
@@ -825,7 +816,7 @@ function Conversation({ session, workbench, online, act }) {
             onPanel={setTab} disabled={readOnly || sending} online={online}
             placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档或选择继续使用的上下文" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 引用文件…"}/>
           <AgentConfigControls session={session} workbench={workbench} compact onOpen={()=>setTab('agent')}/>
-          <div>
+          <div className="desktop-composer-toolbar">
             <span>
               <MessageSquare size={13} />
               {name}
@@ -880,7 +871,7 @@ function Conversation({ session, workbench, online, act }) {
         </div>
       </div>
       </div>
-      {tab!=="chat" && <><SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}}/><aside style={expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className={`desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><header className="desktop-right-panel-header"><strong>{({changes:'变更',files:'文件',runs:'执行记录',terminal:'终端',browser:'网址浏览',artifacts:'产物',agent:'Agent 设置'})[tab]}</strong><button className="desktop-icon desktop-expand-preview" aria-label={expandedPanel?'恢复面板宽度':'扩大预览'} onClick={()=>setExpandedPanel(!expandedPanel)}>{expandedPanel?<Minimize2 size={15}/>:<Maximize2 size={15}/>}</button><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl} canBack={browserHistory.index>0} canForward={browserHistory.index<browserHistory.urls.length-1} onBack={()=>setBrowserHistory(previous=>({...previous,index:Math.max(0,previous.index-1)}))} onForward={()=>setBrowserHistory(previous=>({...previous,index:Math.min(previous.urls.length-1,previous.index+1)}))}/>:<SessionTools key={tab} artifactCapture={artifactCapture} session={history.session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget} onLocateRun={locateRun} availableRunIds={turns.map(turn=>turn.id)}/>}</aside></>}
+      {tab!=="chat" && <><SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}}/><aside style={expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className={`desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><header className="desktop-right-panel-header">{toolNavigation}<button className="desktop-icon desktop-expand-preview" aria-label={expandedPanel?'恢复面板宽度':'扩大预览'} onClick={()=>setExpandedPanel(!expandedPanel)}>{expandedPanel?<Minimize2 size={15}/>:<Maximize2 size={15}/>}</button><button className="desktop-icon" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl} canBack={browserHistory.index>0} canForward={browserHistory.index<browserHistory.urls.length-1} onBack={()=>setBrowserHistory(previous=>({...previous,index:Math.max(0,previous.index-1)}))} onForward={()=>setBrowserHistory(previous=>({...previous,index:Math.min(previous.urls.length-1,previous.index+1)}))}/>:<SessionTools key={tab} artifactCapture={artifactCapture} session={history.session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget} onLocateRun={locateRun} availableRunIds={turns.map(turn=>turn.id)}/>}</aside></>}
       </div>
     </PreviewContext.Provider>
   );

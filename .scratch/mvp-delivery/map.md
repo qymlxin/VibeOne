@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [107 桌面视觉一致](issues/107-desktop-prototype-parity.md)：按用户最新要求，以批准原型逐项还原正式UI，功能通过不能代替视觉验收；进行中。
+
 - [106 原生输入菜单](issues/106-native-composer-focus.md)：修复focus/选区竞争，桌面与手机回归及真实Tauri的 `/`、`@` 菜单/文件选择通过；临时会话已归档，原视图恢复。
 
 - [03 首个真实Agent](issues/03-first-agent-cli.md)：按原始验收复核并关闭；本轮真实Codex对话再次end_turn，既有真实批准/拒绝、取消进程/只读恢复和结构化输入结果报告重新核对通过。Claude/原生/真机继续各自验收。
@@ -98,7 +100,7 @@
 
 - [56-packaged-acp-bridges](issues/56-packaged-acp-bridges.md)：移除桌面包对开发仓库桥接器的隐式依赖，随包复制锁定适配器/生产闭包/本平台CLI；仓库外两个v2握手、CLI、网页、Worker、插件Provider与历史验证通过。
 
-- [52-prototype-final-audit](issues/52-prototype-final-audit.md)：逐控件矩阵已保存，当前自动检查和包外资源验证通过；Mac锁屏、Claude认证及物理设备/系统界面仍未验收，总目标未完成。
+- [52-prototype-final-audit](issues/52-prototype-final-audit.md)：逐控件矩阵已保存，当前自动检查和包外资源验证通过；Mac已解锁并安全升级，原生输入/目录选择已核对；Claude认证及其余物理设备/系统界面仍未验收，总目标未完成。
 
 - [57-composer-caret-race](issues/57-composer-caret-race.md)：修复引用入口和候选选择延迟恢复光标覆盖新输入的问题；延迟动画帧用例修复前红、修复后绿，桌面及HTTPS手机回归通过。
 

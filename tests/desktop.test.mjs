@@ -234,7 +234,7 @@ test(
     assert.equal(await composer.inputValue(),'');
     await composer.fill('/terminal');
     await page.getByRole('button',{name:'发送消息',exact:true}).click();
-    await page.locator('.desktop-right-panel-header strong').getByText('终端',{exact:true}).waitFor();
+    await page.getByRole('navigation',{name:'会话视图'}).getByRole('button',{name:'终端',exact:true,pressed:true}).waitFor();
     assert.equal(await composer.inputValue(),'');
     assert.equal(await page.locator('.desktop-message.user').count(),0);
     await composer.fill('/files');

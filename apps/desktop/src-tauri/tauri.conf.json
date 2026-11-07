@@ -13,6 +13,8 @@
     "windows": [
       {
         "title": "VibeOne",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
         "width": 1360,
         "height": 900,
         "minWidth": 960,

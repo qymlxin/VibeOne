@@ -1,5 +1,5 @@
 import React,{useContext,useEffect,useRef,useState} from 'react';
-import {File,Paperclip,X} from 'lucide-react';
+import {File,Plus,X} from 'lucide-react';
 import {PreviewContext} from './PreviewLinks.jsx';
 import './attachments.css';
 const imageTypes=new Set(['image/png','image/jpeg','image/gif','image/webp']);
@@ -56,5 +56,5 @@ export function AttachmentCard({item,onRemove,disabled=false}){
 export function AttachmentCards({items}){return items?.length?<div className="desktop-attachment-cards">{items.map(item=><AttachmentCard key={item.id} item={item}/>)}</div>:null;}
 export function AttachmentPicker({draft,disabled,supported}){
  const input=useRef(null);
- return <section className="desktop-attachment-picker"><div className="desktop-attachment-cards">{draft.items.map(item=><AttachmentCard key={item.id} item={item} disabled={disabled||draft.busy} onRemove={item=>void draft.remove(item)}/>)}</div><input ref={input} hidden type="file" multiple aria-label="选择附件文件" disabled={disabled||draft.busy||!supported||!draft.online} onChange={event=>{void draft.add([...event.target.files]);event.target.value='';}}/><button type="button" disabled={disabled||draft.busy||!supported||!draft.online} onClick={()=>input.current?.click()} title={supported?'选择文件，也可以拖入文件或粘贴图片':'需结束执行后重启主机以启用附件'}><Paperclip size={14}/>{draft.busy?'正在添加附件…':'添加附件'}</button>{draft.error&&<p role="alert">{draft.error}</p>}{draft.items.length>0&&<small>固定内容 · 每个4MiB · 最多5个 · Agent连接后校验媒体能力</small>}</section>;
+ return <section className="desktop-attachment-picker"><div className="desktop-attachment-cards">{draft.items.map(item=><AttachmentCard key={item.id} item={item} disabled={disabled||draft.busy} onRemove={item=>void draft.remove(item)}/>)}</div><input ref={input} hidden type="file" multiple aria-label="选择附件文件" disabled={disabled||draft.busy||!supported||!draft.online} onChange={event=>{void draft.add([...event.target.files]);event.target.value='';}}/><button type="button" disabled={disabled||draft.busy||!supported||!draft.online} aria-label={draft.busy?'正在添加附件…':'添加附件'} onClick={()=>input.current?.click()} title={supported?'选择文件，也可以拖入文件或粘贴图片':'需结束执行后重启主机以启用附件'}><Plus size={19}/>{draft.busy?'正在添加附件…':'添加附件'}</button>{draft.error&&<p role="alert">{draft.error}</p>}{draft.items.length>0&&<small>固定内容 · 每个4MiB · 最多5个 · Agent连接后校验媒体能力</small>}</section>;
 }

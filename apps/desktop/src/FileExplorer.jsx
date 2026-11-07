@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {ChevronRight,FileText,Folder,PanelRight,Search} from 'lucide-react';
+import {ChevronRight,FileText,Folder,PanelRight,Search,X} from 'lucide-react';
 import {codeLines} from './code-lines.js';
 import './file-explorer.css';
 const clean=path=>path.replace(/^\.\//,'');
@@ -53,8 +53,8 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
  const trail=[{name:'工作区',path:'.'},...parts.map((name,index)=>({name,path:parts.slice(0,index+1).join('/')}))];
  const lines=codeLines(preview?.text??'',preview?.isDiff);
  return <section ref={root} className="desktop-inspector explorer" aria-label={tab==='changes'?'变更浏览器':'文件浏览器'}>
-  <header><h2>{tab==='changes'?'工作区变更':'工作区文件'}</h2><div><button onClick={()=>{void load();if(selected)void inspect(selected,selected.stagedView);for(const path of expanded)if(path!=='.')void directory(path);}} disabled={busy||navigating}>刷新</button><button aria-label={showTree?'收起文件列表':'显示文件列表'} aria-pressed={showTree} onClick={()=>setShowTree(!showTree)}><PanelRight size={14}/></button></div></header>
-  {tab==='files'&&<><form className="explorer-path" onSubmit={event=>{event.preventDefault();void navigate(pathDraft);}}><input aria-label="浏览目录" value={pathDraft} disabled={navigating} onChange={event=>setPathDraft(event.target.value)}/><button disabled={busy||navigating}>打开目录</button></form><nav className="explorer-breadcrumbs" aria-label="当前目录">{trail.map((item,index)=><React.Fragment key={item.path}>{index>0&&<ChevronRight size={12} aria-hidden="true"/>}<button title={item.path} disabled={navigating} aria-current={index===trail.length-1?'page':undefined} onClick={()=>void navigate(item.path)}>{item.name}</button></React.Fragment>)}</nav></>}
+  <header><h2 title={selected?.path}>{selected?<><FileText size={13}/>{selected.path.split('/').at(-1)}</>:tab==='changes'?'工作区变更':'工作区文件'}</h2><div>{selected&&<button aria-label="关闭预览" title="关闭预览" onClick={()=>{selectionId.current++;setSelected(null);setPreview(null);}}><X size={13}/></button>}<button onClick={()=>{void load();if(selected)void inspect(selected,selected.stagedView);for(const path of expanded)if(path!=='.')void directory(path);}} disabled={busy||navigating}>刷新</button><button aria-label={showTree?'收起文件列表':'显示文件列表'} aria-pressed={showTree} onClick={()=>setShowTree(!showTree)}><PanelRight size={14}/></button></div></header>
+  {tab==='files'&&<><form className="explorer-path" onSubmit={event=>{event.preventDefault();void navigate(pathDraft);}}><input aria-label="浏览目录" value={pathDraft} disabled={navigating} onChange={event=>setPathDraft(event.target.value)}/><button disabled={busy||navigating}>打开目录</button></form>{path!=='.'&&<nav className="explorer-breadcrumbs" aria-label="当前目录">{trail.map((item,index)=><React.Fragment key={item.path}>{index>0&&<ChevronRight size={12} aria-hidden="true"/>}<button title={item.path} disabled={navigating} aria-current={index===trail.length-1?'page':undefined} onClick={()=>void navigate(item.path)}>{item.name}</button></React.Fragment>)}</nav>}</>}
   {tab==='changes'&&<p className="explorer-notice">{result?.branch&&<strong>{result.branch} · </strong>}{result?.notice}</p>}
   {error&&<p role="alert">{error}</p>}{(busy||navigating)&&<p role="status">正在读取…</p>}
   {capture.busy&&<p role="status">正在确认产物保存…</p>}
@@ -62,7 +62,7 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
   {capture.failure&&<div className="explorer-capture-failure" role="alert"><p>保存 {capture.failure.path} 未确认：{capture.failure.message}</p><button disabled={!online||capture.busy} onClick={()=>void capture.retry()}>重试保存产物</button><button disabled={capture.busy} aria-label="关闭产物保存提示" onClick={capture.dismiss}>关闭提示</button></div>}
   <div className={`explorer-workspace ${showTree?'with-tree':''}`}>
    <article className="desktop-file-preview explorer-preview">
-    {selected?<><header><strong title={selected.path}>{selected.path}</strong><button onClick={()=>{selectionId.current++;setSelected(null);setPreview(null);}}>关闭预览</button></header>
+    {selected?<>
      {tab==='changes'&&!selected.untracked&&<div className="explorer-diff-modes"><button aria-pressed={!selected.stagedView} onClick={()=>void inspect(selected,false)}>未暂存差异</button><button aria-pressed={!!selected.stagedView} onClick={()=>void inspect(selected,true)}>已暂存差异</button></div>}
      {!preview&&!error&&<p role="status">正在读取文件…</p>}
      {preview&&<>{preview.binary?<p>二进制文件 · {preview.size} 字节</p>:<>
