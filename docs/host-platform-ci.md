@@ -24,3 +24,5 @@ GitHub语法及运行器依据：[矩阵工作流](https://docs.github.com/en/ac
 首轮Windows的严格生成契约检查失败，固定Git检出换行后第二轮校验通过；没有对生成器做宽松换行比较。随后实际插件打包测试暴露作者CLI用字符串`/`前缀检查App入口，导致合法Windows路径被误拒。
 
 作者CLI现以平台路径API的relative/isAbsolute判断目录包含关系，同时修正输出目录不能在源包内的检查。用例覆盖Windows盘符、大小写、混合分隔符、UNC共享路径，以及POSIX路径、相邻同前缀目录、父级跳转和不同驱动器；实际CLI继续验证打包/检查成功与源包内输出拒绝。远程全矩阵结果在实际通过后再记录。
+
+第三轮Windows通过了全部61项Node检查，随后Rust/Node桥接集成发现规范路径带Windows verbatim前缀时，Node主模块解析失败（EISDIR，lstat D:）。PluginHost在启动前用固定版本dunce 1.0.5规范化Runner路径，仅在等价且安全时使用兼容表示，不盲目剥离所有前缀；库说明见[dunce canonicalize](https://docs.rs/dunce/1.0.5/dunce/fn.canonicalize.html)。本机6项真实Node桥接、严格Clippy和原生5项单元通过，仍等待实际Windows复验。

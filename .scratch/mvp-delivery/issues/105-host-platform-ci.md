@@ -24,3 +24,5 @@ Blocked by: none
 本机最终完整check为60项Node/SDK、workspace Rust（Workbench54、存储9）、47项Host与恢复通过；原生5项单元、严格Clippy与新增隔离Host冒烟12.6秒通过。原生CUA仍明确Mac locked，Claude只读状态false/none，实际用户Host健康且未操作。批准原型五个源码文件的控件已重新提取复核；尚未用自动检查代替原生/物理设备验收。
 
 第二轮Linux/macOS通过，Windows生成契约校验已通过，随后作者CLI pack返回Invalid App entry。实际代码用`${realpath(root)}/`做App前缀比较，不适配Windows分隔符，输出目录范围检查也有同类假设。新增containsPackagePath，使用平台relative/isAbsolute判断，保留真实路径及普通文件检查；补充POSIX、盘符大小写/混合分隔符、UNC、相邻目录/父级/跨盘及实际CLI源包内输出拒绝回归。61项Node检查和追加作者CLI/范围2项检查通过，等待远程验证，105仍claimed。
+
+第三轮Linux/macOS通过；Windows的61项Node检查已通过，Rust桥接6项则因Node主模块读取Windows规范路径失败（EISDIR，lstat D:）。PluginHost启动Runner前改用固定dunce 1.0.5兼容规范化路径，保留不能安全简化的名称与长路径，不手写截前缀。本机6项真实Node桥接、workspace严格Clippy和原生5项单元通过，继续远程验证。

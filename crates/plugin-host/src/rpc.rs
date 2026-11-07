@@ -156,6 +156,10 @@ impl PluginHost {
         runner: &Path,
         broker: Arc<dyn HostCapabilityBroker>,
     ) -> Result<Self> {
+        // Windows canonical paths may use a verbatim prefix unsupported by
+        // Node's main-module resolver. Simplify only when the same file can
+        // safely be expressed without it; keep reserved/long paths intact.
+        let runner = dunce::canonicalize(runner)?;
         let mut child = Command::new(node)
             .arg(runner)
             .stdin(Stdio::piped())
