@@ -6,7 +6,7 @@
 
 ## Decisions-so-far
 
-- [107 桌面视觉一致](issues/107-desktop-prototype-parity.md)：按用户最新要求还原主框架、输入区、文件工具及设置导航/常规/远程/插件入口；桌面/手机/尺寸截图及真实Tauri核对通过，已安装对象和复杂状态继续逐项还原。
+- [107 桌面视觉一致](issues/107-desktop-prototype-parity.md)：已直接迁入批准原型核心CSS/DOM/外观组件，删除旧桌面布局；桌面、手机、已有配置/插件/长标题/人工等待视觉、打包冒烟及实际Tauri亮暗验收通过，六会话历史与元数据不变。
 
 - [106 原生输入菜单](issues/106-native-composer-focus.md)：修复focus/选区竞争，桌面与手机回归及真实Tauri的 `/`、`@` 菜单/文件选择通过；临时会话已归档，原视图恢复。
 
@@ -86,7 +86,7 @@
 
 - [49-project-session-sidebar](issues/49-project-session-sidebar.md)：补齐项目分组/折叠、真实最近排序、搜索快捷键与侧栏开合，新增活动时间持久化；单元、桌面、崩溃恢复与Clippy通过。
 
-- 完整原型交付：50 附件、51 长历史已实现；52逐项审计和实际原生核对继续，Mac锁屏时不绕过限制，解锁后只在空闲时升级Host。目标保持active。
+- 完整原型交付：50 附件、51 长历史已实现；52逐项审计和实际原生核对继续，Mac锁屏时不绕过限制，解锁后只在空闲时升级Host。后续完整范围以当前用户指示为准。
 
 - [50-prototype-attachments](issues/50-prototype-attachments.md)：补齐真实附件存储/上传/预览/下载、图片粘贴拖放及ACP内容块，验证字节哈希、作用域、幂等与恢复；桌面/HTTPS手机回归通过。
 
