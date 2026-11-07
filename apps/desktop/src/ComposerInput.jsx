@@ -5,7 +5,7 @@ import {discoverComposerSkills} from './composer-skills.js';
 import './composer.css';
 
 export function ComposerInput({session,workbench,value,onChange,files,onFiles,onSubmit,onPanel,disabled,online,placeholder}) {
-  const input=useRef(null),root=useRef(null),cache=useRef(new Map()),selection=useRef(null),dismissed=useRef(false);
+  const input=useRef(null),root=useRef(null),cache=useRef(new Map()),selection=useRef(null),dismissed=useRef(false),restoringSelection=useRef(false);
   const [token,setToken]=useState(null),[selected,setSelected]=useState(0),[listing,setListing]=useState(null),[error,setError]=useState('');
   const [refresh,setRefresh]=useState(0),[skillRefresh,setSkillRefresh]=useState(0);
   const [skills,setSkills]=useState([]),[skillError,setSkillError]=useState(''),[skillsLoading,setSkillsLoading]=useState(false);
@@ -24,7 +24,11 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
     if(!pending)return;
     selection.current=null;
     if(input.current?.value!==pending.text)return;
-    input.current.focus();input.current.setSelectionRange(pending.caret,pending.caret);
+    // WebKit may fire focus before setSelectionRange, while the caret is still
+    // at zero. The trigger already owns the token for this controlled update.
+    restoringSelection.current=true;
+    try{input.current.focus();input.current.setSelectionRange(pending.caret,pending.caret);}
+    finally{restoringSelection.current=false;}
   });
   const directory=token?.kind==='@'?(token.query.includes('/')?token.query.slice(0,token.query.lastIndexOf('/')+1):''):'';
   const query=token?.kind==='@'?token.query.slice(directory.length):'';
@@ -99,7 +103,7 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
     <textarea ref={input} aria-label="发送任务" aria-haspopup="listbox" aria-autocomplete="list" aria-controls={token?listId:undefined} aria-expanded={!!token} aria-activedescendant={token&&options[selected]?`${listId}-${selected}`:undefined} disabled={disabled} value={value} placeholder={placeholder}
       onChange={event=>update(event.target.value,event.target.selectionStart)}
       onClick={event=>{dismissed.current=false;setToken(composerToken(value,event.currentTarget.selectionStart));}}
-      onFocus={event=>{dismissed.current=false;setToken(composerToken(value,event.currentTarget.selectionStart));}}
+      onFocus={event=>{if(restoringSelection.current)return;dismissed.current=false;setToken(composerToken(value,event.currentTarget.selectionStart));}}
       onSelect={event=>{if(token&&!dismissed.current)setToken(composerToken(value,event.target.selectionStart));}}
       onKeyDown={event=>{
         if(event.nativeEvent.isComposing||event.keyCode===229)return;

@@ -194,6 +194,18 @@ test(
     await page.getByRole('heading',{name:'工作区',exact:true,level:1}).waitFor();
     await page.getByRole('button',{name:'返回工作台',exact:true}).click();
     const composer=page.getByRole('textbox',{name:'发送任务'});
+    // WebKit can focus a controlled textarea before its new selection is restored.
+    await page.evaluate(()=>{window.__originalComposerFocus=HTMLTextAreaElement.prototype.focus;HTMLTextAreaElement.prototype.focus=function(...args){if(this.getAttribute('aria-label')==='发送任务'&&document.activeElement!==this)this.setSelectionRange(0,0);return window.__originalComposerFocus.apply(this,args);};});
+    await page.getByRole('textbox',{name:'搜索会话',exact:true}).focus();
+    await page.getByRole('button',{name:'选择指令',exact:true}).click();
+    await page.getByRole('listbox',{name:'指令建议',exact:true}).waitFor({timeout:2000});
+    await composer.press('Escape');await composer.fill('');
+    await page.getByRole('textbox',{name:'搜索会话',exact:true}).focus();
+    await page.getByRole('button',{name:'引用文件',exact:true}).click();
+    await page.getByRole('listbox',{name:'文件建议',exact:true}).waitFor({timeout:2000});
+    await composer.press('Escape');await composer.fill('');
+    await page.evaluate(()=>{HTMLTextAreaElement.prototype.focus=window.__originalComposerFocus;delete window.__originalComposerFocus;});
+
     await composer.fill('看看@preview');
     await page.getByRole('option',{name:/preview.txt/}).waitFor();
     await composer.press('Tab');

@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [106 原生输入菜单](issues/106-native-composer-focus.md)：修复focus/选区竞争，桌面与手机回归及真实Tauri的 `/`、`@` 菜单/文件选择通过；临时会话已归档，原视图恢复。
+
 - [03 首个真实Agent](issues/03-first-agent-cli.md)：按原始验收复核并关闭；本轮真实Codex对话再次end_turn，既有真实批准/拒绝、取消进程/只读恢复和结构化输入结果报告重新核对通过。Claude/原生/真机继续各自验收。
 
 - [105 Host跨平台CI](issues/105-host-platform-ci.md)：三平台真实运行42322487387全部通过；修复Windows检出换行、打包路径和Node Runner规范路径三处差异。Host CI关闭，原生/物理设备仍独立验收。
