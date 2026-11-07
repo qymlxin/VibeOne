@@ -2,9 +2,11 @@ import {AgentConfigControls} from "./AgentConfigControls.jsx";
 import {FileExplorer} from "./FileExplorer.jsx";
 import {describeTool} from "./tool-presentation.js";
 import {ToolDetails} from "./ToolDetails.jsx";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, lazy, Suspense } from "react";
 
+const TerminalPanel=lazy(()=>import("./TerminalPanel.jsx"));
 export function SessionTools(props) {
+  if(props.tab==='terminal')return <Suspense fallback={<p>正在打开终端…</p>}><TerminalPanel {...props}/></Suspense>;
   return ['files','changes'].includes(props.tab)?<FileExplorer {...props}/>:<SessionToolsDetail {...props}/>;
 }
 function SessionToolsDetail({ session, workbench, tab, act, onLocateRun, availableRunIds=[] }) {
@@ -16,11 +18,6 @@ function SessionToolsDetail({ session, workbench, tab, act, onLocateRun, availab
     if(id===listRequest.current&&value)setResult(value);
   }
   useEffect(()=>{setResult(null);if(tab==='artifacts')void load();return()=>{listRequest.current++;};},[session.id,tab]);
-  if(tab==='terminal'){
-    const tools=session.tools.filter(tool=>tool.kind==='execute'||describeTool(tool).kind==='command');
-    const terminals=session.agentState?.terminals ?? [];
-    return <section className="desktop-inspector desktop-terminal"><h2>Agent 终端输出（只读）</h2><p>来自当前会话的实际执行记录，不启动交互 Shell。</p>{!tools.length&&!terminals.length&&<p>尚未收到命令或终端输出。</p>}{tools.map(tool=><details key={tool.toolCallId}><summary>{tool.title ?? tool.name ?? '命令'} · {tool.status}</summary><ToolDetails tool={tool}/>{availableRunIds.includes(tool.runId)&&<button onClick={()=>onLocateRun(tool.runId)}>定位到对应对话</button>}</details>)}{terminals.map((terminal,index)=><pre key={terminal.id??index}>{terminal.data?decode(terminal.data):JSON.stringify(terminal,null,2)}</pre>)}</section>;
-  }
   if (tab === "agent")
     return (
       <section className="desktop-inspector">
@@ -56,6 +53,8 @@ function SessionToolsDetail({ session, workbench, tab, act, onLocateRun, availab
     return (
       <section className="desktop-inspector">
         <h2>执行记录</h2>
+        <h3>Agent 工具与命令</h3>
+        {session.tools.map(tool=><details key={tool.toolCallId}><summary>{tool.title??tool.name??'工具'} · {tool.status}</summary><ToolDetails tool={tool}/>{availableRunIds.includes(tool.runId)&&<button onClick={()=>onLocateRun(tool.runId)}>定位到对应对话</button>}</details>)}
         {session.agentState?.plan && (
           <details>
             <summary>Agent 计划</summary>
@@ -67,9 +66,7 @@ function SessionToolsDetail({ session, workbench, tab, act, onLocateRun, availab
             <summary>Agent 终端输出（只读）</summary>
             {session.agentState.terminals.map((terminal, index) => (
               <pre key={index}>
-                {terminal.data
-                  ? decode(terminal.data)
-                  : JSON.stringify(terminal, null, 2)}
+                {terminal.output?.data?decode(terminal.output.data):terminal.data?decode(terminal.data):terminal.command??(terminal.exitStatus?`退出码：${terminal.exitStatus.exitCode}`:'终端事件')}
               </pre>
             ))}
           </details>

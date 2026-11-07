@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod browser;
 mod data;
 mod notification_permission;
+mod terminal;
 use serde_json::Value;
 use std::{
     fs::OpenOptions,
@@ -388,6 +390,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .manage(Launcher::default())
+        .manage(terminal::Terminals::default())
         .setup(|app| {
             use tauri::{
                 menu::{Menu, MenuItem},
@@ -441,6 +444,13 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            terminal::terminal_open,
+            terminal::terminal_write,
+            terminal::terminal_resize,
+            terminal::terminal_close,
+            browser::browser_open,
+            browser::browser_layout,
+            browser::browser_action,
             host_connection,
             restart_host,
             choose_workspace,
@@ -452,6 +462,9 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("VibeOne 桌面应用启动失败")
         .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                app.state::<terminal::Terminals>().close_all();
+            }
             #[cfg(target_os = "macos")]
             if matches!(event, tauri::RunEvent::Reopen { .. })
                 && let Some(window) = app.get_webview_window("main")

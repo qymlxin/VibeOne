@@ -61,6 +61,7 @@ import "./approved/review.css";
 import "./approved/settings-review.css";
 import "./runtime-states.css";
 import "./diff-treatment.css";
+import "./native-tools.css";
 
 const labels = {
   idle: "就绪",

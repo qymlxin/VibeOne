@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [113 交互终端与原生网页](issues/113-native-terminal-browser.md)：真实PTY Shell、独立网页子视图与主工作台权限隔离完成，Agent输出归记录页；原生已验证pwd/printf及HTTPS百度加载，文档含IPC与字节流SVG。
+
 - [112 差异视觉处理](issues/112-diff-visual-treatment.md)：隐藏补丁头，调整红绿底色、语言着色、文件类型图标与变更状态，变更树加宽；实际桌面已确认主要视觉效果。
 
 - [111 工作面板标签与真实差异](issues/111-context-tabs-change-diffs.md)：新增/关闭/切换标签，多层Git树、多文件差异、ACP编辑补丁与统计接通；实际桌面显示4文件 +15 −8，快速检查后交用户体验。
