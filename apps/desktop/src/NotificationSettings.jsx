@@ -22,12 +22,12 @@ export function NotificationSettings(){
     finally{if(mounted.current){setBusy(false);void refresh();}}
   }
   return <>
-    <section className="desktop-settings-group"><h2>桌面通知</h2>
+    <section className="settings-group desktop-settings-group"><h2>桌面通知</h2><div className="settings-rows">
       <div className="desktop-settings-row"><div><strong>审批与执行结束提醒</strong><p>开启时请求通知权限。关闭只停止本设备发送提醒。</p></div><SettingsSwitch label="桌面通知" checked={enabled} disabled={busy} onChange={()=>void toggle()}/>{busy&&<span role="status">正在更新…</span>}</div>
       <div className="desktop-settings-row"><div><strong>系统权限</strong><p>与本设备的提醒开关独立；系统更改后可刷新状态。</p></div><span role="status">{checking?'正在查询…':permission?labels[permission.status]??labels.unknown:'无法读取权限状态'}</span><button type="button" disabled={checking||busy} onClick={()=>void refresh()}>刷新通知权限</button></div>
       {enabled&&permission&&!canNotify(permission.status)&&<p role="status">提醒开关已开启，但{permission.status==='unavailable'?'是否弹出仍由系统设置决定。':'当前没有可用的通知授权。'}</p>}
       {(error||readError)&&<p role="alert">{[error,readError].filter(Boolean).join('；')}</p>}
-    </section>
-    <section className="desktop-settings-group"><h2>通知事件</h2><p>新出现的权限审批、补充输入和执行结束会触发提醒。首次连接只建立历史基线，不补发此前的执行记录。插件通知渠道继续在插件页管理。</p></section>
+    </div></section>
+    <section className="settings-group desktop-settings-group"><h2>通知事件</h2><div className="settings-rows"><p>新出现的权限审批、补充输入和执行结束会触发提醒。首次连接只建立历史基线，不补发此前的执行记录。插件通知渠道继续在插件页管理。</p></div></section>
   </>;
 }

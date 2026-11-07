@@ -24,8 +24,8 @@ export function ConversationNav({turns,timeline,onNavigate}) {
   },[ids,timeline]);
   if(entries.length<2)return null;
   const selected=entries.find(entry=>entry.id===preview);
-  return <nav className="desktop-conversation-nav" aria-label="对话导航" onMouseLeave={()=>setPreview(null)} onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))setPreview(null);}}>
-    <div className="desktop-conversation-marks">{entries.map((entry,index)=><button key={entry.id} type="button" aria-label={`跳转到第 ${index+1} 轮：${entry.title || '空消息'}`} aria-current={active===entry.id?'location':undefined} onMouseEnter={()=>setPreview(entry.id)} onFocus={()=>setPreview(entry.id)} aria-describedby={preview===entry.id?'conversation-nav-preview':undefined} onKeyDown={event=>{
+  return <nav className="reading-rail desktop-conversation-nav" aria-label="对话导航" onMouseLeave={()=>setPreview(null)} onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))setPreview(null);}}>
+    <div className="reading-marks desktop-conversation-marks">{entries.map((entry,index)=><button key={entry.id} type="button" aria-label={`跳转到第 ${index+1} 轮：${entry.title || '空消息'}`} aria-current={active===entry.id?'location':undefined} onMouseEnter={()=>setPreview(entry.id)} onFocus={()=>setPreview(entry.id)} aria-describedby={preview===entry.id?'conversation-nav-preview':undefined} onKeyDown={event=>{
       if(event.key==='Escape')setPreview(null);
       const buttons=[...event.currentTarget.parentElement.children];
       const next=({ArrowDown:Math.min(index+1,entries.length-1),ArrowUp:Math.max(index-1,0),Home:0,End:entries.length-1})[event.key];
@@ -36,6 +36,6 @@ export function ConversationNav({turns,timeline,onNavigate}) {
       const root=timeline.current;root.scrollTop+=node.getBoundingClientRect().top-root.getBoundingClientRect().top-16;
       setActive(entry.id);setPreview(null);
     }}><span aria-hidden="true" style={{width:preview===null?8:Math.max(8,38-Math.abs(index-entries.findIndex(item=>item.id===preview))*7)}}/></button>)}</div>
-    {selected && <div className="desktop-conversation-preview" id="conversation-nav-preview" role="tooltip"><strong>{selected.title || '空消息'}</strong><p>{selected.answer || '查看这一轮处理过程'}</p></div>}
+    {selected && <div className="reading-preview desktop-conversation-preview" id="conversation-nav-preview" role="tooltip"><strong>{selected.title || '空消息'}</strong><p>{selected.answer || '查看这一轮处理过程'}</p></div>}
   </nav>;
 }

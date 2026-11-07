@@ -26,8 +26,8 @@ export function Management({ workbench, section="all" }) {
   }
   return (
     <>
-      {(section==='all'||section==='workspaces') && <section className="desktop-settings-group"><h2>工作区</h2>
-      <form className="desktop-management-form" onSubmit={async event=>{
+      {(section==='all'||section==='workspaces') && <section className="settings-group desktop-settings-group"><h2>工作区</h2><div className="settings-rows">
+      <form className="settings-form desktop-management-form" onSubmit={async event=>{
         event.preventDefault();if(importing||workbench.phase!=='online')return;
         const path=workspacePath.trim();setWorkspaceNotice('');
         if(!/^(\/|[A-Za-z]:[\\/]|\\\\)/.test(path)){setError('请输入工作区的绝对路径。');return;}
@@ -57,8 +57,8 @@ export function Management({ workbench, section="all" }) {
           {workspace.name} · {workspace.path}
         </p>
       ))}
-      </section>}
-      {(section==='all'||section==='agents') && <section className="desktop-settings-group"><h2>Agent 配置</h2>
+      </div></section>}
+      {(section==='all'||section==='agents') && <section className="settings-group desktop-settings-group"><h2>Agent 配置</h2><div className="settings-rows">
       <p>会话创建时固定配置版本；后续修改配置不改变已有会话。</p>
       {(workbench.profiles ?? []).map((profile) => (
         <p key={profile.id}>
@@ -86,7 +86,7 @@ export function Management({ workbench, section="all" }) {
         </p>
       ))}
       <form
-        className="desktop-management-form"
+        className="settings-form desktop-management-form"
         onSubmit={(event) => {
           event.preventDefault();
           void run(async () => {
@@ -161,8 +161,8 @@ export function Management({ workbench, section="all" }) {
           </button>
         )}
       </form>
-      </section>}
-      {(section==='all'||section==='notifications') && <section className="desktop-settings-group"><h2>本机通知</h2>
+      </div></section>}
+      {(section==='all'||section==='notifications') && <section className="settings-group desktop-settings-group"><h2>本机通知</h2><div className="settings-rows">
       <button
         className="desktop-button"
         onClick={() =>
@@ -173,8 +173,8 @@ export function Management({ workbench, section="all" }) {
       >
         开启审批与执行结束通知
       </button>
-      </section>}
-      {(section==='all'||section==='diagnostics') && <section className="desktop-settings-group"><h2>诊断</h2>
+      </div></section>}
+      {(section==='all'||section==='diagnostics') && <section className="settings-group desktop-settings-group"><h2>诊断</h2><div className="settings-rows">
       <button
         className="desktop-button"
         onClick={() =>
@@ -203,7 +203,7 @@ export function Management({ workbench, section="all" }) {
           </button>
         </>
       )}
-      </section>}
+      </div></section>}
       {error && <p role="alert">{error}</p>}
     </>
   );

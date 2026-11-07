@@ -9,6 +9,12 @@ import {setTimeout as sleep} from 'node:timers/promises';
 import {chromium} from '@playwright/test';
 import {host} from './helpers/host.mjs';
 
+async function openTool(page,name){
+ const button=page.getByRole('button',{name:`打开${name}`,exact:true});
+ if(await button.count()){if(await button.getAttribute('aria-pressed')!=='true')await button.click();return;}
+ await page.getByLabel('更多工具',{exact:true}).click();await page.getByRole('button',{name,exact:true}).click();
+}
+
 test('approved desktop geometry survives themes, panels and settings with live Host', {timeout:90000}, async t=>{
  const h=await host(t);await writeFile(join(h.directory,'preview.txt'),'VibeOne workspace preview\n');
  const git=(...args)=>execFileSync('git',['-C',h.directory,...args],{stdio:'ignore'});git('init');await writeFile(join(h.directory,'tracked.txt'),'Before visual acceptance.\n');git('add','tracked.txt');git('-c','core.hooksPath=/dev/null','-c','user.name=Test','-c','user.email=test@example.com','commit','-m','fixture');await writeFile(join(h.directory,'tracked.txt'),'After visual acceptance.\n');
@@ -20,6 +26,7 @@ test('approved desktop geometry survives themes, panels and settings with live H
  const url='http://127.0.0.1:5174';for(let i=0;i<100;i++){try{if((await fetch(url)).ok)break;}catch{}await sleep(30);}
  const browser=await chromium.launch({headless:true});t.after(()=>browser.close());
  const page=await browser.newPage({viewport:{width:1600,height:1000}});
+ const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));t.after(async()=>{if(!page.isClosed())await page.screenshot({path:join(tmpdir(),'vibeone-direct-prototype-last.png')}).catch(()=>{});});
  await page.addInitScript(connection=>{localStorage.setItem('vibeone-theme','dark');window.__TAURI_INTERNALS__={invoke:async command=>{if(command==='host_connection')return connection;if(command==='notification_permission')return {status:'denied',source:'test'};throw Error(command);}};},h.connection);
  await page.goto(url);await page.locator('.desktop-session').first().click();await page.getByRole('textbox',{name:'发送任务'}).waitFor();
  const output=join(tmpdir(),'vibeone-parity-107');await mkdir(output,{recursive:true});
@@ -33,7 +40,7 @@ test('approved desktop geometry survives themes, panels and settings with live H
   assert.equal(await page.locator('.desktop-composer textarea').evaluate(node=>getComputedStyle(node).fontSize),'13px');
   await page.screenshot({path:join(output,`${theme}-chat.png`),animations:'disabled'});
   for(const name of ['变更','文件','终端','网址浏览']){
-   await page.getByRole('navigation',{name:'会话视图'}).getByRole('button',{name,exact:true}).click();
+   await openTool(page,name);
    if(name==='文件')await page.locator('.explorer-tree').getByRole('button',{name:'preview.txt',exact:true}).click();if(name==='变更')await page.locator('.explorer-tree').getByRole('button',{name:/tracked.txt/}).click();
    near((await measure('.desktop-right-panel-header')).height,47);near((await measure('.desktop-right-panel')).y,40);
    const composer=await measure('.desktop-composer'),chat=await measure('.desktop-chat-column');assert.ok(composer.width<=730&&composer.x>=chat.x&&composer.x+composer.width<=chat.x+chat.width+1);
@@ -94,5 +101,29 @@ test('approved desktop geometry survives themes, panels and settings with live H
  await page.getByRole('button',{name:'安装 / 更新并启用',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('[role="switch"][aria-label="启用插件"]')?.getAttribute('aria-checked')==='true');
  assert.equal((await h.call('/snapshot')).plugins[0].enabled,true);
+ await page.getByRole('button',{name:'返回工作台',exact:true}).click();
+ const longTitle='这是一个需要在紧凑桌面中保持单行展示的真实会话标题'.repeat(3);
+ await h.call(`/sessions/${id}/metadata`,{title:longTitle,key:crypto.randomUUID()});
+ await page.getByRole('heading',{name:longTitle,exact:true,level:1}).waitFor();
+ await page.setViewportSize({width:960,height:700});
+ await openTool(page,'文件');
+ await page.screenshot({path:join(output,'narrow-long-title.png'),animations:'disabled'});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ assert.ok((await page.getByRole('heading',{name:longTitle,exact:true,level:1}).boundingBox()).height<=24,'real long titles must retain the prototype single-line header');
+ await page.getByRole('button',{name:'收起右侧面板',exact:true}).click();
+ await page.getByRole('textbox',{name:'发送任务',exact:true}).fill('/approve');
+ await page.getByRole('button',{name:'发送消息',exact:true}).click();
+ await page.getByRole('button',{name:'允许一次',exact:true}).waitFor();
+ await page.screenshot({path:join(output,'narrow-approval.png'),animations:'disabled'});
+ await page.getByRole('button',{name:'允许一次',exact:true}).click();
+ await h.wait(id,s=>s.status==='idle');
+ await page.getByRole('textbox',{name:'发送任务',exact:true}).fill('/input-json');
+ await page.getByRole('button',{name:'发送消息',exact:true}).click();
+ const request=page.getByRole('region',{name:'需要补充信息',exact:true});
+ await request.waitFor();await request.scrollIntoViewIfNeeded();
+ await page.screenshot({path:join(output,'narrow-complex-input.png'),animations:'disabled'});
+ await request.getByRole('button',{name:'取消',exact:true}).click();
+ await h.wait(id,s=>s.status==='idle');
+ assert.deepEqual(pageErrors,[]);
 
 });

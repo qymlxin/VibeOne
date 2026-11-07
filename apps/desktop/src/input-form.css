@@ -1,3 +1,4 @@
+@layer runtime {
 .desktop-input-request{border:1px solid var(--line);background:var(--soft);padding:16px;margin:12px 0;border-radius:12px;min-width:0}
 .desktop-input-request>header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .desktop-input-request>header>span,.request-state{font-size:12px;color:var(--muted)}
@@ -24,3 +25,5 @@
 .request-field textarea{box-sizing:border-box;width:100%;background:var(--surface);border:1px solid var(--line);padding:8px;color:var(--ink);font-family:ui-monospace,monospace;font-size:12px;border-radius:7px;line-height:1.6;display:block;margin-top:7px;min-height:140px}
 .request-field input:focus-visible,.request-field select:focus-visible,.request-field textarea:focus-visible{outline:2px solid var(--ui-accent);outline-offset:2px}
 @media(max-width:800px){.desktop-input-request .request-actions button{min-height:44px}.request-choice{min-height:44px}.request-field>input,.request-field>select{font-size:16px;min-height:44px}.desktop-input-request>header{flex-wrap:wrap}.request-fields{gap:16px}}
+
+}

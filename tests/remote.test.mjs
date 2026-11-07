@@ -8,6 +8,12 @@ import { randomUUID } from "node:crypto";
 import { chromium } from "@playwright/test";
 import { host } from "./helpers/host.mjs";
 
+async function openTool(page,name){
+ const button=page.getByRole('button',{name:`打开${name}`,exact:true});
+ if(await button.count()){if(await button.getAttribute('aria-pressed')!=='true')await button.click();return;}
+ await page.getByLabel('更多工具',{exact:true}).click();await page.getByRole('button',{name,exact:true}).click();
+}
+
 test(
   "trusted TLS, pairing confirmation, workspace roles, live mobile controls and revocation",
   { timeout: 45000 },
@@ -229,6 +235,7 @@ test(
     await page.locator(".desktop-session").first().click();
     const metadataBodies=[];const lostMetadata=async route=>{if(route.request().method()!=='POST'){await route.continue();return;}metadataBodies.push(route.request().postDataJSON());const response=await route.fetch();if(metadataBodies.length===1)await route.abort('failed');else await route.fulfill({response});};
     await page.route('**/v1/sessions/*/metadata',lostMetadata);
+    await page.getByLabel('会话操作',{exact:true}).click();
     await page.getByRole('button',{name:'重命名',exact:true}).click();await page.getByRole('textbox',{name:'会话标题',exact:true}).fill('手机重命名');await page.getByRole('button',{name:'保存标题',exact:true}).click();
     const retryMetadata=page.getByRole('button',{name:'重试会话修改',exact:true});await retryMetadata.waitFor();assert.ok((await retryMetadata.boundingBox()).height>=44);
     assert.ok((await page.getByRole('button',{name:'关闭会话修改提示',exact:true}).boundingBox()).height>=44);
@@ -327,7 +334,7 @@ test(
       ),
       false,
     );
-    await page.getByRole('button',{name:'文件',exact:true}).click();
+    await openTool(page,'文件');
     await page.getByRole('complementary',{name:'工作区预览'}).waitFor();
     const explorer=page.getByRole('region',{name:'文件浏览器',exact:true});
     await explorer.getByRole('textbox',{name:'筛选文件',exact:true}).fill('mobile-artifact.txt');await explorer.getByRole('button',{name:'mobile-artifact.txt',exact:true}).click();

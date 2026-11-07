@@ -1,11 +1,5 @@
-import React from 'react';
-
-export function SettingsGroup({title,description,children}){
- return <section className="desktop-settings-section"><h2>{title}</h2>{description&&<p>{description}</p>}<div className="desktop-settings-card">{children}</div></section>;
-}
-export function SettingsRow({title,description,children}){
- return <div className="desktop-settings-row"><div><strong>{title}</strong>{description&&<p>{description}</p>}</div>{children}</div>;
-}
-export function SettingsSwitch({label,checked,disabled,onChange}){
- return <button type="button" className="desktop-settings-switch" role="switch" aria-label={label} aria-checked={checked} disabled={disabled} onClick={()=>onChange(!checked)}><span/></button>;
-}
+import React,{Children,cloneElement,isValidElement} from 'react';
+export function SettingsAction({children,primary=false,...props}){return <button className={`settings-action ${primary?'primary':''}`} {...props}>{children}</button>;}
+export function SettingsGroup({title,description,children}){return <section className="settings-group desktop-settings-section"><h2>{title}</h2>{description&&<p className="group-description">{description}</p>}<div className="settings-rows desktop-settings-card">{children}</div></section>;}
+export function SettingsRow({title,description,children}){return <div className="settings-row desktop-settings-row"><div><strong>{title}</strong>{description&&<p>{description}</p>}</div><div className="settings-control">{Children.map(children,child=>isValidElement(child)&&child.type==='button'&&child.props.role!=='switch'?cloneElement(child,{className:`settings-action ${child.props.className??''}`}):isValidElement(child)&&child.type==='span'?cloneElement(child,{className:`setting-value ${child.props.className??''}`}):child)}</div></div>;}
+export function SettingsSwitch({label,checked,disabled,onChange}){return <button type="button" className="settings-switch desktop-settings-switch" role="switch" aria-label={label} aria-checked={checked} disabled={disabled} onClick={()=>onChange(!checked)}><span/></button>;}

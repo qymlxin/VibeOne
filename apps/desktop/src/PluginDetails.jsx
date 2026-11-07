@@ -9,14 +9,14 @@ export function PluginDetails({plugin,workspaces,busy,onDisable,onConfigure,onIn
  const scopes=(plugin.workspaces??[]).map(id=>({id,name:workspaces.find(item=>item.id===id)?.name??id}));
  const commands=contributions.filter(item=>item.kind==='app.command'&&item.binding?.type==='worker');
  return <article className="desktop-plugin-detail" aria-label={`插件详情 ${plugin.name??plugin.id}`}>
-  <header className="desktop-settings-object-heading"><span className="desktop-provider-symbol large"><Plug size={22}/></span><div><h2>{plugin.name??plugin.id}</h2><p>{plugin.manifest?.description??`版本 ${plugin.version} · ${plugin.id}`}</p></div></header>
+  <header className="object-heading desktop-settings-object-heading"><span className="provider-symbol desktop-provider-symbol large"><Plug size={22}/></span><div><h2>{plugin.name??plugin.id}</h2><p>{plugin.manifest?.description??`版本 ${plugin.version} · ${plugin.id}`}</p></div></header>
   {plugin.error&&<p role="alert">{plugin.error}</p>}
   <SettingsGroup title="运行状态">
    <SettingsRow title="启用插件" description="停用后不再接收新的业务调用；已有会话的代次租约继续排空。"><SettingsSwitch label="启用插件" checked={!!plugin.enabled} disabled={busy} onChange={enabled=>enabled?onConfigure():onDisable()}/></SettingsRow>
-   <SettingsRow title="当前代次"><code className="desktop-settings-badge">generation {plugin.generation}</code></SettingsRow>
+   <SettingsRow title="当前代次"><code className="settings-badge desktop-settings-badge">generation {plugin.generation}</code></SettingsRow>
   </SettingsGroup>
   <SettingsGroup title="权限与贡献">
-   <SettingsRow title="已授权工作区"><span className="desktop-plugin-scopes">{scopes.length?scopes.map(scope=><span className="desktop-settings-badge" key={scope.id}>{scope.name}</span>):'尚未授权工作区'}</span></SettingsRow>
+   <SettingsRow title="已授权工作区"><span className="desktop-plugin-scopes">{scopes.length?scopes.map(scope=><span className="settings-badge desktop-settings-badge" key={scope.id}>{scope.name}</span>):'尚未授权工作区'}</span></SettingsRow>
    <SettingsRow title="应用扩展"><span>{kinds(contributions,true).join(' · ')||'无'}</span></SettingsRow>
    <SettingsRow title="后台扩展"><span>{kinds(contributions,false).join(' · ')||'无'}</span></SettingsRow>
    {!!plugin.capabilities?.length&&<SettingsRow title="声明能力"><span>{plugin.capabilities.join(' · ')}</span></SettingsRow>}

@@ -9,6 +9,12 @@ import { tmpdir } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
 import { chromium } from "@playwright/test";
 
+async function openTool(page,name){
+ const button=page.getByRole('button',{name:`打开${name}`,exact:true});
+ if(await button.count()){if(await button.getAttribute('aria-pressed')!=='true')await button.click();return;}
+ await page.getByLabel('更多工具',{exact:true}).click();await page.getByRole('button',{name,exact:true}).click();
+}
+
 test(
   "desktop React view controls the live Host: messages, approvals, stop, themes and reconnect",
   { timeout: 90_000 },
@@ -176,12 +182,14 @@ test(
         throw Error(await page.locator("body").innerText());
       });
     await page.getByRole("button", { name: "创建会话", exact: true }).click();
+    await page.getByLabel('会话列表选项',{exact:true}).click();
     await page.getByRole('button',{name:'按项目',exact:true}).click();
     assert.ok(await page.locator('.desktop-project-group').count()>=2);
     await page.screenshot({path:join(tmpdir(),'vibeone-session-projects.png')});
     const firstGroup=page.locator('.desktop-project-group').first();
     await firstGroup.locator('.desktop-project-heading').click();
     assert.equal(await firstGroup.locator('.desktop-session').count(),0);
+    await page.getByLabel('会话列表选项',{exact:true}).click();
     await page.getByRole('button',{name:'最近',exact:true}).click();
     await page.getByRole('button',{name:'收起会话栏',exact:true}).click();
     assert.equal(await page.locator('.desktop-sidebar').isVisible(),false);
@@ -197,10 +205,12 @@ test(
     // WebKit can focus a controlled textarea before its new selection is restored.
     await page.evaluate(()=>{window.__originalComposerFocus=HTMLTextAreaElement.prototype.focus;HTMLTextAreaElement.prototype.focus=function(...args){if(this.getAttribute('aria-label')==='发送任务'&&document.activeElement!==this)this.setSelectionRange(0,0);return window.__originalComposerFocus.apply(this,args);};});
     await page.getByRole('textbox',{name:'搜索会话',exact:true}).focus();
+    await page.getByRole('button',{name:'添加上下文',exact:true}).click();
     await page.getByRole('button',{name:'选择指令',exact:true}).click();
     await page.getByRole('listbox',{name:'指令建议',exact:true}).waitFor({timeout:2000});
     await composer.press('Escape');await composer.fill('');
     await page.getByRole('textbox',{name:'搜索会话',exact:true}).focus();
+    await page.getByRole('button',{name:'添加上下文',exact:true}).click();
     await page.getByRole('button',{name:'引用文件',exact:true}).click();
     await page.getByRole('listbox',{name:'文件建议',exact:true}).waitFor({timeout:2000});
     await composer.press('Escape');await composer.fill('');
@@ -242,6 +252,7 @@ test(
     await page.getByRole('heading',{name:'工作区文件',exact:true}).waitFor();
     // Hold animation frames to reproduce typing before a delayed caret restoration.
     await page.evaluate(()=>{window.__savedComposerRaf=window.requestAnimationFrame;window.__composerFrames=[];window.requestAnimationFrame=callback=>{window.__composerFrames.push(callback);return 0;};});
+    await page.getByRole('button',{name:'添加上下文',exact:true}).click();
     await page.getByRole('button',{name:'引用文件',exact:true}).click();
     await writeFile(join(directory,'new-reference.txt'),'new file after opening picker');
     await composer.fill('@new-reference');
@@ -267,7 +278,7 @@ test(
     await composer.evaluate(node=>node.setSelectionRange(4,4));
     await composer.press('Escape');
     assert.equal(await page.getByRole('listbox',{name:'文件建议'}).count(),0);
-    await page.getByRole('button',{name:'选择指令',exact:true}).focus();
+    await page.getByRole('textbox',{name:'搜索会话',exact:true}).focus();
     await composer.focus();
     await page.getByRole('option',{name:/preview.txt/}).waitFor();
     await composer.press('Tab');
@@ -334,9 +345,9 @@ test(
     assert.equal(await explorer.getByRole('button',{name:'保存为文本产物',exact:true}).isDisabled(),true,'a new file cannot replace an unconfirmed capture identity');
     await page.screenshot({path:join(tmpdir(),'vibeone-artifact-retry-light.png')});
     await page.emulateMedia({colorScheme:'dark'});await page.waitForTimeout(150);await page.screenshot({path:join(tmpdir(),'vibeone-artifact-retry-dark.png')});await page.emulateMedia({colorScheme:'light'});
-    await page.getByRole('button',{name:'产物',exact:true}).click();
+    await openTool(page,'产物');
     const artifactPanel=page.getByRole('complementary',{name:'工作区预览'});await artifactPanel.locator('summary').filter({hasText:'preview.txt'}).click();await artifactPanel.getByText('workspace preview text',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'文件',exact:true}).click();await explorer.getByRole('button',{name:'重试保存产物',exact:true}).waitFor();
+    await openTool(page,'文件');await explorer.getByRole('button',{name:'重试保存产物',exact:true}).waitFor();
     await explorer.getByRole('button',{name:'重试保存产物',exact:true}).click();
     await explorer.getByText('已保存文本产物：preview.txt',{exact:true}).waitFor();
     assert.equal(artifactBodies.length,2);assert.equal(typeof artifactBodies[0].key,'string');assert.deepEqual(artifactBodies[0],artifactBodies[1]);assert.equal(artifactBodies[1].path,'preview.txt');
@@ -348,13 +359,13 @@ test(
     await explorer.getByRole('button',{name:'收起文件列表'}).click();
     assert.equal(await explorer.getByRole('complementary',{name:'文件列表'}).count(),0);
     await explorer.locator(':scope > header').getByRole('button',{name:'显示文件列表',exact:true}).click();
-    await page.getByRole('button',{name:'变更',exact:true}).click();
+    await openTool(page,'变更');
     const changes=page.getByRole('region',{name:'变更浏览器',exact:true});
     await changes.getByRole('textbox',{name:'筛选文件'}).fill('tracked.txt');
     await changes.getByRole('button',{name:/tracked.txt/}).click();
-    await changes.locator('.explorer-code-line.added code').getByText('+unstaged',{exact:true}).waitFor();
+    await changes.locator('.explorer-code-line.added code').getByText('unstaged',{exact:true}).waitFor();
     await changes.getByRole('button',{name:'已暂存差异',exact:true}).click();
-    await changes.locator('.explorer-code-line.added code').getByText('+staged',{exact:true}).waitFor();
+    await changes.locator('.explorer-code-line.added code').getByText('staged',{exact:true}).waitFor();
     await page.screenshot({path:join(tmpdir(),'vibeone-explorer-diff.png')});
     const imageBytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=','base64');
     await page.evaluate(bytes=>{const clipboard=new DataTransfer();clipboard.items.add(new File([new Uint8Array(bytes)],'pixel.png',{type:'image/png'}));document.querySelector('[aria-label="发送任务"]').dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:clipboard}));},[...imageBytes]);
@@ -575,7 +586,8 @@ test(
     const metadataBodies=[];const seenMetadata=new Set();
     const lostMetadata=async route=>{if(route.request().method()!=='POST'){await route.continue();return;}const body=route.request().postDataJSON();metadataBodies.push(body);const response=await route.fetch();if(!seenMetadata.has(body.key)){seenMetadata.add(body.key);await route.abort('failed');}else await route.fulfill({response});};
     await page.route('**/v1/sessions/*/metadata',lostMetadata);
-    await page.getByRole("button", { name: "重命名", exact: true }).click();
+    await page.getByLabel('会话操作',{exact:true}).click();
+    await page.getByRole('button',{name:'重命名',exact:true}).click();
     await page
       .getByRole("textbox", { name: "会话标题" })
       .fill("已保存的桌面会话");
@@ -587,11 +599,13 @@ test(
     await page
       .getByRole("heading", { name: "已保存的桌面会话", exact: true })
       .waitFor();
-    await page.getByRole("button", { name: "归档", exact: true }).click();
+    await page.getByLabel('会话操作',{exact:true}).click();
+    await page.getByRole('button',{name:'归档',exact:true}).click();
     await page.getByRole('button',{name:'重试会话修改',exact:true}).click();
     await page.waitForFunction(
       () => document.querySelector('textarea[aria-label="发送任务"]')?.disabled,
     );
+    await page.getByLabel("会话列表选项",{exact:true}).click();
     await page
       .getByRole("button", { name: "会话 · 查看归档", exact: true })
       .click();
@@ -599,9 +613,10 @@ test(
       .locator(".desktop-session")
       .filter({ hasText: "已保存的桌面会话" })
       .waitFor();
-    await page.getByRole("button", { name: "取消归档", exact: true }).click();
+    await page.getByLabel('会话操作',{exact:true}).click();
+    await page.getByRole('button',{name:'取消归档',exact:true}).click();
     await page.getByRole('button',{name:'重试会话修改',exact:true}).click();
-    await page.getByRole('button',{name:'重命名',exact:true}).waitFor({state:'visible'});
+    await page.getByLabel('会话操作',{exact:true}).waitFor({state:'visible'});
     await page.waitForFunction(()=>!document.querySelector('.desktop-metadata-failure'));
     assert.equal(metadataBodies.length,6);for(let i=0;i<6;i+=2){assert.equal(typeof metadataBodies[i].key,'string');assert.deepEqual(metadataBodies[i],metadataBodies[i+1]);}
     await page.unroute('**/v1/sessions/*/metadata',lostMetadata);
@@ -609,6 +624,7 @@ test(
       () =>
         !document.querySelector('textarea[aria-label="发送任务"]')?.disabled,
     );
+    await page.getByLabel("会话列表选项",{exact:true}).click();
     await page
       .getByRole("button", { name: "已归档 · 查看会话", exact: true })
       .click();
@@ -790,7 +806,7 @@ test(
     await page.getByRole('button',{name:'前进到下一网页',exact:true}).click();
     assert.equal(await page.locator('iframe[title="网页预览"]').getAttribute('src'),'https://example.com/other');
     await page.getByRole('button',{name:'收起右侧面板',exact:true}).click();
-    await page.getByRole('button',{name:'终端',exact:true}).click();
+    await openTool(page,'终端');
     await page.getByRole('heading',{name:'Agent 终端输出（只读）',exact:true}).waitFor();
     const terminal=page.locator('.desktop-terminal');
     await terminal.locator(':scope > details').last().locator(':scope > summary').click();

@@ -1,10 +1,10 @@
-import React,{useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
+import React,{useEffect,useImperativeHandle,useId,useLayoutEffect,useRef,useState} from 'react';
 import {File,Folder,Slash,X,AtSign,RefreshCw,BookOpen} from 'lucide-react';
 import {composerToken,replaceToken,commandOptions,referenceOptions} from './composer.js';
 import {discoverComposerSkills} from './composer-skills.js';
 import './composer.css';
 
-export function ComposerInput({session,workbench,value,onChange,files,onFiles,onSubmit,onPanel,disabled,online,placeholder}) {
+export function ComposerInput({session,workbench,value,onChange,files,onFiles,onSubmit,onPanel,disabled,online,placeholder,inputActions}) {
   const input=useRef(null),root=useRef(null),cache=useRef(new Map()),selection=useRef(null),dismissed=useRef(false),restoringSelection=useRef(false);
   const [token,setToken]=useState(null),[selected,setSelected]=useState(0),[listing,setListing]=useState(null),[error,setError]=useState('');
   const [refresh,setRefresh]=useState(0),[skillRefresh,setSkillRefresh]=useState(0);
@@ -80,6 +80,7 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
     const before=value.slice(0,caret),insert=(before&&!/\s$/.test(before)?' ':'')+kind;
     const text=before+insert+value.slice(caret);selection.current={text,caret:caret+insert.length};update(text,caret+insert.length);
   };
+  useImperativeHandle(inputActions,()=>({trigger}));
   return <section className="composer-input" ref={root}>
     {!!files.length&&<div className="composer-references" aria-label="已引用文件">{files.map(path=><span key={path} title={path}>{path.endsWith('/')?<Folder size={14}/>:<File size={14}/>}<span>{path==='./'?'当前工作区':path.replace(/\/$/,'').split('/').at(-1)}</span><small>{path.endsWith('/')?'文件夹':'文件'}</small><button type="button" disabled={disabled} aria-label={`移除引用 ${path}`} onClick={()=>onFiles(files.filter(file=>file!==path))}><X size={13}/></button></span>)}</div>}
     {token&&!disabled&&<div className="composer-picker">
@@ -116,6 +117,6 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
         }
         if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();onSubmit();}
       }}/>
-    <div className="composer-shortcuts"><button type="button" disabled={disabled} aria-label="选择指令" onClick={()=>trigger('/')}><Slash size={14}/>指令</button><button type="button" disabled={disabled} aria-label="引用文件" onClick={()=>trigger('@')}><AtSign size={14}/>引用文件</button></div>
+
   </section>;
 }
