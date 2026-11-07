@@ -183,6 +183,26 @@ pub struct ApprovalDecisionRequest {
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ConfigureAgentRequest {
+    pub id: String,
+    #[serde(default)]
+    pub value: Value,
+}
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct SessionUpdateResponse {
+    pub updated: bool,
+}
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DecisionSubmittedResponse {
+    pub submitted: bool,
+}
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ResumeContextResponse {
+    pub resume_on_next_run: bool,
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AttachmentUploadRequest {
     pub name: String,
@@ -561,52 +581,173 @@ pub enum ProfileResponse {
 
 /// Generated from the same types used by the HTTP extractors/serializers.
 pub fn schemas() -> Value {
-    json!({
-        "PluginLifecycleRequest":schema_for!(PluginLifecycleRequest),
-        "PluginOperationReceipt":schema_for!(PluginOperationReceipt),
-        "PluginOperationSummary":schema_for!(PluginOperationSummary),
-        "PluginOperationRecord":schema_for!(PluginOperationRecord),
-        "PluginOperationListResponse":schema_for!(PluginOperationListResponse),
-        "RemoteDeviceSummary":schema_for!(RemoteDeviceSummary),
-        "RemoteConfiguration":schema_for!(RemoteConfiguration),
-        "RemoteStatusResponse":schema_for!(RemoteStatusResponse),
-        "CreateSessionRequest":schema_for!(CreateSessionRequest),
-        "SubmitMessageRequest":schema_for!(SubmitMessageRequest),
-        "QueueRequest":schema_for!(QueueRequest),
-        "QueueResponse":schema_for!(QueueResponse),
-        "CaptureArtifactRequest":schema_for!(CaptureArtifactRequest),
-        "ArtifactRecord":schema_for!(ArtifactRecord),
-        "CancelRequest":schema_for!(CancelRequest),
-        "CancelResponse":schema_for!(CancelResponse),
-        "UpdateSessionRequest":schema_for!(UpdateSessionRequest),
-        "WorkspaceImportRequest":schema_for!(WorkspaceImportRequest),
-        "ApprovalDecisionRequest":schema_for!(ApprovalDecisionRequest),
-        "AttachmentUploadRequest":schema_for!(AttachmentUploadRequest),
-        "PluginTicketRequest":schema_for!(PluginTicketRequest),
-        "CreateSessionResponse":schema_for!(CreateSessionResponse),
-        "SubmitMessageReceipt":schema_for!(SubmitMessageReceipt),
-        "HttpErrorResponse":schema_for!(HttpErrorResponse),
-        "SnapshotResponse":schema_for!(SnapshotResponse),
-        "SnapshotMetadata":schema_for!(SnapshotMetadata),
-        "PendingRequest":schema_for!(PendingRequest),
-        "DecisionRecord":schema_for!(DecisionRecord),
-        "RunRecord":schema_for!(RunRecord),
-        "SessionView":schema_for!(crate::projection::SessionView),
-        "ProfileView":schema_for!(ProfileView),
-        "ProfileSummary":schema_for!(ProfileSummary),
-        "ProfileCatalogResponse":schema_for!(ProfileCatalogResponse),
-        "PinnedProfile":schema_for!(PinnedProfile),
-        "ProfileIssue":schema_for!(ProfileIssue),
-        "ProfileRequest":schema_for!(ProfileRequest),
-        "ProfileRecord":schema_for!(ProfileRecord),
-        "ProfileResponse":schema_for!(ProfileResponse),
-        "ProviderProbeRequest":schema_for!(ProviderProbeRequest),
-        "ProviderProbeResponse":schema_for!(ProviderProbeResponse)
-    })
+    Value::Object(
+        [
+            (
+                "PluginLifecycleRequest".into(),
+                json!(schema_for!(PluginLifecycleRequest)),
+            ),
+            (
+                "PluginOperationReceipt".into(),
+                json!(schema_for!(PluginOperationReceipt)),
+            ),
+            (
+                "PluginOperationSummary".into(),
+                json!(schema_for!(PluginOperationSummary)),
+            ),
+            (
+                "PluginOperationRecord".into(),
+                json!(schema_for!(PluginOperationRecord)),
+            ),
+            (
+                "PluginOperationListResponse".into(),
+                json!(schema_for!(PluginOperationListResponse)),
+            ),
+            (
+                "RemoteDeviceSummary".into(),
+                json!(schema_for!(RemoteDeviceSummary)),
+            ),
+            (
+                "RemoteConfiguration".into(),
+                json!(schema_for!(RemoteConfiguration)),
+            ),
+            (
+                "RemoteStatusResponse".into(),
+                json!(schema_for!(RemoteStatusResponse)),
+            ),
+            (
+                "CreateSessionRequest".into(),
+                json!(schema_for!(CreateSessionRequest)),
+            ),
+            (
+                "SubmitMessageRequest".into(),
+                json!(schema_for!(SubmitMessageRequest)),
+            ),
+            ("QueueRequest".into(), json!(schema_for!(QueueRequest))),
+            ("QueueResponse".into(), json!(schema_for!(QueueResponse))),
+            (
+                "CaptureArtifactRequest".into(),
+                json!(schema_for!(CaptureArtifactRequest)),
+            ),
+            ("ArtifactRecord".into(), json!(schema_for!(ArtifactRecord))),
+            ("CancelRequest".into(), json!(schema_for!(CancelRequest))),
+            ("CancelResponse".into(), json!(schema_for!(CancelResponse))),
+            (
+                "UpdateSessionRequest".into(),
+                json!(schema_for!(UpdateSessionRequest)),
+            ),
+            (
+                "WorkspaceImportRequest".into(),
+                json!(schema_for!(WorkspaceImportRequest)),
+            ),
+            (
+                "ApprovalDecisionRequest".into(),
+                json!(schema_for!(ApprovalDecisionRequest)),
+            ),
+            (
+                "ConfigureAgentRequest".into(),
+                json!(schema_for!(ConfigureAgentRequest)),
+            ),
+            (
+                "SessionUpdateResponse".into(),
+                json!(schema_for!(SessionUpdateResponse)),
+            ),
+            (
+                "DecisionSubmittedResponse".into(),
+                json!(schema_for!(DecisionSubmittedResponse)),
+            ),
+            (
+                "ResumeContextResponse".into(),
+                json!(schema_for!(ResumeContextResponse)),
+            ),
+            (
+                "AttachmentUploadRequest".into(),
+                json!(schema_for!(AttachmentUploadRequest)),
+            ),
+            (
+                "PluginTicketRequest".into(),
+                json!(schema_for!(PluginTicketRequest)),
+            ),
+            (
+                "CreateSessionResponse".into(),
+                json!(schema_for!(CreateSessionResponse)),
+            ),
+            (
+                "SubmitMessageReceipt".into(),
+                json!(schema_for!(SubmitMessageReceipt)),
+            ),
+            (
+                "HttpErrorResponse".into(),
+                json!(schema_for!(HttpErrorResponse)),
+            ),
+            (
+                "SnapshotResponse".into(),
+                json!(schema_for!(SnapshotResponse)),
+            ),
+            (
+                "SnapshotMetadata".into(),
+                json!(schema_for!(SnapshotMetadata)),
+            ),
+            ("PendingRequest".into(), json!(schema_for!(PendingRequest))),
+            ("DecisionRecord".into(), json!(schema_for!(DecisionRecord))),
+            ("RunRecord".into(), json!(schema_for!(RunRecord))),
+            (
+                "SessionView".into(),
+                json!(schema_for!(crate::projection::SessionView)),
+            ),
+            ("ProfileView".into(), json!(schema_for!(ProfileView))),
+            ("ProfileSummary".into(), json!(schema_for!(ProfileSummary))),
+            (
+                "ProfileCatalogResponse".into(),
+                json!(schema_for!(ProfileCatalogResponse)),
+            ),
+            ("PinnedProfile".into(), json!(schema_for!(PinnedProfile))),
+            ("ProfileIssue".into(), json!(schema_for!(ProfileIssue))),
+            ("ProfileRequest".into(), json!(schema_for!(ProfileRequest))),
+            ("ProfileRecord".into(), json!(schema_for!(ProfileRecord))),
+            (
+                "ProfileResponse".into(),
+                json!(schema_for!(ProfileResponse)),
+            ),
+            (
+                "ProviderProbeRequest".into(),
+                json!(schema_for!(ProviderProbeRequest)),
+            ),
+            (
+                "ProviderProbeResponse".into(),
+                json!(schema_for!(ProviderProbeResponse)),
+            ),
+        ]
+        .into_iter()
+        .collect(),
+    )
 }
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn agent_configuration_request_schema_preserves_dynamic_values_and_legacy_null() {
+        let schema = serde_json::to_value(schema_for!(ConfigureAgentRequest)).unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        for raw in [
+            json!({"id":"mode"}),
+            json!({"id":"mode","value":null}),
+            json!({"id":"future","value":{"items":[false,1,"x",null]}}),
+        ] {
+            assert!(validator.is_valid(&raw));
+            let decoded: ConfigureAgentRequest = serde_json::from_value(raw.clone()).unwrap();
+            assert_eq!(decoded.value, raw["value"]);
+        }
+        for raw in [
+            json!({"value":"safe"}),
+            json!({"id":null}),
+            json!({"id":42}),
+        ] {
+            assert!(!validator.is_valid(&raw));
+            assert!(serde_json::from_value::<ConfigureAgentRequest>(raw).is_err());
+        }
+    }
     use super::*;
     #[test]
     fn session_wire_schema_preserves_legacy_runs_extensions_and_private_flags() {

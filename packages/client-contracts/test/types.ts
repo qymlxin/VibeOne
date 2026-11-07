@@ -94,3 +94,20 @@ pluginLifecycleOperation('prepare',{path:'/plugin',trusted:true},'key');
 pluginLifecycleOperation('publish-everything',{},'key');
 // @ts-expect-error durable operations always require a string idempotency identity
 pluginLifecycleOperation('inspect',{path:'/plugin'},42);
+
+import {configureAgent} from '../src/index.js';
+import type {ConfigureAgentRequest,SessionUpdateResponse,DecisionSubmittedResponse,ResumeContextResponse} from '../src/generated.js';
+configureAgent('session / id','mode','safe');configureAgent('session','future',{enabled:true,items:[1,null]});
+const legacyConfig:ConfigureAgentRequest={id:'mode'};
+const configuredResponse:SessionUpdateResponse={updated:true};
+const submittedResponse:DecisionSubmittedResponse={submitted:true};
+const resumedResponse:ResumeContextResponse={resumeOnNextRun:true};
+// @ts-expect-error configuration identity is a string
+configureAgent('session',42,'safe');
+// @ts-expect-error undefined cannot be sent as a JSON value
+configureAgent('session','mode',undefined);
+// @ts-expect-error response fields retain camelCase
+const badResume:ResumeContextResponse={resume_on_next_run:true};
+// @ts-expect-error the receipt requires a boolean, not a display string
+const badUpdate:SessionUpdateResponse={updated:'true'};
+void [legacyConfig,configuredResponse,submittedResponse,resumedResponse,badResume,badUpdate];

@@ -1,5 +1,6 @@
 import React,{useState} from 'react';
 import {Settings2} from 'lucide-react';
+import {configureAgent} from '@vibeone/client-contracts';
 import {canConfigure,configChoices} from './agent-config.js';
 export function AgentConfigControls({session,workbench,compact=false,onOpen}){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -8,7 +9,7 @@ export function AgentConfigControls({session,workbench,compact=false,onOpen}){
  const disabled=busy||!canConfigure(session,workbench);
  async function change(option,value){
    if(disabled)return;setBusy(true);setError('');setNotice('');
-   try{await workbench.call(`/sessions/${session.id}/configure`,{id:option.configId,value});setNotice(`已应用${option.name??option.configId}`);}
+   try{await workbench.call(...configureAgent(session.id,option.configId,value));setNotice(`已应用${option.name??option.configId}`);}
    catch(reason){setError(reason.message??String(reason));}
    finally{setBusy(false);}
  }

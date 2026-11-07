@@ -161,3 +161,6 @@ S13 继续补齐关闭保留IP/端口、自动端口意图与实际URL分离、�
 
 
 102补齐P10文本产物保存的持久回执与原快照保护，失败身份由会话界面保存，切换预览/面板不丢失，未确认时不能被新路径覆盖。撤回队列项误关联有红/绿证据，实际手机保存确认关联最近已开始执行。60项Node/SDK、workspace Rust（Workbench53、存储9）、46项Host、恢复、Clippy/格式、桌面71.7秒、HTTPS手机23.9秒通过；834.97MiB包和包外冒烟通过，Host SHA256为`00a75fcd7f79d492395e5bc49dc8e5ae03d88dabfdcbdc2ec6fc8878c9c207df`。文档/SVG和亮暗/手机截图已核对；实际用户Host未动，完整API契约及原生/真实Claude/物理设备验收继续保留。
+
+
+103将会话配置请求、配置/元数据及人工决定/原上下文成功回执接入实际Rust共享结构，正式模型与模式控件使用统一构造器。60项Node/SDK、workspace Rust（Workbench54、存储9）、Clippy/格式、8项相关Host及新增字段断言7项通过；桌面70.7秒、HTTPS手机23.8秒和835.01MiB包外冒烟通过，Host SHA256为`6cc9e2de57e5d25ee660af535741876009381ca7cf1c5991d2d4b66a743a1465`。配置控件截图已核对；CUA仍返回Mac locked，用户Host未动，原生/真实Claude/物理设备与完整API原始验收继续保留。

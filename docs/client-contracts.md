@@ -8,7 +8,10 @@
 | --- | --- |
 | CreateSessionRequest / CreateSessionResponse | 创建会话，目录可省略以建立托管项目 |
 | SubmitMessageRequest / SubmitMessageReceipt | 文本、文件/附件、幂等键提交；受理、排队和重复标志 |
-| QueueRequest | 撤回、暂停、恢复及新上下文继续 |
+| QueueRequest / QueueResponse | 撤回、暂停、恢复及新上下文继续 |
+| CaptureArtifactRequest / ArtifactRecord | 文本产物保存、原快照与保存回执 |
+| ConfigureAgentRequest / SessionUpdateResponse | 会话配置请求、配置与元数据成功回执 |
+| DecisionSubmittedResponse / ResumeContextResponse | 人工决定提交和原上下文选择回执 |
 | UpdateSessionRequest | 会话标题和归档 |
 | WorkspaceImportRequest | 导入已有工程 |
 | ApprovalDecisionRequest | 使用Agent提供的选项作审批决定 |
@@ -105,3 +108,13 @@ Run身份、文本、状态、幂等键、文件引用、附件身份、时间�
 93将 `PluginOperationReceipt`、`PluginOperationSummary`、`PluginOperationRecord` 和 `PluginOperationListResponse` 接到实际202响应、列表、详情和Snapshot元数据。状态字符串保留未来值，结果使用JsonValue保留false/0/null；缺少结果字段和显式null有不同序列化结果。摘要不发布结果，全部公开响应只构造已知字段，不复制指纹或未来私有字段。缺少说明/时间的旧记录继续可读，不补造时间。
 
 操作目录键是对账身份；正文身份异常时拒绝详情和重复假回执，摘要显示目录身份及固定异常提示，原有活跃状态继续用于重启保护。Schema与类型反例覆盖回执身份、数字时间、结果不能进入摘要和指纹不能进入详情。真实存储验证未知字段过滤及任意JSON结果。详见 [插件后台操作](plugin-operations.md)。
+
+## 会话配置与控制回执（103）
+
+会话级配置与Agent启动配置（Profile）分开：`ConfigureAgentRequest`直接用于 `POST /v1/sessions/{id}/configure`，请求字段仍为 `id/value`。`id`必须是字符串，缺失或类型错误由统一请求解析返回422 `VALIDATION_FAILED`；`value`使用明确的JSON值类型，保留上游选择、布尔及未来配置的动态表达。省略value继续兼容为null，由当前Agent声明及原有领域校验决定是否可用；Schema不会把所有JSON都描述成已经被Agent支持。
+
+正式输入区和完整Agent配置面板共享 `configureAgent` 构造器，路径中的会话ID统一编码。后端仍检查连接、执行/队列/归档/上下文恢复状态、配置项声明及实际可选值，不通过类型绕过这些限制。非法值不会更新已确认配置。
+
+成功回执的实际HTTP结构也进入生成链路：配置和会话元数据使用 `SessionUpdateResponse`（`updated`）；审批和补充回答使用 `DecisionSubmittedResponse`（`submitted`）；显式原上下文选择使用 `ResumeContextResponse`（`resumeOnNextRun`）。回执描述该接口的受理结果，不意味着模型已经执行下一轮。补充回答正文仍是由上游Schema约束的动态JSON，不额外套一个改变协议的固定表单。
+
+Rust验证实际Serde/Schema对缺省、null、动态对象及非法配置身份的一致性；TypeScript反例验证参数身份、不可序列化的undefined、回执大小写和布尔字段。真实Host使用正式构造器应用演示配置，确认成功回执、非法值/身份拒绝后实际配置不变，并继续验证审批和上下文恢复链路。契约导出使用独立条目组成对象，避免大JSON宏随类型增加触及递归展开上限。

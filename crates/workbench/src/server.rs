@@ -361,26 +361,12 @@ struct FileQuery {
 async fn configure_agent(
     State(state): State<Server>,
     Path(id): Path<String>,
-    Json(body): Json<Value>,
-) -> ApiResult {
-    let config_id = body["id"]
-        .as_str()
-        .ok_or_else(|| {
-            domain_fail(crate::domain_error::DomainError::new(
-                crate::domain_error::ErrorKind::InvalidInput,
-                "请选择配置项",
-            ))
-        })?
-        .to_owned();
-    domain_command(async move {
-        state
-            .workbench
-            .configure(&id, &config_id, body["value"].clone())
-            .await
-    })
-    .await
-    .map(|_| Json(json!({"updated":true})))
-    .map_err(domain_fail)
+    Json(body): Json<ConfigureAgentRequest>,
+) -> ApiResult<SessionUpdateResponse> {
+    domain_command(async move { state.workbench.configure(&id, &body.id, body.value).await })
+        .await
+        .map(|_| Json(SessionUpdateResponse { updated: true }))
+        .map_err(domain_fail)
 }
 async fn artifacts(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
     state
@@ -763,10 +749,17 @@ async fn cancel(
     })
     .map_err(domain_fail)
 }
-async fn resume_context(State(state): State<Server>, Path(id): Path<String>) -> ApiResult {
+async fn resume_context(
+    State(state): State<Server>,
+    Path(id): Path<String>,
+) -> ApiResult<ResumeContextResponse> {
     domain_command(async move { state.workbench.resume_context(&id).await })
         .await
-        .map(|_| Json(json!({"resumeOnNextRun":true})))
+        .map(|_| {
+            Json(ResumeContextResponse {
+                resume_on_next_run: true,
+            })
+        })
         .map_err(domain_fail)
 }
 async fn queue(
@@ -783,7 +776,7 @@ async fn metadata(
     State(state): State<Server>,
     Path(id): Path<String>,
     Json(body): Json<UpdateSessionRequest>,
-) -> ApiResult {
+) -> ApiResult<SessionUpdateResponse> {
     domain_command(async move {
         state
             .workbench
@@ -791,27 +784,27 @@ async fn metadata(
             .await
     })
     .await
-    .map(|_| Json(json!({"updated":true})))
+    .map(|_| Json(SessionUpdateResponse { updated: true }))
     .map_err(domain_fail)
 }
 async fn decide(
     State(state): State<Server>,
     Path((id, request)): Path<(String, String)>,
     Json(body): Json<ApprovalDecisionRequest>,
-) -> ApiResult {
+) -> ApiResult<DecisionSubmittedResponse> {
     domain_command(async move { state.workbench.decide(&id, &request, &body.option).await })
         .await
-        .map(|_| Json(json!({"submitted":true})))
+        .map(|_| Json(DecisionSubmittedResponse { submitted: true }))
         .map_err(domain_fail)
 }
 async fn answer(
     State(state): State<Server>,
     Path((id, request)): Path<(String, String)>,
     Json(body): Json<Value>,
-) -> ApiResult {
+) -> ApiResult<DecisionSubmittedResponse> {
     domain_command(async move { state.workbench.answer(&id, &request, body).await })
         .await
-        .map(|_| Json(json!({"submitted":true})))
+        .map(|_| Json(DecisionSubmittedResponse { submitted: true }))
         .map_err(domain_fail)
 }
 async fn shutdown(State(state): State<Server>) -> Json<Value> {

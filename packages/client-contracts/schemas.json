@@ -947,6 +947,61 @@
       }
     }
   },
+  "ConfigureAgentRequest": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ConfigureAgentRequest",
+    "type": "object",
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "value": {
+        "default": null
+      }
+    }
+  },
+  "SessionUpdateResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "SessionUpdateResponse",
+    "type": "object",
+    "required": [
+      "updated"
+    ],
+    "properties": {
+      "updated": {
+        "type": "boolean"
+      }
+    }
+  },
+  "DecisionSubmittedResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "DecisionSubmittedResponse",
+    "type": "object",
+    "required": [
+      "submitted"
+    ],
+    "properties": {
+      "submitted": {
+        "type": "boolean"
+      }
+    }
+  },
+  "ResumeContextResponse": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ResumeContextResponse",
+    "type": "object",
+    "required": [
+      "resumeOnNextRun"
+    ],
+    "properties": {
+      "resumeOnNextRun": {
+        "type": "boolean"
+      }
+    }
+  },
   "AttachmentUploadRequest": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "AttachmentUploadRequest",

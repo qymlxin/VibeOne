@@ -23,7 +23,7 @@ test('explicit upstream resume retains native memory and permissions, isolates r
  const session=async id=>(await snapshot()).sessions.find(item=>item.id===id);
  async function wait(id,predicate){for(let i=0;i<250;i++){const item=await session(id);if(predicate(item))return item;await sleep(25);}throw Error('Context state timed out: '+JSON.stringify(await session(id)));}
  const traces=async()=>{try{return (await readFile(trace,'utf8')).trim().split('\n').filter(Boolean).map(line=>JSON.parse(line));}catch{return [];}};
- const resume=id=>call(`/sessions/${id}/context/resume`,{});
+ const resume=async id=>{const receipt=await call(`/sessions/${id}/context/resume`,{});assert.deepEqual(receipt,{resumeOnNextRun:true});return receipt;};
  const send=(id,text)=>call(`/sessions/${id}/messages`,{text,key:crypto.randomUUID()});
  await start();
  const profile=await call('/profiles',{name:'persistent agent',provider:'demo',command:process.execPath,args:[resolve('tests/fixtures/resume-agent.mjs'),database,trace]});

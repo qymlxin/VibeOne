@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {host} from './helpers/host.mjs';
 import {realpath} from 'node:fs/promises';
-import {createSession,submitMessage,updateSession,importWorkspace,decideApproval,saveProfile,removeProfile} from '@vibeone/client-contracts';
+import {createSession,submitMessage,updateSession,importWorkspace,decideApproval,saveProfile,removeProfile,configureAgent} from '@vibeone/client-contracts';
 
 test('generated-contract command builders control the actual Host and preserve receipt identity',{timeout:18000},async t=>{
  const {call,wait,directory}=await host(t);
@@ -17,16 +17,21 @@ test('generated-contract command builders control the actual Host and preserve r
  const creation=createSession('demo',directory,profile.id,'typed-create');
  const {id}=await call(...creation);
  assert.equal((await call(...creation)).id,id);
- await call(...updateSession(id,{title:'typed commands'}));
+ assert.deepEqual(await call(...updateSession(id,{title:'typed commands'})),{updated:true});
  const command=submitMessage(id,'/approve',[],[],'generated-key');
  const accepted=await call(...command),duplicate=await call(...command);
  assert.equal(typeof accepted.operationId,'string');assert.equal(accepted.duplicate,false);
  assert.equal(duplicate.operationId,accepted.operationId);assert.equal(duplicate.duplicate,true);
  const pending=await wait(id,session=>session.approvals.length>0);
  const approval=pending.approvals[0];
- await call(...decideApproval(id,approval.id,approval.options[0].optionId));
+ assert.deepEqual(await call(...decideApproval(id,approval.id,approval.options[0].optionId)),{submitted:true});
  const ended=await wait(id,session=>session.stopReason==='end_turn');
  assert.equal(ended.profile.revision,2);
+ assert.deepEqual(await call(...configureAgent(id,'mode','normal')),{updated:true});
+ assert.equal((await call(...configureAgent(id,'mode',false),false)).code,'INVALID_CONFIGURATION');
+ assert.equal((await call(`/sessions/${id}/configure`,{id:42,value:'safe'},false)).code,'VALIDATION_FAILED');
+ const configured=(await call('/snapshot')).sessions.find(session=>session.id===id);
+ assert.equal(configured.agentState.configOptions.find(option=>option.configId==='mode').currentValue,'normal');
  await call(...removeProfile(profile.id,updatedProfile.revision));
  assert.equal((await call(...creation)).id,id,'retries retain the original pinned Profile after its catalog entry is removed');
  assert.equal((await call('/snapshot')).profiles.some(item=>item.id===profile.id),false);

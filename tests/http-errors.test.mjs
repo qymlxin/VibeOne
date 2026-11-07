@@ -126,7 +126,7 @@ test('human decisions and session controls expose typed conflicts without consum
  assert.equal(JSON.stringify(invalid).includes('PRIVATE_ANSWER_MARKER'),false);
  assert.equal((await call('/snapshot')).sessions.find(s=>s.id===id).inputs.length,1);
  const answer={action:'accept',content:{name:'valid-name'}};
- await call(base+`/inputs/${input.id}`,answer);await call(base+`/inputs/${input.id}`,answer);
+ assert.deepEqual(await call(base+`/inputs/${input.id}`,answer),{submitted:true});assert.deepEqual(await call(base+`/inputs/${input.id}`,answer),{submitted:true});
  await failure(base+`/inputs/${input.id}`,{action:'cancel'},409,'DECISION_CONFLICT');
  const answered=await ended(inputRun);assert.equal(answered.decisions.filter(item=>item.requestId===input.id).length,1);
  await send('/input');const abandoned=(await wait(id,s=>s.inputs.length===1)).inputs[0];
