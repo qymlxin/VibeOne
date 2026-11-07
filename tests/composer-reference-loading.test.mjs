@@ -23,10 +23,12 @@ test('reference candidates stay visible while loading and stale files cannot be 
  await input.fill('@sa');await page.waitForFunction(()=>window.requests.length===1);
  await page.evaluate(()=>window.requests[0].resolve({entries:[{kind:'file',name:'sample.md',path:'docs/sample.md'}]}));
  await list.waitFor();await page.waitForFunction(()=>document.querySelector('[role=listbox]')?.getAttribute('aria-busy')==='false');
- await input.fill('@sam');assert.equal(await page.getByRole('option').count(),1);assert.equal(await list.getAttribute('aria-busy'),'true');assert.equal(await page.getByRole('option').isDisabled(),true);
+ const heading=page.locator('.composer-picker-heading');const settledHeading=await heading.textContent();
+ await input.fill('@sam');assert.equal(await heading.textContent(),settledHeading);assert.equal(await page.getByRole('option').count(),1);assert.equal(await list.getAttribute('aria-busy'),'true');assert.equal(await page.getByRole('option').isDisabled(),true);
  await input.press('Enter');assert.equal(await page.evaluate(()=>window.attachments.length),0);assert.equal(await page.evaluate(()=>window.submissions),0);
  await page.waitForFunction(()=>window.requests.length===2);
  await page.evaluate(()=>window.requests[1].resolve({entries:[{kind:'file',name:'sample.md',path:'docs/sample.md'}]}));await page.waitForFunction(()=>document.querySelector('[role=listbox]')?.getAttribute('aria-busy')==='false');
+ assert.equal(await heading.textContent(),settledHeading);
  await input.press('Enter');await page.waitForFunction(()=>window.attachments[0]==='docs/sample.md');
  // A late earlier query must not replace the newest settled candidates.
  await input.fill('@old');await page.waitForFunction(()=>window.requests.length===3);await input.fill('@new');await page.waitForFunction(()=>window.requests.length===4);
