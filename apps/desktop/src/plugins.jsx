@@ -6,7 +6,9 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import {Plus,Plug} from 'lucide-react';
-import {BuiltinPluginSettings} from "./workspace-extensions.jsx";
+import {invoke,streamChannel} from './native.js';
+import {pluginServices} from "./plugin-services.js";
+import {RemotePluginInstall} from './RemotePluginInstall.jsx';
 import {PluginDetails} from './PluginDetails.jsx';
 import {operationPresentation} from './plugin-operations.js';
 import * as jsx from "react/jsx-runtime";
@@ -118,38 +120,14 @@ export function usePlugins(workbench) {
     for (const listener of listeners.current) listener();
     runtime.current.emit("workbench.changed", workbench.sessions);
   }, [snapshot]);
-  function services(id, generation) {
-    return {
-      workbench: {
-        snapshot: () => snapshotRef.current,
-        subscribe: (listener) => {
-          const subscription = () => listener();
-          listeners.current.add(subscription);
-          return () => listeners.current.delete(subscription);
-        },
-      },
-      invokeWorker: (handler, input, workspaceId) =>
-        latest.current.invokePlugin(id, {
-          handler,
-          input,
-          workspaceId,
-          generation,
-        }),
-    };
-  }
   async function prepare(record, app) {
     if (!app) return null;
-    return runtime.current.prepare(
-      {
-        pluginId: record.id,
-        generation: record.generation,
-        version: record.version,
-      },
-      await definition(app.source),
-      services(record.id, record.generation),
-      record.manifest.contributions ?? [],
-      record.config ?? {},
-    );
+    const bridge=pluginServices(record,latest,snapshotRef,listeners,{invoke,streamChannel,available:!!window.vibeoneDesktop});
+    try {
+      const candidate=await runtime.current.prepare({pluginId:record.id,generation:record.generation,version:record.version},await definition(app.source),bridge.services,record.manifest.contributions??[],record.config??{});
+      candidate.scope.add(bridge.dispose);
+      return candidate;
+    } catch(error){await bridge.dispose();throw error;}
   }
   useEffect(() => {
     if (workbench.phase !== "online") return;
@@ -246,6 +224,7 @@ export function PluginManager({ workbench, plugins }) {
     [busy, setBusy] = useState(false),
     [result, setResult] = useState(undefined);
   const installTrigger=useRef(null);
+  const [packageSource,setPackageSource]=useState(null);
   const [installOpen,setInstallOpen]=useState(false),[selectedPlugin,setSelectedPlugin]=useState(null);
   async function run(action) {
     setBusy(true);
@@ -259,7 +238,7 @@ export function PluginManager({ workbench, plugins }) {
     }
   }
   return (
-    <section className="desktop-plugin-settings"><BuiltinPluginSettings/>
+    <section className="desktop-plugin-settings"><RemotePluginInstall workbench={workbench} plugins={plugins} source={workbench.plugins?.find(p=>p.id===selectedPlugin)?.source}/>
 
       <p>
         JS 插件作为可信本机代码运行。支持安装、更新、停用、动态面板与后台命令。
@@ -267,7 +246,7 @@ export function PluginManager({ workbench, plugins }) {
       <details className="desktop-plugin-install" open={installOpen} onToggle={event=>setInstallOpen(event.currentTarget.open)}><summary ref={installTrigger}><Plus size={14}/>安装 / 更新本地插件</summary>
       <button
         onClick={() => {
-          setPath(workbench.examplePluginPath);
+          setPackageSource(null);setPath(workbench.examplePluginPath);
           setInspection(null);
           setTrusted(false);
         }}
@@ -280,7 +259,7 @@ export function PluginManager({ workbench, plugins }) {
           <input
             value={path}
             onChange={(event) => {
-              setPath(event.target.value);
+              setPackageSource(null);setPath(event.target.value);
               setInspection(null);
               setTrusted(false);
             }}
@@ -292,7 +271,7 @@ export function PluginManager({ workbench, plugins }) {
             void run(async () => {
               const next = await chooseWorkspace();
               if (next) {
-                setPath(next);
+                setPackageSource(null);setPath(next);
                 setInspection(null);
                 setTrusted(false);
               }
@@ -367,6 +346,7 @@ export function PluginManager({ workbench, plugins }) {
                 void run(() =>
                   plugins.install({
                     path,
+                    source:packageSource,
                     trusted,
                     workspaces: selected,
                     config: JSON.parse(config),
@@ -384,15 +364,16 @@ export function PluginManager({ workbench, plugins }) {
       {!installOpen&&<div className="settings-master-detail desktop-settings-object-layout"><aside className="settings-object-list desktop-settings-object-list"><h2>已安装<span>{workbench.plugins?.length??0}</span></h2>{(workbench.plugins??[]).map(plugin=><button key={plugin.id} className={(selectedPlugin??workbench.plugins?.[0]?.id)===plugin.id?'selected':''} onClick={()=>setSelectedPlugin(plugin.id)}><span className="provider-symbol desktop-provider-symbol"><Plug size={16}/></span><span><strong>{plugin.name??plugin.id}</strong><small>{plugin.version} · {plugin.enabled?'已启用':'已停用'}</small></span></button>)}{!workbench.plugins?.length&&<p>尚未安装本地插件。</p>}</aside><div className="settings-object-detail desktop-settings-object-detail">
       {(workbench.plugins ?? []).filter(plugin=>plugin.id===(selectedPlugin??workbench.plugins?.[0]?.id)).map((plugin) => (
         <PluginDetails key={plugin.id} plugin={plugin} workspaces={workbench.workspaces??[]} busy={busy}
+          onEnable={()=>void run(()=>plugins.install({path:plugin.path,trusted:true,workspaces:plugin.workspaces,config:plugin.config,source:plugin.source,expectedManifest:plugin.manifest}))}
           onDisable={()=>void run(()=>plugins.disable(plugin.id))}
-          onConfigure={()=>{setInstallOpen(true);setPath(plugin.path);setInspection(plugin.manifest);setSelected(plugin.workspaces);setConfig(JSON.stringify(plugin.config,null,2));setTrusted(false);}}
+          onConfigure={()=>{setPackageSource(plugin.source);setInstallOpen(true);setPath(plugin.path);setInspection(plugin.manifest);setSelected(plugin.workspaces);setConfig(JSON.stringify(plugin.config,null,2));setTrusted(false);}}
           onInvoke={item=>void run(async()=>setResult(await workbench.invokePlugin(plugin.id,{handler:item.binding.handler,input:{path:'.'},workspaceId:plugin.workspaces[0]})))}>      {plugins.registrations.filter(app=>app.identity.pluginId===plugin.id).map((app) => (
         <PluginBoundary
           key={`${app.identity.pluginId}:${app.identity.generation}`}
         >
           <section>
             <h3>{app.identity.pluginId}</h3>
-            {[...app.panels, ...app.settings].map(([id, Component]) => (
+            {[...app.panels].filter(([id])=>!plugin.manifest.contributions.some(c=>c.id===id&&c.surface==='workspace.tool')).concat([...app.settings]).map(([id, Component]) => (
               <Component
                 key={id}
                 workspaceId={(workbench.plugins ?? []).find(plugin=>plugin.id===app.identity.pluginId && plugin.enabled)?.workspaces?.find(id=>(workbench.workspaces ?? []).some(workspace=>workspace.id===id))}

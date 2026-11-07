@@ -2,7 +2,8 @@ import {Scope,type Disposer} from './scope.js';
 import type {Json} from './protocol.js';
 
 export interface AppIdentity {pluginId:string; generation:number; version:string}
-export interface AppPanelProps {workspaceId?:string; sessionId?:string}
+export interface AppPanelProps {workspaceId?:string; sessionId?:string; visible?:boolean; initialUrl?:string; fileTarget?:{path:string}; onTitle?:(title:string)=>void; onNavigate?:(url:string)=>void; emptyState?:unknown}
+export interface DesktopServices {readonly available:boolean;invoke(command:string,args?:Record<string,unknown>):Promise<unknown>;streamChannel():{events:{id:string;onmessage?:(event:any)=>void};dispose():void}}
 export type AppComponent=(props:AppPanelProps)=>unknown;
 export interface AppContext {
   readonly identity:Readonly<AppIdentity>;
@@ -11,7 +12,7 @@ export interface AppContext {
   readonly panels:{register(id:string,component:AppComponent):void};
   readonly commands:{register(id:string,run:()=>void|Promise<void>):void};
   readonly settings:{register(id:string,component:AppComponent):void};
-  readonly services:{workbench:{snapshot():Json; subscribe(listener:()=>void):Disposer}; invokeWorker(handler:string,input?:Json,workspaceId?:string):Promise<Json>};
+  readonly services:{workbench:{snapshot():Json; subscribe(listener:()=>void):Disposer;request?(endpoint:string,body?:Json):Promise<Json>}; desktop?:DesktopServices; invokeWorker(handler:string,input?:Json,workspaceId?:string):Promise<Json>};
   readonly hooks:{on(event:string,listener:(payload:Json)=>void|Promise<void>):void};
 }
 export interface AppDefinition {readonly apiVersion:'0.1';activate(ctx:AppContext):void|Disposer|Promise<void|Disposer>}
@@ -43,7 +44,7 @@ export class AppRuntime {
         panels:{register:(id:string,value:AppComponent)=>register('app.panel',candidate.panels,id,value)},
         commands:{register:(id:string,value:()=>void|Promise<void>)=>register('app.command',candidate.commands,id,value)},
         settings:{register:(id:string,value:AppComponent)=>register('settings.section',candidate.settings,id,value)},
-        services:{...services,workbench:{snapshot:services.workbench.snapshot,subscribe:(listener:()=>void)=>scope.add(services.workbench.subscribe(listener))}},hooks:{on:(event:string,listener:(payload:Json)=>void|Promise<void>)=>{if(!registering||typeof listener!=='function')throw Error('Invalid hook');const listeners=candidate.hooks.get(event)??new Set();listeners.add(listener);candidate.hooks.set(event,listeners);scope.add(()=>{listeners.delete(listener);});}},
+        services:{...services,workbench:{...services.workbench,snapshot:services.workbench.snapshot,subscribe:(listener:()=>void)=>scope.add(services.workbench.subscribe(listener))}},hooks:{on:(event:string,listener:(payload:Json)=>void|Promise<void>)=>{if(!registering||typeof listener!=='function')throw Error('Invalid hook');const listeners=candidate.hooks.get(event)??new Set();listeners.add(listener);candidate.hooks.set(event,listeners);scope.add(()=>{listeners.delete(listener);});}},
       }));
       if(typeof cleanup==='function')scope.add(cleanup);
       return candidate;

@@ -18,6 +18,7 @@ function closeBrowser(id){const item=browsers.get(id);if(!item)return;window.con
 ipcMain.handle('vibeone:command',async(event,command,a={})=>{
  if(event.sender!==window.webContents||event.senderFrame!==window.webContents.mainFrame)throw Error('此页面无桌面权限');
  switch(command){
+ case 'plugin_fetch':return require('./plugin-source.cjs').fetchPluginSource(data,a);
  case 'host_connection':return connect();
  case 'project_details':return projectDetails((await hostCall('/projects')).projects,a.ids);
  case 'restart_host':{const c=await connect(),snapshot=await hostCall('/snapshot');if(snapshot.sessions.some(busy)||snapshot.operations?.some(o=>['accepted','running'].includes(o.state)))throw Error('请等待任务结束后重启主机');await fetch(c.url+'/v1/host/stop',{method:'POST',headers:{Authorization:`Bearer ${c.token}`}});for(let i=0;i<160;i++){if(!fs.existsSync(path.join(data,'host.json')))return connect();await sleep(100);}throw Error('旧主机尚未退出');}

@@ -111,3 +111,7 @@ App `activate` 阶段主要注册贡献和资源；Worker 候选尚未发布时�
 ## 在工作区打开App面板
 
 app.panel贡献可声明`surface: "workspace.tool"`，以及title、description、icon展示元数据。组件接收sessionId/workspaceId，使用原有SDK与Worker授权接口；无需单独实现侧栏或标签页。Host停用包后入口和打开面板同步撤下。完整示例及边界见[工作区工具插件](workspace-tool-extensions.md)。
+
+## 独立工作区包与远程来源
+
+四个正式工作区工具已在独立仓库发布。远程仓库目录下载为本地候选后，与本地第三方包共用安装和App加载路径；详见[独立工作区插件](workspace-tool-extensions.md)。桌面不静态导入这些包。清单声明 `workspace.read`、`artifact.write`、`desktop.terminal` 或 `desktop.browser` 以访问对应SDK接口。App可选服务 `workbench.request`、`desktop` 为本次增加的宿主能力；旧App插件的既有接口保持。资源上限为单App 16MiB，安装包总计20MiB。

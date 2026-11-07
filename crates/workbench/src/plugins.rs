@@ -270,7 +270,7 @@ fn inspect_manifest(path: &Path) -> Result<Value, DomainError> {
             app["path"]
                 .as_str()
                 .ok_or_else(|| invalid_manifest("缺少 App 入口"))?,
-            1024 * 1024,
+            16 * 1024 * 1024,
         )?;
     }
     let mut ids = std::collections::HashSet::new();
@@ -567,7 +567,7 @@ impl Plugins {
         if !capabilities.iter().all(|item| {
             matches!(
                 item.as_str(),
-                Some("workspace.read" | "notifications.send" | "agent.spawn")
+                Some("workspace.read" | "notifications.send" | "agent.spawn" | "artifact.write" | "desktop.terminal" | "desktop.browser")
             )
         }) {
             return Err(plugin_failure(
@@ -683,7 +683,7 @@ impl Plugins {
         let generation = base.checked_add(1).ok_or_else(|| {
             plugin_failure(ErrorKind::PluginGenerationConflict, "插件代次无法继续递增")
         })?;
-        let record = json!({"id":id,"name":manifest["name"],"version":manifest["version"],"manifest":manifest,"path":destination,"generation":generation,"enabled":true,"capabilities":capabilities,"workspaces":workspaces,"config":body["config"].as_object().cloned().unwrap_or_default(),"error":null});
+        let record = json!({"id":id,"name":manifest["name"],"version":manifest["version"],"manifest":manifest,"path":destination,"generation":generation,"enabled":true,"capabilities":capabilities,"workspaces":workspaces,"source":body["source"].clone(),"config":body["config"].as_object().cloned().unwrap_or_default(),"error":null});
         // Validate the copied candidate's App before starting plugin code.
         let app = match Self::app(record.clone()).await {
             Ok(app) => app,
@@ -719,7 +719,7 @@ impl Plugins {
             let root = record["path"]
                 .as_str()
                 .ok_or_else(|| invalid_manifest("插件目录记录无效"))?;
-            let source = resources::text(Path::new(root), path, 1024 * 1024)?;
+            let source = resources::text(Path::new(root), path, 16 * 1024 * 1024)?;
             Ok(json!({"source":source}))
         })
         .await
