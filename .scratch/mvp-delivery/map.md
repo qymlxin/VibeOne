@@ -6,6 +6,10 @@
 
 ## Decisions-so-far
 
+- [108 对话过程与读取](issues/108-chat-process-prototype-parity.md)：完成整轮/工具组两层折叠、读取文件链接与变更整行入口；真实Codex及本机包确认。
+
+- [109 右侧原型源码](issues/109-direct-prototype-file-panel.md)：按用户最新要求直接迁入右侧JSX和CSS，Git目录聚合修正，快速构建后交用户体验。
+
 - [107 桌面视觉一致](issues/107-desktop-prototype-parity.md)：已直接迁入批准原型核心CSS/DOM/外观组件，删除旧桌面布局；桌面、手机、已有配置/插件/长标题/人工等待视觉、打包冒烟及实际Tauri亮暗验收通过，六会话历史与元数据不变。
 
 - [106 原生输入菜单](issues/106-native-composer-focus.md)：修复focus/选区竞争，桌面与手机回归及真实Tauri的 `/`、`@` 菜单/文件选择通过；临时会话已归档，原视图恢复。

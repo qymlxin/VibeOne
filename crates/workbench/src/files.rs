@@ -174,7 +174,7 @@ pub async fn changes(workspace: &str) -> Result<Value, DomainError> {
             "status",
             "--porcelain=v1",
             "-z",
-            "--untracked-files=normal",
+            "--untracked-files=all",
             "--",
             ".",
         ],

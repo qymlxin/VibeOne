@@ -2,10 +2,20 @@ import React,{useEffect,useRef,useState} from 'react';
 import {ChevronRight,FileText,Folder,PanelRight,Search,X} from 'lucide-react';
 import {codeLines} from './code-lines.js';
 import './file-explorer.css';
+import {FilePanelHeader,FilePanelTree} from './approved/FilePanel.jsx';
 const clean=path=>path.replace(/^\.\//,'');
+function changeTree(files){
+ const root={children:new Map()};
+ for(const file of files){const parts=file.path.split(/[\\/]/).filter(Boolean);let node=root;
+  parts.forEach((name,index)=>{if(!node.children.has(name))node.children.set(name,{name,path:parts.slice(0,index+1).join('/'),children:new Map()});node=node.children.get(name);if(index===parts.length-1)node.file={...file,name};});
+ }
+ return [...root.children.values()];
+}
+
 export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:capture}){
  const online=workbench.phase==='online';
  const [directories,setDirectories]=useState(()=>Object.create(null)),[expanded,setExpanded]=useState(new Set(['.'])),[result,setResult]=useState(null),[preview,setPreview]=useState(null),[selected,setSelected]=useState(null),[filter,setFilter]=useState(''),[showTree,setShowTree]=useState(true),[path,setPath]=useState('.'),[pathDraft,setPathDraft]=useState('.'),[navigating,setNavigating]=useState(false),[directoryErrors,setDirectoryErrors]=useState(()=>Object.create(null)),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const [closedChanges,setClosedChanges]=useState(new Set());
  const generation=useRef(0),selectionId=useRef(0),pending=useRef(new Map()),navigationId=useRef(0);
  const root=useRef(null);
  async function directory(path='.',epoch=generation.current){
@@ -47,32 +57,36 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
  }
  useEffect(()=>{if(fileTarget?.path&&tab==='files')void inspect({path:clean(fileTarget.path)});},[fileTarget,tab,session.id]);
  const toggle=path=>{setExpanded(previous=>{const next=new Set(previous);if(next.has(path))next.delete(path);else next.add(path);return next;});if(!directories[path]){setError('');void directory(path);}};
- const fileButton=file=><div className="explorer-file-row" key={file.path}><button className="tree-file" aria-current={selected?.path===file.path?'true':undefined} title={file.path} onClick={()=>void inspect(file,tab==='changes'&&file.staged&&!file.unstaged)}><FileText size={13}/><span>{file.name??file.path}</span>{file.status&&<small>{file.status}</small>}</button></div>;
- const tree=directoryPath=><ul>{directories[directoryPath]?.entries.filter(file=>file.kind==='directory'||file.path.toLowerCase().includes(filter.toLowerCase())).map(file=><li key={file.path}>{file.kind==='directory'?<><button className="tree-folder explorer-directory" aria-expanded={expanded.has(file.path)} onClick={()=>toggle(file.path)}><ChevronRight size={12}/><Folder size={13}/><span title={file.path}>{file.name}</span></button>{expanded.has(file.path)&&(directories[file.path]?tree(file.path):directoryErrors[file.path]?<div className="explorer-directory-error"><p>{directoryErrors[file.path]}</p><button aria-label={`重试读取 ${file.path}`} onClick={()=>{setError('');void directory(file.path);}}>重试读取</button></div>:<p role="status">正在读取目录…</p>)}</>:file.kind==='symlink'?<span className="explorer-symlink" title={file.path}>{file.name} · 符号链接</span>:fileButton(file)}</li>)}{directories[directoryPath]?.truncated&&<li>目录已截断，请打开更具体的路径。</li>}</ul>;
+
+ const changedNodes=nodes=>nodes.map(node=>node.children.size?{...node,kind:'directory',children:changedNodes([...node.children.values()])}:{...node.file,kind:'file'});
+ const directoryNodes=directoryPath=>(directories[directoryPath]?.entries??[]).filter(file=>file.kind==='directory'||file.path.toLowerCase().includes(filter.toLowerCase())).map(file=>({...file,children:file.kind==='directory'?directoryNodes(file.path):undefined}));
+ const [panelMenu,setPanelMenu]=useState(false);
  const parts=path.split('/').filter(part=>part&&part!=='.');
  const trail=[{name:'工作区',path:'.'},...parts.map((name,index)=>({name,path:parts.slice(0,index+1).join('/')}))];
  const lines=codeLines(preview?.text??'',preview?.isDiff);
  return <section ref={root} className="desktop-inspector explorer" aria-label={tab==='changes'?'变更浏览器':'文件浏览器'}>
-  <header className="file-tabbar"><h2 title={selected?.path}>{selected?<><FileText size={13}/>{selected.path.split('/').at(-1)}</>:tab==='changes'?'工作区变更':'工作区文件'}</h2><div>{selected&&<button aria-label="关闭预览" title="关闭预览" onClick={()=>{selectionId.current++;setSelected(null);setPreview(null);}}><X size={13}/></button>}<button onClick={()=>{void load();if(selected)void inspect(selected,selected.stagedView);for(const path of expanded)if(path!=='.')void directory(path);}} disabled={busy||navigating}>刷新</button><button aria-label={showTree?'收起文件列表':'显示文件列表'} aria-pressed={showTree} onClick={()=>setShowTree(!showTree)}><PanelRight size={14}/></button></div></header>
-  {tab==='files'&&<><form className="file-toolbar explorer-path" onSubmit={event=>{event.preventDefault();void navigate(pathDraft);}}><input aria-label="浏览目录" value={pathDraft} disabled={navigating} onChange={event=>setPathDraft(event.target.value)}/><button disabled={busy||navigating}>打开目录</button></form>{path!=='.'&&<nav className="explorer-breadcrumbs" aria-label="当前目录">{trail.map((item,index)=><React.Fragment key={item.path}>{index>0&&<ChevronRight size={12} aria-hidden="true"/>}<button title={item.path} disabled={navigating} aria-current={index===trail.length-1?'page':undefined} onClick={()=>void navigate(item.path)}>{item.name}</button></React.Fragment>)}</nav>}</>}
-  {tab==='changes'&&<p className="explorer-notice">{result?.branch&&<strong>{result.branch} · </strong>}{result?.notice}</p>}
+  <FilePanelHeader file={selected?.path??(tab==='changes'?'工作区变更':path==='.'?'工作区文件':path)} changes={tab==='changes'} status={selected?.status?.trim()==='??'?'U':selected?.status?.trim()} tree={showTree} onToggle={()=>setShowTree(!showTree)} onMenu={()=>setPanelMenu(!panelMenu)}/>
+  {panelMenu&&<div className="file-panel-menu"><button onClick={()=>{void load();if(selected)void inspect(selected,selected.stagedView);for(const path of expanded)if(path!=='.')void directory(path);setPanelMenu(false);}} disabled={busy||navigating}>刷新</button>{selected&&<button onClick={()=>{selectionId.current++;setSelected(null);setPreview(null);setPanelMenu(false);}}>关闭预览</button>}{tab==='files'&&<form onSubmit={event=>{event.preventDefault();void navigate(pathDraft);setPanelMenu(false);}}><input aria-label="浏览目录" value={pathDraft} disabled={navigating} onChange={event=>setPathDraft(event.target.value)}/><button disabled={busy||navigating}>打开目录</button></form>}{tab==='files'&&preview&&!preview.binary&&(!workbench.device||workbench.device.role==='operator')&&<button disabled={!online||capture.busy||!!capture.failure} onClick={()=>void capture.save(preview.path)}>保存为文本产物</button>}</div>}
   {error&&<p role="alert">{error}</p>}{(busy||navigating)&&<p role="status">正在读取…</p>}
   {capture.busy&&<p role="status">正在确认产物保存…</p>}
   {capture.notice&&<p role="status">{capture.notice}</p>}
   {capture.failure&&<div className="explorer-capture-failure" role="alert"><p>保存 {capture.failure.path} 未确认：{capture.failure.message}</p><button disabled={!online||capture.busy} onClick={()=>void capture.retry()}>重试保存产物</button><button disabled={capture.busy} aria-label="关闭产物保存提示" onClick={capture.dismiss}>关闭提示</button></div>}
-  <div className={`file-workspace explorer-workspace ${showTree?'with-tree':''}`}>
-   <article className="code-view desktop-file-preview explorer-preview">
+  <div className={`file-workspace ${showTree?'with-tree':''}`}>
+   <div className="code-view">
     {selected?<>
      {tab==='changes'&&!selected.untracked&&<div className="explorer-diff-modes"><button aria-pressed={!selected.stagedView} onClick={()=>void inspect(selected,false)}>未暂存差异</button><button aria-pressed={!!selected.stagedView} onClick={()=>void inspect(selected,true)}>已暂存差异</button></div>}
      {!preview&&!error&&<p role="status">正在读取文件…</p>}
      {preview&&<>{preview.binary?<p>二进制文件 · {preview.size} 字节</p>:<>
-       <div className="code-label explorer-code-heading"><span>{preview.isDiff?'统一差异':'UTF-8 · 只读'}</span>{preview.isDiff&&<span><em>+{lines.added}</em> <b>−{lines.removed}</b></span>}{tab==='files'&&(!workbench.device||workbench.device.role==='operator')&&<button disabled={!online||capture.busy||!!capture.failure} onClick={()=>void capture.save(preview.path)}>保存为文本产物</button>}</div>
+       <div className="code-label explorer-code-heading"><span>{preview.isDiff?'统一差异':'UTF-8 · 只读'}</span>{preview.isDiff&&<span><em>+{lines.added}</em> <b>−{lines.removed}</b></span>}</div>
        {preview.text?<pre className="explorer-code">{lines.rows.map((row,index)=><span className={`code-line explorer-code-line ${row.kind}`} key={index}><span className="explorer-line-number" aria-hidden="true">{row.line??''}</span><span aria-hidden="true">{row.kind==='added'?'+':row.kind==='removed'?'−':''}</span><code>{['added','removed'].includes(row.kind)?row.text.slice(1):row.text||' '}</code></span>)}</pre>:<p>{preview.isDiff?'当前范围没有文本差异。':'空文件'}</p>}
+       <div className="code-end">{preview.isDiff?'其余内容未变化':'文件结束'}</div>
        {lines.clipped&&<p>超过 5,000 行，当前预览仅显示前 5,000 行。</p>}
      </>}{preview.truncated&&<p>内容超过显示上限，已截断。</p>}</>}
     </>:<div className="explorer-empty"><FileText size={22}/><p>选择文件{tab==='changes'?'查看真实差异':'查看内容'}。</p>{!showTree&&<button onClick={()=>setShowTree(true)}>显示文件列表</button>}</div>}
-   </article>
-   {showTree&&<aside className="file-tree explorer-tree" aria-label="文件列表" aria-busy={navigating}><label><Search size={13}/><input aria-label="筛选文件" placeholder={tab==='changes'?'筛选变更文件…':'筛选已展开文件…'} value={filter} onChange={event=>setFilter(event.target.value)}/></label><p>{tab==='changes'?`变更文件 · ${result?.files?.length??0}`:'项目文件'}</p>{tab==='changes'?<>{(result?.files??[]).filter(file=>file.path.toLowerCase().includes(filter.toLowerCase())).map(fileButton)}{result?.truncated&&<p>变更列表已截断。</p>}{result&&!result.files.length&&<p>没有可显示的内容</p>}</>:<>{tree(path)}{directories[path]?.entries.length===0&&<p>没有可显示的内容</p>}</>}</aside>}
+   </div>
+   {showTree&&<FilePanelTree entries={tab==='changes'?changedNodes(changeTree((result?.files??[]).filter(file=>file.path.toLowerCase().includes(filter.toLowerCase())))):directoryNodes(path)} selected={selected?.path} filter={filter} onFilter={setFilter} changes={tab==='changes'} count={result?.files?.length??0} onFile={file=>void inspect(file,tab==='changes'&&file.staged&&!file.unstaged)} onFolder={folder=>{if(tab==='changes')setClosedChanges(previous=>{const next=new Set(previous);if(next.has(folder))next.delete(folder);else next.add(folder);return next;});else toggle(folder);}} expanded={folder=>tab==='changes'?!closedChanges.has(folder):expanded.has(folder)}/>}
+
   </div>
+  <footer className="panel-status"><span>{tab==='changes'?`${result?.files?.length??0} 个文件变更`:path==='.'?'工作区文件':path}</span><span>只读预览</span></footer>
  </section>;
 }

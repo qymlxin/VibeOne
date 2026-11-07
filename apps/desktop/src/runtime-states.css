@@ -529,3 +529,9 @@
 @media(max-width:800px){.event-files .event-file,.desktop-tool-group.event-group>summary,.desktop-activity-toggle.turn-status{min-height:44px}.event-files{padding-left:14px}.change-summary{min-height:60px}}
 
 .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important}
+/* Live controls behind the prototype's branch action. */
+.desktop-right-panel .desktop-inspector.explorer{position:relative;margin:0;padding:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.explorer>.panel-status{flex:none}
+.file-panel-menu{position:absolute;right:8px;top:75px;z-index:15;max-width:calc(100% - 16px);display:grid;gap:8px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--sidebar);font-size:11px}
+.file-panel-menu>button{text-align:left;padding:5px}.file-panel-menu form{display:flex;gap:5px}.file-panel-menu input{min-width:0;width:160px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px}
+@media(max-width:800px){.explorer>.file-workspace{flex-direction:column-reverse}.explorer .file-tree{display:block;width:100%;max-height:170px;flex-shrink:0}.explorer .tree-folder,.explorer .tree-file{min-height:44px}.file-panel-menu button{min-height:44px}}
