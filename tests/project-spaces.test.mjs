@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import{readFile,writeFile}from'node:fs/promises';import{join}from'node:path';import{host}from'./helpers/host.mjs';import{setTimeout as sleep}from'node:timers/promises';
 test('project identity, display groups and bounded actual ACP handoff in isolated storage',{timeout:35000},async t=>{
- const{directory,call}=await host(t);await call('/projects',{id:'project-one',name:'Project One',addPath:directory});
+ const{directory,call,wait}=await host(t);await call('/projects',{id:'project-one',name:'Project One',addPath:directory});
  const existing=await call('/sessions',{provider:'demo',workspace:directory});
  const first=await call('/spaces',{action:'enter',projectId:'project-one'}),again=await call('/spaces',{action:'enter',projectId:'project-one'});assert.equal(first.steward.sessionId,again.steward.sessionId);
  assert.equal((await call('/spaces')).agents.filter(a=>a.steward).length,1);assert.ok((await call('/spaces')).agents.some(a=>a.sessionId===existing.id));
@@ -15,5 +15,9 @@ test('project identity, display groups and bounded actual ACP handoff in isolate
  let latest;for(let i=0;i<150;i++){latest=(await call('/spaces')).threads.find(t=>t.id===group.id);if(latest.state!=='running')break;await sleep(80);}assert.equal(latest.state,'idle',latest.error);
  const snapshot=await call('/snapshot'),root=snapshot.sessions.find(s=>s.id===group.id);assert.equal(root.messages.filter(m=>m.role==='user').length,1);assert.ok(root.messages.some(m=>m.agentName==='Alpha'));assert.ok(root.messages.some(m=>m.agentName==='Beta'));
  const personal=snapshot.sessions.find(s=>s.id===alpha.sessionId);assert.equal(personal.messages.length,0,'group must not pollute personal context');
- await call('/projects',{id:'project-two',name:'Other Project'});await call('/spaces',{action:'agent',id:'alpha',projectId:'project-two',name:'Intruder',provider:'demo'},false);
+ await call('/spaces',{...body,key:'turn-stop',text:'@Beta /wait'});await wait(group.bindings.beta,s=>s.status==='running');
+ await call('/spaces',{action:'stop',projectId:'project-one',id:group.id});await wait(group.bindings.beta,s=>!['starting','running','requires_action','cancelling'].includes(s.status));
+ assert.equal((await call('/spaces')).threads.find(t=>t.id===group.id).state,'stopped');
+ await call('/spaces',body);assert.equal((await call('/spaces')).threads.find(t=>t.id===group.id).state,'stopped','old receipt cannot replay after a later turn');
+ await call('/projects',{id:'project-two' ,name:'Other Project'});await call('/spaces',{action:'agent',id:'alpha',projectId:'project-two',name:'Intruder',provider:'demo'},false);
 });

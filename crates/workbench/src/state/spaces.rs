@@ -533,10 +533,7 @@ impl Workbench {
                 self.save_catalog("space-thread", id, thread.clone())
                     .await?;
                 if let Some(sid) = thread["activeSession"].as_str() {
-                    let entry = self.command_entry(sid)?;
-                    if let Some(cancel) = entry.cancel.lock().expect("cancel").as_ref() {
-                        let _ = cancel.send(true);
-                    }
+                    self.cancel_with_receipt(sid, None, None).await?;
                 }
                 Ok(thread)
             }
@@ -608,15 +605,6 @@ impl Workbench {
             let sid = thread["bindings"][aid]
                 .as_str()
                 .ok_or_else(|| invalid("成员上下文缺失"))?;
-            {
-                let _gate = self.space_gate.lock().await;
-                let mut latest = self.space_item("space-thread", id)?;
-                if latest["turn"] != turn || latest["state"] != "running" {
-                    return Ok(());
-                }
-                latest["activeSession"] = json!(sid);
-                self.save_catalog("space-thread", id, latest).await?;
-            }
             let prompt = format!(
                 "[会话组：{}；本轮第{}步，最多8步。组员：{}]\n用户/成员来信：\n{}\n\n你可以直接回答。如果确实需要其他组员协作，在回答末尾输出一个 fenced code block，语言为 vibeone-handoff，内容为 JSON {{\"to\":\"目标成员ID\",\"message\":\"具体任务\"}}。只能转交给上述组员；不要为问候等简单任务转交。{}",
                 thread["name"].as_str().unwrap_or(""),
@@ -629,15 +617,23 @@ impl Workbench {
                     ""
                 }
             );
-            let receipt = self
-                .submit(
+            let receipt = {
+                let _gate = self.space_gate.lock().await;
+                let mut latest = self.space_item("space-thread", id)?;
+                if latest["turn"] != turn || latest["state"] != "running" {
+                    return Ok(());
+                }
+                latest["activeSession"] = json!(sid);
+                self.save_catalog("space-thread", id, latest).await?;
+                self.submit(
                     sid,
                     prompt,
                     Some(format!("space:{turn}:{hop}")),
                     vec![],
                     vec![],
                 )
-                .await?;
+                .await?
+            };
             loop {
                 if self.stopping.load(Ordering::SeqCst) {
                     return Ok(());
