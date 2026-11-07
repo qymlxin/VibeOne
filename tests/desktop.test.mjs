@@ -176,7 +176,7 @@ test(
     await page.getByRole("button", { name: "选择工作区目录" }).click();
     await page
       .waitForFunction(
-        () => !document.querySelector(".desktop-setup-form .primary")?.disabled,
+        () => !document.querySelector(".new-session-create")?.disabled,
         {},
         { timeout: 3000 },
       )

@@ -1,4 +1,4 @@
-import {createSession as createSessionCommand,submitMessage as submitMessageCommand} from "@vibeone/client-contracts";
+import {submitMessage as submitMessageCommand} from "@vibeone/client-contracts";
 import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -37,7 +37,6 @@ import {useMetadataCommands} from './use-metadata-commands.js';
 import { useNotifications } from "./notifications.js";
 import { RemoteSettings, PhoneGate } from "./Remote.jsx";
 import { isNative } from "./api.js";
-import { chooseWorkspace } from "./api.js";
 import { useWorkbench } from "./use-workbench.js";
 import { InputRequest } from "./InputRequest.jsx";
 import { SessionTools, Queue } from "./SessionTools.jsx";
@@ -52,6 +51,7 @@ import {SessionRow} from "./SessionIdentity.jsx";
 import {AppearanceSettings,useAppearance} from "./AppearanceSettings.jsx";
 import {readAppearance,applyAppearance} from "./appearance.js";
 const SettingsCenter=lazy(()=>import("./SettingsCenter.jsx").then(module=>({default:module.SettingsCenter})));
+import {NewSession} from "./NewSession.jsx";
 import {SplitHandle} from "./SplitHandle.jsx";
 import {PreviewContext} from "./PreviewLinks.jsx";
 import {ContextTabs} from "./ContextTabs.jsx";
@@ -317,142 +317,6 @@ function App() {
           />
         )}
     </ApprovedWorkbenchShell>;
-}
-
-function NewSession({ workbench, online, act, onCreated,projects,initialProject }) {
-  const [projectId,setProjectId]=useState(initialProject??'');
-  const project=projects.items.find(p=>p.id===projectId);
-  const creation = useRef(null);
-  const [workspace, setWorkspace] = useState(()=>projects.items.find(p=>p.id===initialProject)?.paths[0]??"");
-  const [provider, setProvider] = useState("codex");
-  const [busy, setBusy] = useState(false);
-  const profile = (workbench.profiles ?? []).find(
-    (item) => item.id === provider,
-  );
-  const selected = workbench.providers.find(
-    (item) => item.id === (profile?.provider ?? provider),
-  );
-  const create = async (event) => {
-    event.preventDefault();
-    if(creation.current?.busy)return;
-    const signature=JSON.stringify([profile?.provider??provider,workspace,profile?.id??null]);
-    if(creation.current?.signature!==signature)creation.current={signature,key:crypto.randomUUID(),busy:false};
-    const intent=creation.current;
-    intent.busy=true;
-    setBusy(true);
-    try {
-      const result = await act(() =>
-        workbench.call(...createSessionCommand(profile?.provider ?? provider,workspace,profile?.id,
-          workbench.features?.includes('sessionCreationIdempotency')?intent.key:undefined)),
-      );
-      if (result) {
-        if(project){const snapshot=await workbench.call('/snapshot');const created=snapshot.sessions.find(s=>s.id===result.id);if(created&&!project.paths.includes(created.workspace)){const saved=await act(()=>projects.save({id:project.id,addPath:created.workspace}));if(!saved)return;}}
-        await projects.reload();creation.current=null;onCreated(result.id);
-      }
-    } finally {intent.busy=false;setBusy(false);}
-  };
-  return (
-    <div className="desktop-setup">
-      <div className="desktop-setup-heading">
-        <MessageSquare size={23} />
-        <h1>新会话</h1>
-        <p>选择 Agent 即可开始，也可以关联已有项目。</p>
-      </div>
-      <form className="desktop-setup-form" onSubmit={create}>
-        <label htmlFor="session-project">项目</label><select id="session-project" value={projectId} onChange={e=>{setProjectId(e.target.value);setWorkspace(projects.items.find(p=>p.id===e.target.value)?.paths[0]??'');}}><option value="">按工作目录自动归入项目</option>{projects.items.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
-        {project&&<><label htmlFor="project-directory">项目工作目录</label><select id="project-directory" value={project.paths.includes(workspace)?workspace:''} onChange={e=>setWorkspace(e.target.value)}><option value="">新建或引入其他目录</option>{project.paths.map(path=><option key={path} value={path}>{path}</option>)}</select></>}
-
-        <label htmlFor="workspace">工作区{!workbench.device && "（可选）"}</label>
-        {isNative() ? (
-          <div className="desktop-path">
-            <input
-              id="workspace"
-              list="saved-workspaces"
-              value={workspace}
-              onChange={(event) => setWorkspace(event.target.value)}
-              placeholder="留空，自动创建新项目"
-            />
-            <button
-              type="button"
-              aria-label="选择工作区目录"
-              onClick={async () => {
-                const path = await act(chooseWorkspace);
-                if (path) setWorkspace(path);
-              }}
-            >
-              <FolderOpen size={16} />
-            </button>
-          </div>
-        ) : (
-          <select
-            id="workspace"
-            value={workspace}
-            onChange={(event) => setWorkspace(event.target.value)}
-            required={!!workbench.device}
-          >
-            <option value="">{workbench.device ? "选择已授权工作区" : "自动创建新项目"}</option>
-            {(workbench.workspaces ?? []).map((item) => (
-              <option key={item.id} value={item.path}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        )}
-        <datalist id="saved-workspaces">
-          {(workbench.workspaces ?? []).map((item) => (
-            <option key={item.id} value={item.path}>
-              {item.name}
-            </option>
-          ))}
-        </datalist>
-        <label htmlFor="agent">Agent</label>
-        <select
-          id="agent"
-          value={provider}
-          onChange={(event) => setProvider(event.target.value)}
-        >
-          {workbench.providers.length ? (
-            workbench.providers.map((item) => (
-              <option key={item.id} value={item.id} disabled={!item.available}>
-                {item.name}
-                {!item.available ? " · 未安装" : ""}
-              </option>
-            ))
-          ) : (
-            <option>正在读取工具</option>
-          )}
-          {(workbench.profiles ?? []).map((item) => (
-            <option key={item.id} value={item.id}>
-              配置 · {item.name}
-            </option>
-          ))}
-        </select>
-        <p className="desktop-field-help">
-          {selected?.description ?? "正在检查本机工具。"}
-        </p>
-        <button
-          className="desktop-button primary"
-          disabled={
-            !online ||
-            (!!workbench.device && !workspace.trim()) ||
-            busy ||
-            !(selected?.available || profile?.command)
-          }
-        >
-          {busy ? (
-            <LoaderCircle size={15} className="desktop-spin" />
-          ) : (
-            <Plus size={15} />
-          )}
-          创建会话
-        </button>
-      </form>
-      <div className="desktop-setup-note">
-        <ShieldCheck size={15} />
-        <p>创建会话不会立即启动 Agent。发送第一条消息后才开始执行。</p>
-      </div>
-    </div>
-  );
 }
 
 function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,setPanelWidth,expandedPanel,setExpandedPanel }) {

@@ -368,9 +368,8 @@ test(
     await page.getByRole('button',{name:'返回工作台',exact:true}).click();
     await page.getByRole("button", { name: "会话列表", exact: true }).click();
     await page.getByRole("button", { name: "新建会话", exact: true }).click();
-    await page
-      .getByLabel("工作区", { exact: true })
-      .selectOption(workspace.path);
+    await page.getByRole('button',{name:'工作目录',exact:true}).click();
+    await page.getByRole('option').filter({hasText:workspace.path}).click();
     await page.getByRole("button", { name: "创建会话", exact: true }).click();
     const phoneImage=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=','base64');
     await page.locator('.desktop-attachment-picker input[type=file]').setInputFiles({name:'phone.png',mimeType:'image/png',buffer:phoneImage});
