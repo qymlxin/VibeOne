@@ -21,8 +21,26 @@ A named configuration of an Agent Provider selected for a conversation.
 _Avoid_: Agent account, model when referring to the complete configuration.
 
 **Session**:
-A conversation in a Project, bound to one Working Directory and one Agent Profile. A Session contains successive Runs and their conversation history.
+A conversation in a Project, either an Agent personal conversation or a shared Session Group. A tool execution context is bound to one Working Directory and one Agent Profile. A Session contains successive Runs and their conversation history.
 _Avoid_: Task, Run, process when referring to the conversation.
+
+**Project Space**:
+The focused collaboration environment of one Project, containing its Agents, Session Groups and code tools.
+
+**Agent**:
+A named project member with a role and a selected coding tool configuration. An Agent has a personal conversation and can participate in Session Groups.
+
+**Steward**:
+The permanent coordinating Agent of a Project Space. Its identity remains fixed while it distributes work and collects results.
+
+**Session Group**:
+A shared conversation among project Agents, opened by one conversation identity. Members retain separate tool contexts inside the group.
+
+**Display Group**:
+A visual collection used to organize Agents and Session Groups. It has no execution or permission meaning.
+
+**Agent Preset**:
+A reusable template for creating Agents. Existing members remain independent of later template changes.
 
 **Run**:
 One execution attempt triggered by an accepted user message in a Session. A Run may produce multiple messages, Tool Calls, and Approval Requests.
