@@ -3,14 +3,15 @@ import {SettingsGroup,SettingsRow,SettingsAction} from './SettingsRows.jsx';
 import {ArrowLeft,Settings2,Sun,Bell,Terminal,Folder,Plug,Globe,Database,Search,Info,RefreshCw,ChevronRight} from 'lucide-react';
 import {BrandMark} from './Brand.jsx';
 import {ProjectSettings} from './projects.jsx';
+import {ArchivedConversations} from './SidebarManagement.jsx';
 import {Management} from './Management.jsx';
 import {AgentSettings} from './AgentSettings.jsx';
 import {PluginManager} from './plugins.jsx';
 import {RemoteSettings} from './Remote.jsx';
 import {NotificationSettings} from './NotificationSettings.jsx';
-const groups=[['应用',['general','appearance','notifications']],['工作方式',['agents','workspaces','plugins']],['主机与设备',['remote','data']]];
-const pages=[['general','常规',Settings2,'主机 历史 会话'],['appearance','外观',Sun,'主题 颜色'],['notifications','通知',Bell,'审批 提醒'],['agents','Agent',Terminal,'配置 启动'],['workspaces','项目与目录',Folder,'项目 目录'],['plugins','插件',Plug,'安装 更新 权限'],['remote','远程连接',Globe,'手机 配对 证书 设备'],['data','数据与诊断',Database,'存储 重启 导出']];
-export function SettingsCenter({workbench,plugins,theme,setTheme,onBack,appearance,projects,initialPage='general'}){
+const groups=[['应用',['general','appearance','notifications']],['工作方式',['agents','workspaces','archived','plugins']],['主机与设备',['remote','data']]];
+const pages=[['general','常规',Settings2,'主机 历史 会话'],['appearance','外观',Sun,'主题 颜色'],['notifications','通知',Bell,'审批 提醒'],['agents','Agent',Terminal,'配置 启动'],['workspaces','项目与目录',Folder,'项目 目录'],['archived','已归档对话',Database,'归档 删除 恢复 历史'],['plugins','插件',Plug,'安装 更新 权限'],['remote','远程连接',Globe,'手机 配对 证书 设备'],['data','数据与诊断',Database,'存储 重启 导出']];
+export function SettingsCenter({workbench,plugins,theme,setTheme,onBack,appearance,projects,initialPage='general',spaces,onOpenSession}){
  const [page,setPage]=useState(initialPage),[query,setQuery]=useState('');
  const admin=!workbench.device;const available=pages.filter(([id])=>admin||['general','appearance','notifications'].includes(id));const visible=available.filter(([,title,,keywords])=>`${title} ${keywords}`.toLowerCase().includes(query.toLowerCase()));
  const [error,setError]=useState('');const run=async action=>{setError('');try{await action();}catch(error){setError(error.message);}};
@@ -23,6 +24,7 @@ export function SettingsCenter({workbench,plugins,theme,setTheme,onBack,appearan
  {page==='appearance'&&(appearance??<section className="settings-group desktop-settings-group"><h2>视觉风格</h2><div className="settings-rows"><div className="settings-row desktop-settings-row"><span>模式</span><select aria-label="外观模式" value={theme} onChange={event=>setTheme(event.target.value)}><option value="system">跟随系统</option><option value="light">亮色</option><option value="dark">暗色</option></select></div></div></section>)}
  {page==='notifications'&&<NotificationSettings/>}
  {page==='agents'&&admin&&<AgentSettings workbench={workbench}/>}
+ {page==='archived'&&admin&&<ArchivedConversations workbench={workbench} spaces={spaces} onOpen={onOpenSession}/>}
  {page==='workspaces'&&admin&&<ProjectSettings projects={projects} workbench={workbench}/>}
  {page==='plugins'&&admin&&<PluginManager workbench={workbench} plugins={plugins}/>}
  {page==='remote'&&admin&&<RemoteSettings workbench={workbench}/>}

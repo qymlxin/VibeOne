@@ -15,7 +15,7 @@ import {
   MessageSquare,
   Monitor,
   Moon,
-  Plus,
+  Plus,Pin,
   RefreshCw,
   Search,
   Settings2,
@@ -51,6 +51,7 @@ import {SessionRow} from "./SessionIdentity.jsx";
 import {AppearanceSettings,useAppearance} from "./AppearanceSettings.jsx";
 import {readAppearance,applyAppearance} from "./appearance.js";
 const SettingsCenter=lazy(()=>import("./SettingsCenter.jsx").then(module=>({default:module.SettingsCenter})));
+import {useSidebarManagement} from './SidebarManagement.jsx';
 import {CreationMenu} from './CreationMenu.jsx';
 import {CreateProjectDialog} from './CreateProjectDialog.jsx';
 import {ProjectSwitcher,SidebarHome} from './ProjectSwitcher.jsx';
@@ -131,9 +132,10 @@ function App() {
   useEffect(()=>{try{localStorage.setItem('vibeone-sidebar-open',String(sidebarOpen));localStorage.setItem('vibeone-session-view-v2',sessionView);}catch{}},[sidebarOpen,sessionView]);
   useEffect(()=>{const search=event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();setSidebarOpen(true);setShowList(true);setSettings(false);requestAnimationFrame(()=>{searchInput.current?.focus();searchInput.current?.select();});}};document.addEventListener('keydown',search);return()=>document.removeEventListener('keydown',search);},[]);
 
-  const [archived, setArchived] = useState(false);
+  const archived=false;
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(savedTheme);
+  const sidebarManagement=useSidebarManagement({workbench,spaces,onError:setError});
   const appearance=useAppearance(theme);
   useEffect(()=>{const update=()=>document.documentElement.toggleAttribute('data-motion-paused',document.hidden);document.addEventListener('visibilitychange',update);update();return()=>document.removeEventListener('visibilitychange',update);},[]);
   useEffect(() => {
@@ -173,11 +175,11 @@ function App() {
       return null;
     }
   };
-  const renderSession=item=>{const identity=spaces.agentFor(item.id),thread=spaces.threadFor(item.id);return <SessionRow key={item.id} item={{...item,title:identity?.name??thread?.name??item.title,avatar:identity}} selected={!overview&&!creating&&item.id===selected} provider={thread?.coordination?'项目管家':thread?'会话组':workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={thread?.state==='running'?'协作中':sessionLabel(item)} onSelect={()=>openSession(item.id)}/>;};
+  const renderSession=item=>{const identity=spaces.agentFor(item.id),thread=spaces.threadFor(item.id);return <SessionRow onContextMenu={e=>sidebarManagement.context(e,{kind:'session',item,identity,thread})} pinned={sidebarManagement.pinned('session',item.id)} key={item.id} item={{...item,title:identity?.name??thread?.name??item.title,avatar:identity}} selected={!overview&&!creating&&item.id===selected} provider={thread?.coordination?'项目管家':thread?'会话组':workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={thread?.state==='running'?'协作中':sessionLabel(item)} onSelect={()=>openSession(item.id)}/>;};
   const mode=appearance.dark?'dark':'light',colors=appearance.value[mode];
   useEffect(()=>{if(panelWidth)try{localStorage.setItem('vibeone-panel-width',String(panelWidth));}catch{}},[panelWidth]);
   const colorStyle={'--accent':appearance.value.accent,'--link':'color-mix(in srgb,var(--accent) 70%,var(--fg))',...(panelWidth?{'--panel-width':`${panelWidth}px`}:{}),...(colors.background||colors.foreground?{'--bg':colors.background??(appearance.dark?'#181818':'#FFFFFF'),'--fg':colors.foreground??(appearance.dark?'#FFFFFF':'#1A1C1F'),'--sidebar':'color-mix(in srgb,var(--bg) 97%,var(--fg))','--panel':'var(--bg)','--bar':'color-mix(in srgb,var(--bg) 94%,var(--fg))','--raised':'color-mix(in srgb,var(--bg) 91%,var(--fg))','--hover':'color-mix(in srgb,var(--bg) 92%,var(--fg))','--selected':'color-mix(in srgb,var(--bg) 86%,var(--fg))','--muted':'color-mix(in srgb,var(--fg) 64%,var(--bg))','--line':'color-mix(in srgb,var(--bg) 88%,var(--fg))','--border':'color-mix(in srgb,var(--bg) 62%,var(--fg))'}:{})};
-  return <ApprovedWorkbenchShell dark={appearance.dark} colorStyle={colorStyle} sidebarOpen={sidebarOpen} hasPanel={panel!=='chat'&&!settings&&!creating&&!overview&&!!session} wide={expandedPanel} settings={settings} native={isNative()} mobileList={showList} title={currentProject?.name??(overview?'所有项目':creating||!session?'新会话':session.title)} navigation={spaces.enabled?<ProjectSwitcher project={currentProject} projects={projects.items} onSelect={enterProject} busy={projectBusy}/>:null} connectionLabel={online?'工作主机 · 本机已连接':workbench.phase==='upgrading'?'正在重启工作主机':'正在连接工作主机'} onToggleSidebar={()=>setSidebarOpen(!sidebarOpen)} onOpenList={()=>{setSidebarOpen(true);setShowList(true);}} panel={panel} onPanel={value=>{setSettings(false);if(overview){const target=(currentProject?spaces.agents.find(a=>a.projectId===spaceId&&a.steward)?.sessionId:null)??session?.id??sessions[0]?.id;if(target)openSession(target);else setError('先选择一个项目对话，再打开工作区工具');}setPanel(value);}} sidebar={currentProject&&spaces.enabled?<ProjectSpaceSidebar project={currentProject} spaces={spaces} workbench={workbench} selected={overview?null:selected} onSelect={openSession} onBack={home} onCreate={kind=>kind==='project'?setCreatingProject(true):setSpaceEditor({kind})} onEdit={(initial,kind)=>setSpaceEditor({initial,kind})} onCode={openCode}/>:<aside className="session-sidebar desktop-sidebar">
+  return <ApprovedWorkbenchShell dark={appearance.dark} colorStyle={colorStyle} sidebarOpen={sidebarOpen} hasPanel={panel!=='chat'&&!settings&&!creating} wide={expandedPanel} settings={settings} native={isNative()} mobileList={showList} title={currentProject?.name??(overview?'所有项目':creating||!session?'新会话':session.title)} navigation={spaces.enabled?<ProjectSwitcher project={currentProject} projects={sidebarManagement.sort(projects.items,'project')} onSelect={enterProject} busy={projectBusy}/>:null} connectionLabel={online?'工作主机 · 本机已连接':workbench.phase==='upgrading'?'正在重启工作主机':'正在连接工作主机'} onToggleSidebar={()=>setSidebarOpen(!sidebarOpen)} onOpenList={()=>{setSidebarOpen(true);setShowList(true);}} panel={panel} onPanel={value=>{setSettings(false);setPanel(value);}} sidebar={currentProject&&spaces.enabled?<ProjectSpaceSidebar project={currentProject} spaces={spaces} workbench={workbench} selected={overview?null:selected} onSelect={openSession} onBack={home} onCreate={kind=>kind==='project'?setCreatingProject(true):setSpaceEditor({kind})} onEdit={(initial,kind)=>setSpaceEditor({initial,kind})} onCode={openCode} management={sidebarManagement}/>:<aside className="session-sidebar desktop-sidebar">
         <div className="brand desktop-brand">
           <Brand/><CreationMenu onAgent={()=>{const project=projects.items.find(p=>p.id===spaceId)??projects.items.find(p=>p.paths.includes(session?.workspace))??projects.items.find(p=>p.paths.length);if(spaces.enabled&&project){setSpaceEditor({kind:'agent',projectId:project.id,preservePage:true});}else if(spaces.enabled){setError('请先创建项目并添加一个工作目录');}else{setNewProject(project?.id??'');setCreating(true);}}} onProject={()=>setCreatingProject(true)}/>
         </div>
@@ -213,12 +215,9 @@ function App() {
         <div className="session-list desktop-session-list">
           <div className="section-label"><span>{archived?'已归档':'项目'}</span><div className="session-list-actions">
             {!workbench.device&&<button className="icon-button" aria-label="添加项目" onClick={()=>setCreatingProject(true)}><Plus size={13}/></button>}
-            <details className="workbench-tool-menu"><summary className="icon-button" aria-label="会话列表选项"><MoreHorizontal size={14}/></summary><div>
 
-              <button onClick={event=>{setArchived(!archived);event.currentTarget.closest('details').open=false;}}>{archived?'已归档 · 查看会话':'会话 · 查看归档'}</button>
-            </div></details>
           </div></div>
-          {projectGroups(sessions,projects.items,workbench.workspaces).map(group=><section className="desktop-project-group" key={group.id}><div className="project-sidebar-heading"><button className="project-name desktop-project-heading" title={group.paths.join('\n')} aria-expanded={!!query.trim()||!collapsedProjects.has(group.id)} onClick={()=>setCollapsedProjects(previous=>{const next=new Set(previous);if(next.has(group.id))next.delete(group.id);else next.add(group.id);return next;})}><ChevronRight size={12}/><FolderOpen size={13}/><span>{group.name}</span><small>{group.sessions.length}</small></button>{spaces.enabled&&<button className="icon-button space-enter" aria-label={`进入项目空间${group.name}`} title="进入项目空间" onClick={()=>void enterProject(group)}><ChevronRight size={13}/></button>}<button className="icon-button" aria-label={`在项目 ${group.name} 新建会话`} onClick={()=>{if(spaces.enabled){void enterProject(group).then(ok=>{if(ok)setSpaceEditor({kind:'agent'});});}else{setNewProject(group.id);setCreating(true);setSettings(false);setShowList(false);}}}><Plus size={13}/></button></div>{(!!query.trim()||!collapsedProjects.has(group.id))&&group.sessions.map(renderSession)}</section>)}
+          {sidebarManagement.sort(projectGroups(sessions,projects.items,workbench.workspaces),'project').map(group=><section className="desktop-project-group" key={group.id}><div className="project-sidebar-heading" onContextMenu={e=>sidebarManagement.context(e,{kind:'project',item:group})}><button className="project-name desktop-project-heading" title={group.paths.join('\n')} aria-expanded={!!query.trim()||!collapsedProjects.has(group.id)} onClick={()=>setCollapsedProjects(previous=>{const next=new Set(previous);if(next.has(group.id))next.delete(group.id);else next.add(group.id);return next;})}><ChevronRight size={12}/><FolderOpen size={13}/><span>{group.name}{sidebarManagement.pinned('project',group.id)&&<Pin size={10} className="sidebar-pin"/>}</span><small>{group.sessions.length}</small></button>{spaces.enabled&&<button className="icon-button space-enter" aria-label={`进入项目空间${group.name}`} title="进入项目空间" onClick={()=>void enterProject(group)}><ChevronRight size={13}/></button>}<button className="icon-button" aria-label={`在项目 ${group.name} 新建会话`} onClick={()=>{if(spaces.enabled){void enterProject(group).then(ok=>{if(ok)setSpaceEditor({kind:'agent'});});}else{setNewProject(group.id);setCreating(true);setSettings(false);setShowList(false);}}}><Plus size={13}/></button></div>{(!!query.trim()||!collapsedProjects.has(group.id))&&sidebarManagement.sort(group.sessions).map(renderSession)}</section>)}
           {!sessions.length&&!projects.items.some(p=>!p.implicit)&&<p className="desktop-list-empty">{query?'没有匹配的会话':'从一个新项目开始'}</p>}
 
         </div>
@@ -296,10 +295,12 @@ function App() {
           </div>
         )}
           {spaceEditor&&(currentProject||spaceEditor.projectId)&&<SpaceEditor key={spaceEditor.projectId??currentProject?.id} {...spaceEditor} project={projects.items.find(p=>p.id===spaceEditor.projectId)??currentProject} projectChoices={spaceEditor.preservePage?projects.items.filter(p=>p.paths.length):null} onProjectChange={id=>setSpaceEditor({...spaceEditor,projectId:id})} spaces={spaces} workbench={workbench} onClose={()=>setSpaceEditor(null)} onCreated={id=>{if(id&&!spaceEditor.preservePage)openSession(id);}}/>}
+        {sidebarManagement.overlay}
         {creatingProject&&<CreateProjectDialog projects={projects} onClose={()=>setCreatingProject(false)}/> }
         {settings ? (
-          <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter key={settingsTarget} initialPage={settingsTarget} projects={projects} workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance} onBack={()=>setSettings(false)}/>}/></Suspense>
+          <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter key={settingsTarget} initialPage={settingsTarget} projects={projects} spaces={spaces} onOpenSession={openSession} workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance} onBack={()=>setSettings(false)}/>}/></Suspense>
         ) : <>
+          {(overview||!session)&&panel!=='chat'&&<><SplitHandle onResize={setPanelWidth} onCollapse={()=>setPanel('chat')}/><aside className="context-panel desktop-right-panel" aria-label="工作区预览"><ContextTabs kind={panel} onKind={setPanel} expanded={expandedPanel} onExpand={()=>setExpandedPanel(!expandedPanel)} renderTool={item=>{const target=(currentProject?sessions.find(s=>currentProject.paths.includes(s.workspace)):session??sessions[0]);return target?<SessionTools session={target} workbench={workbench} tab={item.kind} act={act} availableRunIds={[]}/>:<p className="context-empty">进入项目并选择一个 Agent 对话后即可使用此工具。</p>;}}/></aside></>}
           {overview&&spaces.enabled&&<SpaceOverview projects={projects} project={currentProject} spaces={spaces} workbench={workbench} onEnter={enterProject} onSelect={openSession} onCreate={kind=>kind==='project'?setCreatingProject(true):setSpaceEditor({kind})} onCode={openCode}/>}
           {!session&&!(overview&&spaces.enabled)&&<section className="new-session-home"><BrandMark/><h1>开始新的工作</h1><p>选择一个项目，或开启一段新的对话。</p><button className="desktop-button" onClick={()=>setCreating(true)}><Plus size={15}/>新建会话</button></section>}
           {session&&!(overview&&spaces.enabled)&&<Conversation spaceIdentity={agentIdentity} onEditIdentity={()=>{const p=projects.items.find(p=>p.id===agentIdentity?.projectId);if(p){setSpaceId(p.id);setSpaceEditor({kind:"agent-update",initial:agentIdentity});}}} fixedIdentity={!!agentIdentity?.steward} spaces={spaces} thread={spaces.threadFor(session.id)} onOpenExecution={openSession} key={session.id} session={session} workbench={workbench} online={online} act={act} tab={creating?'chat':panel} setTab={setPanel} panelWidth={panelWidth} setPanelWidth={setPanelWidth} expandedPanel={expandedPanel} setExpandedPanel={setExpandedPanel}/>}
@@ -413,11 +414,11 @@ function Conversation({ session, workbench, online, act,thread,spaces,spaceIdent
   }, [contentLength, history.session.messages,history.session.tools, session.approvals.length, session.inputs?.length, session.status]);
   const send = async () => {
     if ((!draft.trim()&&!fileReferences.length&&!attachmentDraft.items.length) || (thread&&active) || attachmentDraft.busy || sending || !online || readOnly) return;
+    const panel=commandPanel(draft,session.agentState?.commands);
+    if(panel&&!fileReferences.length&&!attachmentDraft.items.length){setTab(panel);setDraft('');requestKey.current=null;return;}
     if(thread){
       setSending(true);const result=await act(()=>spaces.command({action:'send',projectId:thread.projectId,id:thread.id,text:draft,key:(requestKey.current??=crypto.randomUUID())}));if(result){setDraft('');requestKey.current=null;}setSending(false);return;
     }
-    const panel=commandPanel(draft,session.agentState?.commands);
-    if(panel&&!fileReferences.length&&!attachmentDraft.items.length){setTab(panel);setDraft('');requestKey.current=null;return;}
     followLatest.current = true;
     setFollowing(true);
     setSending(true);
@@ -643,7 +644,7 @@ function Conversation({ session, workbench, online, act,thread,spaces,spaceIdent
         </div>
       )}
       <div className="composer-area desktop-composer-wrap">
-        {thread&&<div className="space-mention-shortcuts">{thread.members.map(id=>{const a=spaces.agents.find(a=>a.id===id);return a&&<button key={id} disabled={active||sending} onClick={()=>{setDraft(d=>`${d}${d&&!d.endsWith(' ')?' ':''}@${a.name} `);requestKey.current=null;}}>@{a.name}</button>;})}</div>}
+
         <div className="composer desktop-composer" onPaste={attachmentDraft.onPaste} onDrop={attachmentDraft.onDrop} onDragOver={attachmentDraft.onDragOver}>
           {!thread&&<AttachmentPicker inputRef={attachmentInput} draft={attachmentDraft} disabled={readOnly||sending} supported={workbench.features?.includes('attachments')}/>}
           <Queue
@@ -652,13 +653,13 @@ function Conversation({ session, workbench, online, act,thread,spaces,spaceIdent
             workbench={workbench}
             online={online && canOperate}
           />
-          {thread?<textarea className="space-group-input" aria-label="发送组消息" value={draft} onChange={e=>{setDraft(e.target.value);requestKey.current=null;}} disabled={readOnly||sending||active} placeholder="向会话组发送任务，或 @成员名字 指定处理…" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();void send();}}}/>:<ComposerInput inputActions={composerActions} session={session} workbench={workbench} value={draft}
+          <ComposerInput group={!!thread} agents={spaces.agents.filter(a=>thread?thread.members.includes(a.id):a.projectId===spaceIdentity?.projectId||(!spaceIdentity&&a.workspace===session.workspace))} inputActions={composerActions} session={session} workbench={workbench} value={draft}
             onChange={text=>{setDraft(text);requestKey.current=null;}}
             files={fileReferences} onFiles={changeReferences} onSubmit={()=>void send()}
-            onPanel={setTab} disabled={readOnly || sending} online={online}
-            placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档后继续会话" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 引用文件…"}/> }
+            onPanel={setTab} disabled={readOnly || sending || (!!thread&&active)} online={online}
+            placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档后继续会话" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 选择 Agent 或引用文件…"}/>
           <div className="composer-toolbar desktop-composer-toolbar"><div>
-            <div className="composer-context-control" ref={contextControl}><IconButton label="添加上下文" disabled={readOnly||sending||!!thread} onClick={()=>setContextMenuOpen(!contextMenuOpen)}><Plus size={19}/></IconButton>{contextMenuOpen&&<div className="composer-context-actions"><button type="button" aria-label="添加附件" disabled={!workbench.features?.includes('attachments')||!online||attachmentDraft.busy} onClick={()=>{setContextMenuOpen(false);attachmentInput.current?.click();}}><Paperclip size={14}/>添加附件</button><button type="button" onClick={()=>{setContextMenuOpen(false);composerActions.current?.trigger('/');}}><Slash size={14}/>选择指令</button><button type="button" onClick={()=>{setContextMenuOpen(false);composerActions.current?.trigger('@');}}><AtSign size={14}/>引用文件</button></div>}</div>
+            <div className="composer-context-control" ref={contextControl}><IconButton label="添加上下文" disabled={readOnly||sending||!!thread&&active} onClick={()=>setContextMenuOpen(!contextMenuOpen)}><Plus size={19}/></IconButton>{contextMenuOpen&&<div className="composer-context-actions"><button type="button" aria-label="添加附件" disabled={!!thread||!workbench.features?.includes('attachments')||!online||attachmentDraft.busy} onClick={()=>{setContextMenuOpen(false);attachmentInput.current?.click();}}><Paperclip size={14}/>添加附件</button><button type="button" onClick={()=>{setContextMenuOpen(false);composerActions.current?.trigger('/');}}><Slash size={14}/>选择指令</button><button type="button" onClick={()=>{setContextMenuOpen(false);composerActions.current?.trigger('@');}}><AtSign size={14}/>提及 Agent / 引用上下文</button></div>}</div>
             <button type="button" className="permission" onClick={()=>setTab('agent')}><ShieldCheck size={13}/>会话权限<ChevronDown size={11}/></button>
           </div><div>{thread?<span className="space-group-label"><Users size={13}/> {thread.members.length} 位成员</span>:<AgentConfigControls session={session} workbench={workbench} compact label={name} onOpen={()=>setTab('agent')}/>}
             <button
