@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+import {join} from 'node:path';
+import {host} from './helpers/host.mjs';
+test('project reference search finds nested names and paths, refreshes and preserves directory browse',{timeout:15000},async t=>{
+ const {directory,call}=await host(t),workspace=join(directory,'workspace');
+ await mkdir(join(workspace,'docs/guides/examples'),{recursive:true});
+ await writeFile(join(workspace,'docs/guides/examples/sample.md'),'sample');
+ await writeFile(join(workspace,'.gitignore'),'ignored/\n');await mkdir(join(workspace,'ignored'));await writeFile(join(workspace,'ignored/secret.txt'),'ignored');
+ execFileSync('git',['init','-q'],{cwd:workspace});
+ const {id}=await call('/sessions',{provider:'demo',workspace});
+ const search=q=>call(`/sessions/${id}/references?query=${encodeURIComponent(q)}`);
+ assert.equal((await search('sample')).entries[0].path,'docs/guides/examples/sample.md');
+ assert.equal((await search('docs/guides/examples/sa')).entries[0].name,'sample.md');
+ assert.equal((await search('secret')).entries.length,0);
+ assert.equal((await call(`/sessions/${id}/tree?path=docs%2Fguides%2F`)).entries.some(e=>e.name==='examples'),true);
+ await writeFile(join(workspace,'new.txt'),'new');
+ assert.equal((await call(`/sessions/${id}/references?query=new.txt&refresh=true`)).entries[0].path,'new.txt');
+ await call(`/sessions/${id}/references?query=..%2Foutside`,undefined,false);
+ assert.equal((await search('not-found')).entries.length,0);
+});

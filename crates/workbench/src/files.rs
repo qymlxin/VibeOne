@@ -1,3 +1,5 @@
+mod reference_search;
+pub use reference_search::search;
 use crate::domain_error::{DomainError, ErrorKind};
 use serde_json::{Value, json};
 use std::{

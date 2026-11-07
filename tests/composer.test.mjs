@@ -169,3 +169,12 @@ test('Agent advertised dollar skills belong to skills, keep their wire command a
  const skill=options.find(o=>o.name==='reviewer');assert.equal(skill.kind,'skill');assert.equal(skill.nativeCommand,'$reviewer');assert.equal(skill.source,'Agent 技能');
  assert.equal(options.filter(o=>o.name==='local').length,1);assert.equal(options.find(o=>o.name==='local').path,'.agents/skills/local/SKILL.md');
 });
+
+import {referenceRequest} from '../apps/desktop/src/composer.js';
+test('reference requests browse complete directories and search full relative paths',()=>{
+ assert.equal(referenceRequest('session','').path,'/sessions/session/tree?path=.');
+ assert.equal(referenceRequest('session','docs/guides/').path,'/sessions/session/tree?path=docs%2Fguides%2F');
+ assert.equal(referenceRequest('session','tests/arti').path,'/sessions/session/references?query=tests%2Farti');
+ assert.equal(referenceRequest('session','sample').browsing,false);
+ assert.equal(referenceRequest('session','my folder/子文件',true).path,'/sessions/session/references?query=my%20folder%2F%E5%AD%90%E6%96%87%E4%BB%B6&refresh=true');
+});

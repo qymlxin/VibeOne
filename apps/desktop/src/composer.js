@@ -77,3 +77,12 @@ export async function groupReferenceText(read,sessionId,text,files){
   if(new TextEncoder().encode(prompt).length>12000)throw Error('会话组引用与消息超过大小限制，请减少引用内容');
   return prompt;
 }
+
+// A trailing slash browses one directory; other input searches project-relative paths.
+export function referenceRequest(sessionId, query, refresh=false) {
+  const directory=query.includes('/')?query.slice(0,query.lastIndexOf('/')+1):'';
+  const browsing=!query||query.endsWith('/');
+  return {directory,browsing,path:browsing
+    ? `/sessions/${encodeURIComponent(sessionId)}/tree?path=${encodeURIComponent(directory||'.')}`
+    : `/sessions/${encodeURIComponent(sessionId)}/references?query=${encodeURIComponent(query)}${refresh?'&refresh=true':''}`};
+}

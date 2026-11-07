@@ -412,6 +412,7 @@ impl Workbench {
                     "queuePause",
                     "attachments",
                     "directoryReferences",
+                    "referenceSearch",
                     "providerProbe",
                     "providerModels",
                     "projectSpaces",

@@ -182,6 +182,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/sessions/{id}/configure",post(configure_agent))
         .route("/v1/sessions/{id}/artifacts",get(artifacts).post(capture_artifact))
         .route("/v1/sessions/{id}/changes",get(changes))
+        .route("/v1/sessions/{id}/references",get(references))
         .route("/v1/sessions/{id}/diff",get(diff))
         .route("/v1/sessions/{id}/file",get(read_file))
         .route("/v1/sessions/{id}/tree",get(tree))
@@ -435,6 +436,11 @@ async fn read_file(
         .await
         .map(Json)
         .map_err(domain_fail)
+}
+#[derive(Deserialize)]
+struct ReferenceQuery { #[serde(default)] query:String, #[serde(default)] refresh:bool }
+async fn references(State(state):State<Server>,Path(id):Path<String>,Query(query):Query<ReferenceQuery>)->ApiResult {
+    crate::files::search(&workspace(&state,&id)?,&query.query,query.refresh).await.map(Json).map_err(domain_fail)
 }
 async fn tree(
     State(state): State<Server>,
