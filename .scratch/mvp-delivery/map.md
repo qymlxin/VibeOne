@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [126 · 侧栏管理](issues/126-sidebar-management.md)、[127 · 统一输入菜单](issues/127-unified-composer.md)、[128 · 工具起始页](issues/128-context-start-page.md)：右键置顶/重命名/可恢复删除、设置归档页、Agent提及、群组斜杠菜单、简化顶栏与浏览器式工具起始页；局部检查与亮暗实图通过。
+
 - [125 · Electron清理与新建菜单](issues/125-electron-only-create-menu.md)：移除Tauri，迁移共享资源；新建Agent/项目保持当前页和草稿，补通信SVG，已切换最新版。
 
 - [124 · 统一创建项目弹窗](issues/124-create-project-dialog.md)：与Agent复用紧凑弹窗外壳，支持名称与多源目录，亮暗及局部保存验证通过。
