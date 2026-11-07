@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [129 · 项目图标与分支](issues/129-project-badges-branches.md)：彩色缩写、路径和实际Git分支，Electron仅查询Host登记项目；局部验证及亮暗实图通过。
+
 - [126 · 侧栏管理](issues/126-sidebar-management.md)、[127 · 统一输入菜单](issues/127-unified-composer.md)、[128 · 工具起始页](issues/128-context-start-page.md)：右键置顶/重命名/可恢复删除、设置归档页、Agent提及、群组斜杠菜单、简化顶栏与浏览器式工具起始页；局部检查与亮暗实图通过。
 
 - [125 · Electron清理与新建菜单](issues/125-electron-only-create-menu.md)：移除Tauri，迁移共享资源；新建Agent/项目保持当前页和草稿，补通信SVG，已切换最新版。
