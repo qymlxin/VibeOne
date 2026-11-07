@@ -129,12 +129,14 @@ function AnswerActions({text,name}) {
   useEffect(()=>setState(''),[text]);
   return <div className="message-actions desktop-answer-actions"><button type="button" aria-label="复制回答" disabled={busy} onClick={async()=>{setBusy(true);try{if(!navigator.clipboard?.writeText)throw Error('当前环境不支持剪贴板');await navigator.clipboard.writeText(text);setState('已复制');}catch{setState('复制失败，请选择正文复制');}finally{setBusy(false);}}}><Copy size={13}/></button><span>{name}</span>{state&&<span role="status">{state}</span>}</div>;
 }
-export function AgentResponse({turn,name,status,hasInput,onReadHistory,onChanges,changeCount,changeStats}) {
+export function AgentResponse({turn,name,status,hasInput,onReadHistory,onChanges}) {
   if (!turn.process.length && !turn.answer && !turn.live && !turn.run?.finishedAt) return null;
+  const changes=turn.run?.changes;
+  const changeCount=changes?.available?changes.files?.length:0;
   return <section className="assistant-message desktop-agent-turn" aria-label={`${name} 的回复`}>
     <ActivityFeed turn={{...turn,activity:turn.process}} status={status} hasInput={hasInput} onReadHistory={onReadHistory}/>
     {turn.answer && <article className="desktop-message assistant desktop-agent-reply" data-history-order={turn.answer.historyOrder}><div><MarkdownBody text={turn.answer.text}/><Truncated item={turn.answer}/></div></article>}
-    {changeCount>0&&!turn.live&&<button className="change-summary" onClick={onChanges}><GitCompareArrows size={16}/><div><strong>查看工作区当前变更</strong><span>{changeCount} 个文件{changeStats?.statsAvailable&&<> <em>+{changeStats.added}</em> <b>−{changeStats.removed}</b></>} · 工作区当前变更</span></div><ChevronRight size={15}/></button>}
+    {changeCount>0&&!turn.live&&<button className="change-summary" onClick={()=>onChanges(changes,turn.id)}><GitCompareArrows size={16}/><div><strong>查看本轮变更</strong><span>{changeCount} 个文件{changes&&<> <em>+{changes.added}</em> <b>−{changes.removed}</b></>} · 执行前后差异</span></div><ChevronRight size={15}/></button>}
     {turn.answer&&!turn.live&&<AnswerActions text={turn.answer.text} name={name}/>}
 
   </section>;

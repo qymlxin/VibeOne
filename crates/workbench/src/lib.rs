@@ -4,6 +4,7 @@ mod domain_error;
 mod files;
 mod plugins;
 mod projection;
+mod run_changes;
 mod providers;
 mod server;
 mod state;

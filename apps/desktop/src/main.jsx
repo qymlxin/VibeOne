@@ -1,3 +1,4 @@
+import {RunChanges,WorkspaceChangeOverview} from './RunChanges.jsx';
 import {submitMessage as submitMessageCommand} from "@vibeone/client-contracts";
 import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -357,12 +358,13 @@ function Conversation({ session, workbench, online, act,thread,spaces,spaceIdent
   const [browserRequest,setBrowserRequest]=useState(null),[fileTarget,setFileTarget]=useState(null);
   const openUrl=useCallback(url=>{setBrowserRequest({url,key:crypto.randomUUID()});setTab('browser');},[]);
   const [changeSummary,setChangeSummary]=useState(null);
+  const [runChangesRequest,setRunChangesRequest]=useState(null);
   const lastRun=session.runs?.at(-1);
   const stopCurrentRun=useStopCommand(workbench,session);
   const queueCommands=useQueueCommands(workbench,session.id);
   const artifactCapture=useArtifactCapture(workbench,session.id);
   const metadataCommands=useMetadataCommands(workbench,session.id);
-  useEffect(()=>{let stale=false;setChangeSummary(null);if(online&&lastRun?.finishedAt)workbench.call(`/sessions/${session.id}/changes`).then(value=>{if(!stale)setChangeSummary(value);}).catch(()=>{});return()=>{stale=true;};},[session.id,lastRun?.id,lastRun?.finishedAt,online,workbench.call]);
+  useEffect(()=>{let stale=false,busy=false;setChangeSummary(null);const load=async()=>{if(!online||busy)return;busy=true;try{const value=await workbench.call(`/sessions/${session.id}/changes`);if(!stale)setChangeSummary(value);}catch{if(!stale)setChangeSummary({error:true});}finally{busy=false;}};void load();const timer=tab!=='chat'?setInterval(()=>void load(),15000):null;window.addEventListener('focus',load);return()=>{stale=true;clearInterval(timer);window.removeEventListener('focus',load);};},[session.id,lastRun?.id,lastRun?.finishedAt,online,workbench.call,tab]);
   const openFile=useCallback(path=>{setFileTarget({path,key:crypto.randomUUID()});setTab('files');},[]);
   const previewContext=useMemo(()=>({workspace:session.workspace,sessionId:session.id,read:workbench.read,openUrl,openFile}),[session.workspace,session.id,workbench.read,openUrl,openFile]);
   const requestKey = useRef(null),attachmentInput=useRef(null),composerActions=useRef(null),contextControl=useRef(null);
@@ -542,7 +544,7 @@ function Conversation({ session, workbench, online, act,thread,spaces,spaceIdent
         {thread?<GroupTranscript thread={thread} session={history.session} workbench={workbench} spaces={spaces} act={act} onOpenExecution={onOpenExecution}/>:turns.map(turn => (
           <div className="conversation-round desktop-turn" tabIndex={-1} key={turn.id} data-turn-id={turn.id}>
             {turn.user && <ChatMessage message={turn.user} name={name}/>}
-            <AgentResponse onChanges={()=>setTab('changes')} changeStats={changeSummary} changeCount={turn.id===lastRun?.id&&changeSummary?.isGit?changeSummary.files.length:0} turn={turn} name={name} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
+            <AgentResponse onChanges={(snapshot,runId)=>{setRunChangesRequest({snapshot,runId,key:crypto.randomUUID()});setTab('run-changes');}} turn={turn} name={name} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
           </div>
         ))}
         {(session.inputs ?? []).map((request) => (
@@ -715,7 +717,7 @@ function Conversation({ session, workbench, online, act,thread,spaces,spaceIdent
       </div>
       </div>
       {tab!=="chat"&&<SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}} onCollapse={()=>setTab("chat")}/>}
-      <aside hidden={tab==='chat'} style={{display:tab==='chat'?'none':undefined,...(expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:{})}} className={`context-panel desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><ContextTabs kind={tab} onKind={setTab} fileRequest={fileTarget} browserRequest={browserRequest} expanded={expandedPanel} onExpand={()=>setExpandedPanel(!expandedPanel)} renderTool={(item,onTitle)=><SessionTools artifactCapture={artifactCapture} session={history.session} workbench={workbench} tab={item.kind} act={act} fileTarget={item.file} onTitle={onTitle} onLocateRun={locateRun} availableRunIds={turns.map(turn=>turn.id)}/>}/></aside>
+      <aside hidden={tab==='chat'} style={{display:tab==='chat'?'none':undefined,...(expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:{})}} className={`context-panel desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><ContextTabs overview={<WorkspaceChangeOverview summary={changeSummary} onOpen={()=>setTab('changes')}/>} runChangesRequest={runChangesRequest} kind={tab} onKind={setTab} fileRequest={fileTarget} browserRequest={browserRequest} expanded={expandedPanel} onExpand={()=>setExpandedPanel(!expandedPanel)} renderTool={(item,onTitle)=>item.changeSnapshot?<RunChanges snapshot={item.changeSnapshot}/>:<SessionTools artifactCapture={artifactCapture} session={history.session} workbench={workbench} tab={item.kind} act={act} fileTarget={item.file} onTitle={onTitle} onLocateRun={locateRun} availableRunIds={turns.map(turn=>turn.id)}/>}/></aside>
       </div>
     </PreviewContext.Provider>
   );

@@ -15,7 +15,8 @@ export function buildTurns(session) {
   for (const message of session.messages) {
     if (message.role === 'user') {
       current = byId.get(message.runId) ?? add(message.runId ?? `user:${message.id}`);
-      current.user = message;
+      // The agent may echo role instructions and file context. Keep accepted input visible.
+      current.user = typeof current.run?.text==='string' ? {...message,text:current.run.text,textTruncated:false} : message;
     } else {
       const knownRole=message.role==='thought'||message.role==='assistant';
       let turn=byId.get(message.runId);

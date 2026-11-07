@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+import {writeFile,mkdir} from 'node:fs/promises';
+import {join} from 'node:path';
+import {host} from './helpers/host.mjs';
+
+test('isolated Host keeps original input and persists execution-window delta instead of dirty workspace', {timeout:20000},async t=>{
+ const {directory,call,wait}=await host(t);
+ const workspace=join(directory,'workspace');await mkdir(workspace);
+ execFileSync('git',['init','-q'],{cwd:workspace});
+ await writeFile(join(workspace,'dirty.md'),'existing content\n');
+ const {id}=await call('/sessions',{provider:'demo',workspace});
+ const first=await call(`/sessions/${id}/messages`,{text:'你好'});
+ const greeted=await wait(id,s=>s.runs.find(r=>r.id===first.operationId)?.changes?.available);
+ assert.equal(greeted.runs.find(r=>r.id===first.operationId).changes.files.length,0);
+ const next=await call(`/sessions/${id}/messages`,{text:'/wait',files:['dirty.md']});
+ await wait(id,s=>s.status==='running');
+ await writeFile(join(workspace,'dirty.md'),'updated content\n');
+ await call(`/sessions/${id}/cancel`,{});
+ const done=await wait(id,s=>s.runs.find(r=>r.id===next.operationId)?.changes?.available);
+ const run=done.runs.find(r=>r.id===next.operationId);
+ assert.equal(run.changes.files.length,1);
+ assert.equal(run.changes.files[0].oldText,'existing content\n');
+ assert.equal(run.changes.files[0].newText,'updated content\n');
+ const users=done.messages.filter(m=>m.role==='user'&&m.runId===next.operationId);
+ assert.equal(users.length,1);assert.equal(users[0].text,'/wait');
+ await writeFile(join(workspace,'dirty.md'),'later edit\n');
+ assert.equal((await call('/snapshot')).sessions.find(s=>s.id===id).runs.find(r=>r.id===next.operationId).changes.files[0].newText,'updated content\n');
+});

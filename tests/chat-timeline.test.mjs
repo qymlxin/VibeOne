@@ -54,3 +54,10 @@ test('nested groups combine only consecutive tools of the same family and retain
  const turn=buildTurns({status:'running',runs:[{id:'r',status:'running'}],messages:[{id:'u',role:'user',runId:'r'},{id:'t',role:'thought',runId:'r',text:'only a summary',activityOrder:2}],tools:[]})[0];
  assert.equal(turn.process.length,1);assert.equal(turn.answer,null);
 });
+
+test('accepted input replaces enriched agent echo without stripping user-authored text',()=>{
+ const raw='[VibeOne 项目成员配置]\n你好';
+ const turns=buildTurns({runs:[{id:'r',text:'你好'}],messages:[{id:'m',runId:'r',role:'user',text:raw}],tools:[]});
+ assert.equal(turns[0].user.text,'你好');
+ assert.equal(buildTurns({runs:[],messages:[{id:'m',role:'user',text:raw}],tools:[]})[0].user.text,raw);
+});

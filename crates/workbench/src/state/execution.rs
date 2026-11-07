@@ -336,7 +336,7 @@ impl Workbench {
             if view.messages.len() >= 128 {
                 view.messages.remove(0);
             }
-            view.messages.push(json!({"id":uuid::Uuid::new_v4().to_string(),"runId":queued.id,"role":"user","text":text,"attachments":queued.attachments,"pending":true}));
+            view.messages.push(json!({"id":uuid::Uuid::new_v4().to_string(),"runId":queued.id,"role":"user","text":queued.text,"attachments":queued.attachments,"pending":true}));
             let (cancel, cancelled) = watch::channel(false);
             if let Err(error) = self
                 .commit(entry, view, "run.started", &json!({"runId":queued.id}))
@@ -348,6 +348,18 @@ impl Workbench {
             *entry.cancel.lock().expect("cancel poisoned") = Some(cancel);
             (text, attachment_ids, lease, cancelled)
         };
+        let (workspace, run_id) = {
+            let view = entry.view.lock().expect("view poisoned");
+            (
+                view.workspace.clone(),
+                view.runs
+                    .iter()
+                    .rev()
+                    .find(|run| run.status == "starting")
+                    .map(|run| run.id.clone()),
+            )
+        };
+        let before = crate::run_changes::capture(&workspace).await;
         let result = self
             .execute(entry, &text, &attachment_ids, &mut cancelled)
             .await;
@@ -392,6 +404,25 @@ impl Workbench {
                 finish(&mut view, "failed");
             }
             self.commit(entry, view, "run.ended", &json!({})).await?;
+        }
+        if !self.stopping.load(Ordering::SeqCst) {
+            let changes = match (before, crate::run_changes::capture(&workspace).await) {
+                (Ok(before), Ok(after)) => crate::run_changes::compare(before, after).await,
+                _ => {
+                    json!({"available":false,"notice":"此轮未能采集完整文件快照，工作区整体变更仍可在右侧查看。"})
+                }
+            };
+            let _gate = entry.gate.lock().await;
+            let mut view = entry.view.lock().expect("view poisoned").clone();
+            if let Some(run) = view
+                .runs
+                .iter_mut()
+                .find(|run| Some(&run.id) == run_id.as_ref())
+            {
+                run.extensions.insert("changes".into(), changes);
+            }
+            self.commit(entry, view, "run.changes", &json!({"runId":run_id}))
+                .await?;
         }
         self.leases.lock().expect("leases poisoned").remove(&lease);
         Ok(())
@@ -682,6 +713,13 @@ impl Workbench {
             inherited,
             (entry.revision.load(Ordering::SeqCst) + 1) as u64,
         );
+        // ACP may echo the enriched prompt. Run.text is the accepted user input.
+        for message in view.messages.iter_mut().filter(|m| m["role"] == "user") {
+            if let Some(run) = view.runs.iter().find(|run| message["runId"] == run.id) {
+                message["text"] = json!(run.text);
+                message["textTruncated"] = json!(false);
+            }
+        }
         if event["type"] == "permission" || event["type"] == "input" {
             let requests = if event["type"] == "permission" {
                 &mut view.approvals
