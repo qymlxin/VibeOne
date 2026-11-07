@@ -12,7 +12,7 @@ for (const args of [
   const build = spawnSync("npm", args, { cwd: root, stdio: "inherit" });
   if (build.status !== 0) process.exit(build.status ?? 1);
 }
-const resources = join(root, "apps/desktop/src-tauri");
+const resources = join(root, "target/desktop-resources");
 for (const name of ["runtime", "web", "examples", "bridges"]) {
   rmSync(join(resources, name), { recursive: true, force: true });
   mkdirSync(join(resources, name), { recursive: true });
@@ -50,7 +50,7 @@ const result = spawnSync(
   { cwd: root, stdio: "inherit" },
 );
 if (result.status !== 0) process.exit(result.status ?? 1);
-const directory = join(root, "apps/desktop/src-tauri/bin");
+const directory = join(root, "target/desktop-resources/bin");
 mkdirSync(directory, { recursive: true });
 copyFileSync(
   join(
@@ -59,7 +59,7 @@ copyFileSync(
     release ? "release" : "debug",
     process.platform === "win32" ? "vibeone-host.exe" : "vibeone-host",
   ),
-  join(directory, "vibeone-host"),
+  join(directory, process.platform === "win32" ? "vibeone-host.exe" : "vibeone-host"),
 );
 if (process.platform !== "win32")
-  chmodSync(join(directory, "vibeone-host"), 0o755);
+  chmodSync(join(directory, process.platform === "win32" ? "vibeone-host.exe" : "vibeone-host"), 0o755);

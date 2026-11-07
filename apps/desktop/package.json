@@ -6,8 +6,6 @@
   "scripts": {
     "web": "vite --host 127.0.0.1 --port 5174 --strictPort",
     "build:web": "vite build",
-    "desktop": "tauri dev",
-    "desktop:build": "tauri build --bundles app",
     "electron": "electron .",
     "bundle:electron": "node ../../scripts/bundle-electron.mjs"
   },

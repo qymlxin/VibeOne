@@ -12,7 +12,7 @@ import {createInterface} from 'node:readline';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 const exec=promisify(execFile);
-const app=resolve(process.argv[2]??'apps/desktop/src-tauri/target/debug/bundle/macos/VibeOne.app');
+const app=resolve(process.argv[2]??`target/electron/VibeOne-${process.platform}-${process.arch}${process.platform==='darwin'?'/VibeOne.app':''}`);
 const directory=await mkdtemp(join(tmpdir(),'vibeone-bundle-smoke-'));
 let child,exited,connection;
 async function initializeBridge(path,cwd){
@@ -39,11 +39,11 @@ async function initializeBridge(path,cwd){
 }
 try{
  const resources=join(directory,'resources');
- await cp(join(app,'Contents/Resources'),resources,{recursive:true});
+ await cp(process.platform==='darwin'?join(app,'Contents/Resources/host'):join(app,'resources/host'),resources,{recursive:true});
  const data=join(directory,'data'),workspace=join(directory,'workspace');
  const {mkdir}=await import('node:fs/promises');await mkdir(workspace);
  await writeFile(join(workspace,'bundle-only.txt'),'isolated packaged resources');
- const binary=join(resources,'bin/vibeone-host');
+ const binary=join(resources,'bin',process.platform==='win32'?'vibeone-host.exe':'vibeone-host');
  child=spawn(binary,['serve','--data-dir',data],{cwd:directory,stdio:'ignore',env:{...process.env,VIBEONE_RUNTIME_DIR:join(resources,'runtime'),VIBEONE_WEB_DIR:join(resources,'web'),VIBEONE_EXAMPLE_PLUGIN:join(resources,'examples/workspace-tools'),VIBEONE_BRIDGES_DIR:join(resources,'bridges')}});
  exited=once(child,'exit');
  for(let index=0;index<200;index++){

@@ -1,17 +1,17 @@
 # 桌面包与独立运行资源
 
-> 正式桌面入口已迁移为Electron，当前构建命令与产物位置见[Electron桌面说明](electron-desktop.md)。本文保留Tauri兼容包的资源与历史验收说明；旧构建入口为`desktop:bundle:tauri`。
+> 正式桌面入口为Electron，构建命令与运行职责见[Electron桌面说明](electron-desktop.md)。
 
 ## 包内与本机的边界
 
-Tauri桌面包包含Rust Host、桌面/手机前端、Node插件运行时、SDK、内置示例，以及锁定版本的ACP桥接器（把编码工具暴露为ACP进程的适配程序）。本机仍须提供Node22+和模型认证；构建不复制用户认证目录、令牌或已有会话数据。
+Electron桌面包包含Rust Host、桌面/手机前端、Node插件运行时、SDK、内置示例，以及锁定版本的ACP桥接器（把编码工具暴露为ACP进程的适配程序）。本机仍须提供Node22+和模型认证；构建不复制用户认证目录、令牌或已有会话数据。
 
 | 内容 | 资源位置 / 来源 |
 | --- | --- |
-| Rust Host | `Contents/Resources/bin/vibeone-host` |
-| 手机网页 | `Contents/Resources/web`，只经独立HTTPS入口提供；loopback仅提供业务API |
-| 插件Runner/SDK | `Contents/Resources/runtime` |
-| 示例App/Worker/Provider | `Contents/Resources/examples/workspace-tools` |
+| Rust Host | `Contents/Resources/host/bin/vibeone-host` |
+| 手机网页 | `Contents/Resources/host/web`，只经独立HTTPS入口提供；loopback仅提供业务API |
+| 插件Runner/SDK | `Contents/Resources/host/runtime` |
+| 示例App/Worker/Provider | `Contents/Resources/host/examples/workspace-tools` |
 | Codex适配器 | `bridges/codex-acp` → `@agentclientprotocol/codex-acp` 2.5.0 |
 | Claude适配器 | `bridges/claude-agent-acp` → `@agentclientprotocol/claude-agent-acp` 0.101.0 |
 | 生产依赖、SDK及本平台CLI | `bridges/node_modules`，按实际安装的锁定依赖树复制 |
@@ -31,7 +31,7 @@ npm run desktop:bundle
 npm run bundle:smoke
 ```
 
-本机产物为`apps/desktop/src-tauri/target/debug/bundle/macos/VibeOne.app`，当前架构对应当前构建平台，不宣称通用/全平台包。macOS包最低10.15；完整使用还须满足Node22+及所含本平台CLI的要求。发行签名、公证和其他平台实机仍未完成。
+本机产物为`target/electron/VibeOne-darwin-arm64/VibeOne.app`，当前架构对应当前构建平台，不宣称通用/全平台包。系统要求以锁定的Electron运行时为准；完整使用还须满足Node22+及所含本平台CLI的要求。发行签名、公证和其他平台实机仍未完成。
 
 `bundle:smoke`把全部资源复制到仓库外的临时目录，并且只启动这个副本中的Host、Runner、Provider和适配器。验证：
 

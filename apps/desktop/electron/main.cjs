@@ -1,6 +1,6 @@
 const {app,BrowserWindow,WebContentsView,ipcMain,dialog,shell,Notification,session,protocol,net}=require('electron');
 const {spawn}=require('node:child_process');const fs=require('node:fs');const path=require('node:path');const os=require('node:os');
-const root=path.resolve(__dirname,'../../..'),resources=app.isPackaged?path.join(process.resourcesPath,'host'):path.join(root,'apps/desktop/src-tauri');
+const root=path.resolve(__dirname,'../../..'),resources=app.isPackaged?path.join(process.resourcesPath,'host'):path.join(root,'target/desktop-resources');
 const data=process.env.VIBEONE_DATA_DIR||path.join(os.homedir(),'.vibeone');
 let window,launching;const browsers=new Map(),terminals=new Map();
 protocol.registerSchemesAsPrivileged([{scheme:'vibeone',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true}}]);
@@ -23,7 +23,7 @@ ipcMain.handle('vibeone:command',async(event,command,a={})=>{
  case 'open_external':await shell.openExternal(webUrl(a.url));return;
  case 'export_remote_certificate':{const certificate=path.join(data,'VibeOne-Root-CA.crt');if(!fs.existsSync(certificate))throw Error('请先启用远程连接');const result=await dialog.showSaveDialog(window,{defaultPath:'VibeOne-Root-CA.crt'});if(!result.canceled)fs.copyFileSync(certificate,result.filePath);return result.filePath;}
  case 'notification_permission':case 'request_notification_permission':return {status:Notification.isSupported()?'granted':'unsupported',source:'electron'};
- case 'plugin:notification|notify':if(Notification.isSupported())new Notification({title:String(a.options.title),body:String(a.options.body)}).show();return;
+ case 'desktop_notify':if(Notification.isSupported())new Notification({title:String(a.options.title),body:String(a.options.body)}).show();return;
  case 'terminal_open':{if(terminals.has(a.id)||terminals.size>=12)throw Error('终端数量已达上限');const cwd=fs.realpathSync(a.cwd);if(!fs.statSync(cwd).isDirectory())throw Error('目录不可用');const pty=require('node-pty');if(!app.isPackaged&&process.platform!=='win32'){const helper=path.join(path.dirname(require.resolve('node-pty/package.json')),'prebuilds',`${process.platform}-${process.arch}`,'spawn-helper');if(fs.existsSync(helper))fs.chmodSync(helper,0o755);}const shellPath=process.env.SHELL||(process.platform==='win32'?'powershell.exe':'/bin/zsh');const terminal=pty.spawn(shellPath,process.platform==='win32'?[]:['-l'],{name:'xterm-256color',cwd,cols:Math.max(2,Math.min(500,a.cols)),rows:Math.max(2,Math.min(300,a.rows)),env:{...process.env,TERM:'xterm-256color',COLORTERM:'truecolor'}});terminals.set(a.id,terminal);terminal.onData(data=>emit(a.events?.id||a.events?.channel,{type:'data',data:[...Buffer.from(data)]}));terminal.onExit(e=>{terminals.delete(a.id);emit(a.events?.id||a.events?.channel,{type:'exit',code:e.exitCode});});return `${os.userInfo().username}@${os.hostname()}:${path.basename(cwd)}`;}
  case 'terminal_write':if(typeof a.data!=='string'||a.data.length>65536)throw Error('终端输入过长');terminals.get(a.id)?.write(a.data);return;
  case 'terminal_resize':terminals.get(a.id)?.resize(Math.max(2,Math.min(500,a.cols)),Math.max(2,Math.min(300,a.rows)));return;

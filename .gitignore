@@ -4,9 +4,6 @@ examples/plugins/*/dist/
 target/
 *.tsbuildinfo
 apps/desktop/dist/
-apps/desktop/src-tauri/target/
-apps/desktop/src-tauri/bin/
-apps/desktop/src-tauri/gen/
 prototype-dist/
 .impeccable/review/
 
@@ -20,9 +17,3 @@ prototype-dist/
 !.env.example
 __pycache__/
 *.py[cod]
-
-apps/desktop/src-tauri/runtime/
-apps/desktop/src-tauri/web/
-apps/desktop/src-tauri/examples/
-
-apps/desktop/src-tauri/bridges/

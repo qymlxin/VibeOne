@@ -123,7 +123,7 @@ test(
           invoke: async (command,args) => {
             if(command==='notification_permission'){if(window.__notificationQueryFail)throw Error('权限查询测试失败');return {status:window.__notificationPermission,source:'native-bridge-test'};}
             if(command==='request_notification_permission'){window.__notificationPermission=window.__notificationRequestDenied?'denied':'granted';return {status:window.__notificationPermission,source:'native-bridge-test'};}
-            if(command==='plugin:notification|notify'){window.__notifications.push(args.options);return;}
+            if(command==='desktop_notify'){window.__notifications.push(args.options);return;}
             if (command === "host_connection") return connection;
             if (command === "restart_host") { await new Promise(resolve=>setTimeout(resolve,500)); return connection; }
             if (command === "choose_workspace") return directory;

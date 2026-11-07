@@ -35,13 +35,9 @@
     "contracts:generate": "node scripts/generate-host-contracts.mjs",
     "contracts:check": "node scripts/generate-host-contracts.mjs --check && npm run check -w @vibeone/client-contracts",
     "agent:chat": "cargo build -p vibeone-host && node --test tests/real-chat-presentation.test.mjs",
-    "desktop:tauri": "node scripts/prepare-desktop.mjs && npm run desktop -w @vibeone/desktop",
-    "desktop:electron:bundle": "node scripts/prepare-desktop.mjs && npm run bundle:electron -w @vibeone/desktop",
-    "desktop:bundle:tauri": "node scripts/prepare-desktop.mjs && npm run desktop:build -w @vibeone/desktop -- --debug",
-    "desktop:build:tauri": "node scripts/prepare-desktop.mjs --release && npm run desktop:build -w @vibeone/desktop"
+    "desktop:electron:bundle": "node scripts/prepare-desktop.mjs && npm run bundle:electron -w @vibeone/desktop"
   },
   "dependencies": {
-    "@tauri-apps/plugin-notification": "^2.8.0",
     "lucide-react": "^0.468.0",
     "node-pty": "^1.1.0",
     "react": "^19.0.0",
@@ -54,8 +50,6 @@
     "@agentclientprotocol/codex-acp": "2.5.0",
     "@electron/packager": "^20.3.0",
     "@playwright/test": "^1.56.0",
-    "@tauri-apps/api": "2.12.4",
-    "@tauri-apps/cli": "2.12.4",
     "@types/node": "22.19.0",
     "electron": "^45.2.3",
     "esbuild": "^0.25.12",

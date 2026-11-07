@@ -10,9 +10,7 @@ export async function notificationPermission() {
 export async function enableNotifications() {
   if (isNative()) {
     const result=await invoke('request_notification_permission');
-    if(result.status==='unavailable') {
-      if((await invoke('plugin:notification|request_permission'))!=='granted')throw Error('系统通知权限未开启');
-    } else if(!canNotify(result.status))throw Error('系统通知权限未开启，请在系统设置中允许 VibeOne 通知');
+    if(!canNotify(result.status))throw Error('系统通知权限未开启，请在系统设置中允许 VibeOne 通知');
   } else if (!('Notification' in window) || (await Notification.requestPermission())!=='granted') {
     throw Error('浏览器通知不可用或未获授权');
   }
@@ -23,7 +21,7 @@ async function notify(title, body) {
   const {status}=await notificationPermission();
   if(!canNotify(status)&&status!=='unavailable')return;
   if(localStorage.getItem('vibeone-notifications')!=='enabled')return;
-  if (isNative()) await invoke('plugin:notification|notify',{options:{title,body}});
+  if (isNative()) await invoke('desktop_notify',{options:{title,body}});
   else new Notification(title,{body});
 }
 export function useNotifications(workbench) {

@@ -38,7 +38,7 @@
 
 ## 启动与升级
 
-源码运行：`npm ci && npm run desktop`。打包：`npm run desktop:bundle`；生成 `apps/desktop/src-tauri/target/debug/bundle/macos/VibeOne.app`。
+源码运行：`npm ci && npm run desktop`。打包：`npm run desktop:bundle`；生成 `target/electron/VibeOne-darwin-arm64/VibeOne.app`。
 
 退出旧桌面进程，再打开新版应用。关闭窗口会隐藏到托盘；托盘提供“打开”“退出桌面（主机继续运行）”“停止所有执行并退出”。如果提示主机版本较旧，先结束执行，在设置中重启主机。旧内存版会先导出历史，已有 SQLite 版直接执行数据库迁移。
 
@@ -190,7 +190,7 @@ npm run check
 npm run desktop:test
 npm run remote:test
 cargo clippy --workspace --all-targets -- -D warnings
-cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+node --check apps/desktop/electron/main.cjs
 ```
 
 `npm run check` 包含插件 SDK/运行时、作者工具、ACP、存储、Host、队列、权限、工作区、插件业务消费和崩溃恢复。桌面与手机浏览器测试使用本机 Chrome；可通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` 指定测试浏览器。

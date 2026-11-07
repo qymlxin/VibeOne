@@ -33,14 +33,14 @@ VibeOne 是本地优先、可远程控制、以 ACP 为主要接入协议的 Age
 ## 3. Host 与桌面生命周期
 
 - `vibeone-host` 是唯一运行时状态写入者，管理数据库、Agent、插件、审批与网络。
-- Tauri 只负责窗口、托盘、系统通知、更新、选择目录、Host 发现与启动。
+- Electron 只负责窗口、托盘、系统通知、更新、选择目录、Host 发现与启动。
 - 默认关闭窗口保留托盘与 Host；显式“退出并停止任务”走受控停止流程。
 - “后台持续运行”作为单独运行模式，使用平台服务管理器托管 Host；不能假定普通 sidecar 在父进程退出后会自动存活。
 - 同一用户的数据目录只允许一个 Host 写入：锁文件、实例 ID、认证后的健康检查；支持新桌面窗口重新连接。
-- Headless 使用同一个 Host binary，不引入 Tauri/WebView/GTK 依赖。
+- Headless 使用同一个 Host binary，不引入 Electron/WebView/GTK 依赖。
 - Host 更新先阻止新 Run、排空或终止现有 Run，再迁移与替换；首版不承诺无损热升级。
 
-首版桌面与手机共用 HTTP 命令/查询与 WS 事件客户端：桌面访问仅监听 loopback 的 HTTP/WS，手机通过可信 HTTPS/WSS 入口访问同一逻辑网关。Tauri IPC 只承担目录选择、托盘、系统通知和 Host 生命周期等本机能力，不额外代理全部业务请求。未来如有需要，可为本地连接增加 UDS / Windows named pipe 适配。随机本地连接密钥经受限权限通道交付；即使 loopback 也认证和校验 Origin。
+首版桌面与手机共用 HTTP 命令/查询与 WS 事件客户端：桌面访问仅监听 loopback 的 HTTP/WS，手机通过可信 HTTPS/WSS 入口访问同一逻辑网关。Electron IPC 只承担目录选择、托盘、系统通知和 Host 生命周期等本机能力，不额外代理全部业务请求。未来如有需要，可为本地连接增加 UDS / Windows named pipe 适配。随机本地连接密钥经受限权限通道交付；即使 loopback 也认证和校验 Origin。
 
 ## 4. 领域对象与状态
 
@@ -227,10 +227,10 @@ Workspace 根目录需显式授权；Host 文件 API 校验路径规范化、符
 
 ```text
 apps/
-  desktop/                 # Tauri 壳与桌面入口
+  desktop/                 # Electron 壳与桌面入口
   web/                     # 手机 Web/PWA 入口
 crates/
-  domain/                  # 领域类型、状态机，不依赖 Tauri
+  domain/                  # 领域类型、状态机，不依赖 Electron
   application/             # 用例、鉴权、命令协调
   host/                    # binary、启动、实例锁、生命周期
   transport/               # 本地/HTTP/WS、配对、API
@@ -252,7 +252,7 @@ plugins/
 docs/
 ```
 
-这是目标边界，初期可合并 crates 减少构建复杂度；必须保留 domain、Tauri 壳、ACP 和插件协议的依赖方向。共享客户端类型从 Rust/JSON Schema 生成，避免手工维护两套 DTO。
+这是目标边界，初期可合并 crates 减少构建复杂度；必须保留 domain、Electron 壳、ACP 和插件协议的依赖方向。共享客户端类型从 Rust/JSON Schema 生成，避免手工维护两套 DTO。
 
 ## 11. UI 与客户端状态边界
 
