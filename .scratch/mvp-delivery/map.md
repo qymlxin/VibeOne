@@ -6,7 +6,7 @@
 
 ## Decisions-so-far
 
-- [107 桌面视觉一致](issues/107-desktop-prototype-parity.md)：按用户最新要求，以批准原型逐项还原正式UI，功能通过不能代替视觉验收；进行中。
+- [107 桌面视觉一致](issues/107-desktop-prototype-parity.md)：按用户最新要求还原主框架、输入区、文件工具及设置导航/常规/远程/插件入口；桌面/手机/尺寸截图及真实Tauri核对通过，已安装对象和复杂状态继续逐项还原。
 
 - [106 原生输入菜单](issues/106-native-composer-focus.md)：修复focus/选区竞争，桌面与手机回归及真实Tauri的 `/`、`@` 菜单/文件选择通过；临时会话已归档，原视图恢复。
 

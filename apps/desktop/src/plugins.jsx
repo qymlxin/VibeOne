@@ -5,6 +5,7 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
+import {Plus} from 'lucide-react';
 import {operationPresentation} from './plugin-operations.js';
 import * as jsx from "react/jsx-runtime";
 import * as ReactDOM from "react-dom";
@@ -254,12 +255,12 @@ export function PluginManager({ workbench, plugins }) {
     }
   }
   return (
-    <section>
-      <h2>本地插件</h2>
+    <section className="desktop-plugin-settings">
+
       <p>
         JS 插件作为可信本机代码运行。支持安装、更新、停用、动态面板与后台命令。
       </p>
-      <details className="desktop-plugin-install" open={installOpen} onToggle={event=>setInstallOpen(event.currentTarget.open)}><summary>安装 / 更新本地插件</summary>
+      <details className="desktop-plugin-install" open={installOpen} onToggle={event=>setInstallOpen(event.currentTarget.open)}><summary><Plus size={14}/>安装 / 更新本地插件</summary>
       <button
         onClick={() => {
           setPath(workbench.examplePluginPath);

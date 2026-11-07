@@ -43,108 +43,25 @@ export function RemoteSettings({ workbench }) {
       setBusy(false);
     }
   }
+  const start=()=>void run(async()=>{const result=await workbench.call('/remote',{enabled:true,ip,port:Number(port)});setQr({url:result.url,svg:result.qr});},true);
+  const stop=()=>void run(async()=>{await workbench.call('/remote',{enabled:false});setCode(null);setQr(null);},true);
   return (
-    <section>
-      <h2>手机远程控制</h2>
-      <p>
-        通过局域网或已有可信网络连接。首次使用需将此主机的 CA
-        证书安装并设为受信任，再在手机浏览器打开 HTTPS 地址。
-      </p>
+    <section className="desktop-remote-settings">
+      <p>通过局域网或已有可信网络连接。首次配对需先在手机信任主机证书。</p>
       {state?.configuration?.enabled&&!state.url&&<p role="status">配置已保存为开启，但当前入口未运行。请核对 IP 和端口后重新开启。</p>}
-      <div className="desktop-management-form">
-        <label>
-          本机局域网 / 可信网络 IP
-          <input
-            value={ip}
-            aria-label="远程入口 IP"
-            onChange={(event) => {dirty.current=true;setIp(event.target.value);}}
-            disabled={busy || !state || !!state.url}
-          />
-        </label>
-        <label>
-          端口（0 表示自动选择）
-          <input
-            type="number"
-            min="0"
-            max="65535"
-            value={port}
-            aria-label="远程入口端口"
-            onChange={(event) => {dirty.current=true;setPort(event.target.value);}}
-            disabled={busy || !state || !!state.url}
-          />
-        </label>
-        <button
-          disabled={busy || !state || !!state.url || !ip || !/^\d+$/.test(port) || Number(port)>65535}
-          onClick={() =>
-            void run(async () => {
-              const result = await workbench.call("/remote", {
-                enabled: true,
-                ip,
-                port: Number(port),
-              });
-              setQr({url:result.url,svg:result.qr});
-            }, true)
-          }
-        >
-          开启 HTTPS 手机入口
-        </button>
-        {state?.url && (
-          <>
-            <p>
-              连接地址：
-              <a href={state.url} target="_blank" rel="noopener noreferrer">
-                {state.url}
-              </a>
-            </p>
-            <button
-              onClick={() =>
-                void run(() => navigator.clipboard.writeText(state.url))
-              }
-            >
-              复制地址
-            </button>
-            <button onClick={() => void run(exportRemoteCertificate)}>
-              导出 CA 证书
-            </button>
-            <p>证书文件：{state.certificatePath}</p>
-            {(state.qr || (qr?.url===state.url&&qr.svg)) && (
-              <img
-                className="desktop-remote-qr"
-                alt="手机入口二维码"
-                src={`data:image/svg+xml,${encodeURIComponent(state.qr || qr.svg)}`}
-              />
-            )}
-            <button
-              disabled={busy}
-              onClick={() =>
-                void run(async () =>
-                  setCode(await workbench.call("/pairing/code", {})),
-                )
-              }
-            >
-              生成 5 分钟配对码
-            </button>
-            {code && (
-              <p>
-                配对码：<strong>{code.code}</strong> · 截止{" "}
-                {new Date(code.expiresAt * 1000).toLocaleTimeString()}
-              </p>
-            )}
-            <button
-              disabled={busy}
-              onClick={() =>
-                void run(async () => {
-                  await workbench.call("/remote", { enabled: false });
-                  setCode(null);
-                  setQr(null);
-                }, true)
-              }
-            >
-              关闭手机入口
-            </button>
-          </>
-        )}
-      </div>
+      <section className="desktop-settings-section"><h2>手机入口</h2><div className="desktop-settings-card">
+        <div className="desktop-settings-row"><div><strong>HTTPS 远程访问</strong><p>使用局域网或已有可信网络，不自动建立公网隧道。</p></div>{state?.url?<button disabled={busy} onClick={stop}>关闭手机入口</button>:<button disabled={busy||!state||!ip||!/^\d+$/.test(port)||Number(port)>65535} onClick={start}>开启 HTTPS 手机入口</button>}</div>
+        <label className="desktop-settings-row desktop-remote-field"><span>主机 IP</span><input value={ip} aria-label="远程入口 IP" onChange={event=>{dirty.current=true;setIp(event.target.value);}} disabled={busy||!state||!!state.url}/></label>
+        <label className="desktop-settings-row desktop-remote-field"><span>端口 <small>0 表示自动选择</small></span><input type="number" min="0" max="65535" value={port} aria-label="远程入口端口" onChange={event=>{dirty.current=true;setPort(event.target.value);}} disabled={busy||!state||!!state.url}/></label>
+        {state?.url&&<div className="desktop-settings-row"><span>连接地址</span><a href={state.url} target="_blank" rel="noopener noreferrer">{state.url}</a><button onClick={()=>void run(()=>navigator.clipboard.writeText(state.url))}>复制地址</button></div>}
+      </div></section>
+      {state?.url&&<section className="desktop-settings-section"><h2>首次配对</h2><div className="desktop-settings-card">
+        <div className="desktop-settings-row"><div><strong>信任主机证书</strong><p>在手机安装并信任此主机的 CA 证书，再打开 HTTPS 地址。</p></div><button onClick={()=>void run(exportRemoteCertificate)}>导出 CA 证书</button></div>
+        <div className="desktop-settings-row"><span>证书文件</span><code className="desktop-remote-certificate">{state.certificatePath}</code></div>
+        <div className="desktop-settings-row"><div><strong>短期配对码</strong><p>配对码有效期为 5 分钟，设备还需在电脑端确认授权。</p></div><button disabled={busy} onClick={()=>void run(async()=>setCode(await workbench.call('/pairing/code',{})))}>生成 5 分钟配对码</button></div>
+        {code&&<div className="desktop-settings-row"><span>配对码</span><p>配对码：<strong>{code.code}</strong> · 截止 {new Date(code.expiresAt*1000).toLocaleTimeString()}</p></div>}
+        {(state.qr||(qr?.url===state.url&&qr.svg))&&<div className="desktop-remote-qr-row"><img className="desktop-remote-qr" alt="手机入口二维码" src={`data:image/svg+xml,${encodeURIComponent(state.qr||qr.svg)}`}/><p>手机信任证书后扫码，输入短期配对码，再回到电脑确认设备权限。</p></div>}
+      </div></section>}
       {!!state?.claims?.length && (
         <>
           <h3>待确认的设备</h3>
