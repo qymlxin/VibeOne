@@ -2,7 +2,7 @@ import {submitMessage as submitMessageCommand} from "@vibeone/client-contracts";
 import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  ArrowUp, Users,
+  ArrowUp, ArrowDown, Users,
   MoreHorizontal, GitBranch, Paperclip, Slash, AtSign, ChevronDown,
   GitCompareArrows, FileCode, Terminal, Globe, Layers, Pencil, Archive,
   Maximize2,
@@ -629,21 +629,24 @@ function Conversation({ session, workbench, online, act,thread,spaces,spaceIdent
       </div></div>
       <ConversationNav turns={turns} timeline={timeline} onNavigate={()=>{followLatest.current=false;setFollowing(false);}}/>
       </div>
-      {!following && (
+      <div className="composer-area desktop-composer-wrap">
+        {!following && (
         <div className="desktop-jump">
           <button
-            className="desktop-button"
+            className="jump-latest"
+            aria-label="回到最新消息"
+            title="回到最新消息"
             onClick={() => {
               followLatest.current = true;
               setFollowing(true);
               if (timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight;
             }}
           >
-            回到最新消息
+            <ArrowDown size={18} strokeWidth={1.8}/>
           </button>
         </div>
       )}
-      <div className="composer-area desktop-composer-wrap">
+
 
         <div className="composer desktop-composer" onPaste={attachmentDraft.onPaste} onDrop={attachmentDraft.onDrop} onDragOver={attachmentDraft.onDragOver}>
           {!thread&&<AttachmentPicker inputRef={attachmentInput} draft={attachmentDraft} disabled={readOnly||sending} supported={workbench.features?.includes('attachments')}/>}

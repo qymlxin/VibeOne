@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [130 · 回到最新消息](issues/130-jump-latest.md)：居中悬浮圆形箭头，亮暗、焦点与点击回到底部已局部验证。
+
 - [129 · 项目图标与分支](issues/129-project-badges-branches.md)：彩色缩写、路径和实际Git分支，Electron仅查询Host登记项目；局部验证及亮暗实图通过。
 
 - [126 · 侧栏管理](issues/126-sidebar-management.md)、[127 · 统一输入菜单](issues/127-unified-composer.md)、[128 · 工具起始页](issues/128-context-start-page.md)：右键置顶/重命名/可恢复删除、设置归档页、Agent提及、群组斜杠菜单、简化顶栏与浏览器式工具起始页；局部检查与亮暗实图通过。
