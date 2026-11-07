@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {FileText} from 'lucide-react';
+import {SplitHandle} from './SplitHandle.jsx';
 import {PierreFile} from './PierreCode.jsx';
 import {ChangeStack} from './ChangeStack.jsx';
 import './file-explorer.css';
@@ -14,6 +15,8 @@ function changeTree(files){
 }
 
 export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:capture,onTitle}){
+ const [treeWidth,setTreeWidth]=useState(()=>{try{const width=Number(localStorage.getItem('vibeone-file-tree-width'));return width>=160&&width<=1200?width:240;}catch{return 240;}});
+ useEffect(()=>{try{localStorage.setItem('vibeone-file-tree-width',String(treeWidth));}catch{}},[treeWidth]);
  const online=workbench.phase==='online';
  const [directories,setDirectories]=useState(()=>Object.create(null)),[expanded,setExpanded]=useState(new Set(['.'])),[result,setResult]=useState(null),[preview,setPreview]=useState(null),[selected,setSelected]=useState(null),[filter,setFilter]=useState(''),[showTree,setShowTree]=useState(true),[path,setPath]=useState('.'),[pathDraft,setPathDraft]=useState('.'),[navigating,setNavigating]=useState(false),[directoryErrors,setDirectoryErrors]=useState(()=>Object.create(null)),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const generation=useRef(0),selectionId=useRef(0),pending=useRef(new Map()),navigationId=useRef(0);
@@ -72,7 +75,7 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
   {capture.busy&&<p role="status">正在确认产物保存…</p>}
   {capture.notice&&<p role="status">{capture.notice}</p>}
   {capture.failure&&<div className="explorer-capture-failure" role="alert"><p>保存 {capture.failure.path} 未确认：{capture.failure.message}</p><button disabled={!online||capture.busy} onClick={()=>void capture.retry()}>重试保存产物</button><button disabled={capture.busy} aria-label="关闭产物保存提示" onClick={capture.dismiss}>关闭提示</button></div>}
-  <div className={`file-workspace ${showTree?'with-tree':''}`}>
+  <div className={`file-workspace ${showTree?'with-tree':''}`} style={{'--file-tree-width':`${treeWidth}px`}}>
    <div className="code-view">
     {tab==='changes'?<ChangeStack files={(result?.files??[]).filter(file=>file.path.toLowerCase().includes(filter.toLowerCase()))} selected={selected} onSelect={setSelected} sessionId={session.id} workbench={workbench} revision={result?.collectedAt}/>:selected?<>
      {tab==='changes'&&!selected.untracked&&<div className="explorer-diff-modes"><button aria-pressed={!selected.stagedView} onClick={()=>void inspect(selected,false)}>未暂存差异</button><button aria-pressed={!!selected.stagedView} onClick={()=>void inspect(selected,true)}>已暂存差异</button></div>}
@@ -85,7 +88,7 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
      </>}{preview.truncated&&<p>内容超过显示上限，已截断。</p>}</>}
     </>:<div className="explorer-empty"><FileText size={22}/><p>选择文件{tab==='changes'?'查看真实差异':'查看内容'}。</p>{!showTree&&<button onClick={()=>setShowTree(true)}>显示文件列表</button>}</div>}
    </div>
-   {showTree&&<FilePanelTree key={`${session.id}:${tab}:${path}`} entries={tab==='changes'?changedNodes(changeTree(result?.files??[])):directoryNodes(path)} selected={selected?.path} filter={filter} onFilter={setFilter} changes={tab==='changes'} count={result?.files?.length??0} onFile={file=>void inspect(file,tab==='changes'&&file.staged&&!file.unstaged)} onFolder={toggle}/>}
+   {showTree&&<><SplitHandle scope="tree" minimum={160} collapseAt={96} label="调整文件列表宽度" onResize={setTreeWidth} onCollapse={()=>setShowTree(false)}/><FilePanelTree key={`${session.id}:${tab}:${path}`} entries={tab==='changes'?changedNodes(changeTree(result?.files??[])):directoryNodes(path)} selected={selected?.path} filter={filter} onFilter={setFilter} changes={tab==='changes'} count={result?.files?.length??0} onFile={file=>void inspect(file,tab==='changes'&&file.staged&&!file.unstaged)} onFolder={toggle}/></>}
 
   </div>
   <footer className="panel-status"><span>{tab==='changes'?`${result?.files?.length??0} 个文件变更${result?.statsAvailable?`  +${result.added} −${result.removed}`:''}`:path==='.'?'工作区文件':path}</span><span>只读预览</span></footer>

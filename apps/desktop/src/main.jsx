@@ -113,7 +113,7 @@ function App() {
   const sessionView='projects';
   const [collapsedProjects,setCollapsedProjects]=useState(new Set());
   const [settingsTarget,setSettingsTarget]=useState('general');
-  const [panel,setPanel]=useState('chat'),[panelWidth,setPanelWidth]=useState(null),[expandedPanel,setExpandedPanel]=useState(false);
+  const [panel,setPanel]=useState('chat'),[panelWidth,setPanelWidth]=useState(()=>{try{const width=Number(localStorage.getItem('vibeone-panel-width'));return width>=280&&width<=2400?width:null;}catch{return null;}}),[expandedPanel,setExpandedPanel]=useState(false);
   useEffect(()=>{try{localStorage.setItem('vibeone-sidebar-open',String(sidebarOpen));localStorage.setItem('vibeone-session-view-v2',sessionView);}catch{}},[sidebarOpen,sessionView]);
   useEffect(()=>{const search=event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();setSidebarOpen(true);setShowList(true);setSettings(false);requestAnimationFrame(()=>{searchInput.current?.focus();searchInput.current?.select();});}};document.addEventListener('keydown',search);return()=>document.removeEventListener('keydown',search);},[]);
 
@@ -159,6 +159,7 @@ function App() {
   };
   const renderSession=item=><SessionRow key={item.id} item={item} selected={!creating&&item.id===selected} provider={workbench.providers.find(provider=>provider.id===item.provider)?.name??item.provider} status={sessionLabel(item)} onSelect={()=>{setSelected(item.id);setCreating(false);setShowList(false);setSettings(false);}}/>;
   const mode=appearance.dark?'dark':'light',colors=appearance.value[mode];
+  useEffect(()=>{if(panelWidth)try{localStorage.setItem('vibeone-panel-width',String(panelWidth));}catch{}},[panelWidth]);
   const colorStyle={'--accent':appearance.value.accent,'--link':'color-mix(in srgb,var(--accent) 70%,var(--fg))',...(panelWidth?{'--panel-width':`${panelWidth}px`}:{}),...(colors.background||colors.foreground?{'--bg':colors.background??(appearance.dark?'#181818':'#FFFFFF'),'--fg':colors.foreground??(appearance.dark?'#FFFFFF':'#1A1C1F'),'--sidebar':'color-mix(in srgb,var(--bg) 97%,var(--fg))','--panel':'var(--bg)','--bar':'color-mix(in srgb,var(--bg) 94%,var(--fg))','--raised':'color-mix(in srgb,var(--bg) 91%,var(--fg))','--hover':'color-mix(in srgb,var(--bg) 92%,var(--fg))','--selected':'color-mix(in srgb,var(--bg) 86%,var(--fg))','--muted':'color-mix(in srgb,var(--fg) 64%,var(--bg))','--line':'color-mix(in srgb,var(--bg) 88%,var(--fg))','--border':'color-mix(in srgb,var(--bg) 62%,var(--fg))'}:{})};
   return <ApprovedWorkbenchShell dark={appearance.dark} colorStyle={colorStyle} sidebarOpen={sidebarOpen} hasPanel={panel!=='chat'&&!settings&&!creating&&!!session} wide={expandedPanel} settings={settings} native={isNative()} mobileList={showList} title={creating||!session?'新会话':session.title} connectionLabel={online?'工作主机 · 本机已连接':workbench.phase==='upgrading'?'正在重启工作主机':'正在连接工作主机'} onToggleSidebar={()=>setSidebarOpen(!sidebarOpen)} onOpenList={()=>{setSidebarOpen(true);setShowList(true);}} panel={panel} onPanel={value=>{setSettings(false);setPanel(value);}} sidebar={
       <aside className="session-sidebar desktop-sidebar">
@@ -832,7 +833,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
         </div>
       </div>
       </div>
-      {tab!=="chat"&&<SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}}/>}
+      {tab!=="chat"&&<SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}} onCollapse={()=>setTab("chat")}/>}
       <aside hidden={tab==='chat'} style={{display:tab==='chat'?'none':undefined,...(expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:{})}} className={`context-panel desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><ContextTabs kind={tab} onKind={setTab} fileRequest={fileTarget} browserRequest={browserRequest} expanded={expandedPanel} onExpand={()=>setExpandedPanel(!expandedPanel)} renderTool={(item,onTitle)=><SessionTools artifactCapture={artifactCapture} session={history.session} workbench={workbench} tab={item.kind} act={act} fileTarget={item.file} onTitle={onTitle} onLocateRun={locateRun} availableRunIds={turns.map(turn=>turn.id)}/>}/></aside>
       </div>
     </PreviewContext.Provider>
