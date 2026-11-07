@@ -36,6 +36,14 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
     try{input.current.focus();input.current.setSelectionRange(pending.caret,pending.caret);}
     finally{restoringSelection.current=false;}
   });
+  // Warm the shared filename index while the user chooses a member or starts typing.
+  // The empty query only reads names; it never reads file contents or invokes an Agent.
+  useEffect(()=>{
+    if(token?.kind!=='@'||!online||disabled||!workbench.features?.includes('referenceSearch'))return;
+    const controller=new AbortController();
+    void workbench.read(`/sessions/${encodeURIComponent(session.id)}/references?query=`,controller.signal).catch(()=>{});
+    return()=>controller.abort();
+  },[token?.kind,online,disabled,session.id,workbench.read]);
   const referenceQuery=token?.kind==='@'?token.query:'';
   const {directory,browsing}=referenceRequest(session.id,referenceQuery);
   const query=referenceQuery.slice(directory.length);
@@ -54,7 +62,7 @@ export function ComposerInput({session,workbench,value,onChange,files,onFiles,on
         if(request.browsing){if(cache.current.size>=30)cache.current.clear();cache.current.set(cacheKey,{at:Date.now(),value:normalized});}
         setListing(normalized);
       }).catch(reason=>{if(!stale)setError(`文件${request.browsing?'目录':'搜索'}读取失败：${reason.message??reason}`);});
-    },150);
+    },35);
     return()=>{stale=true;controller.abort();clearTimeout(timer);};
   },[referenceQuery,token?.kind,online,session.id,workbench.read,refresh]);
   const currentListing=listing?.query===referenceQuery?listing:null;
