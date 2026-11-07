@@ -1,5 +1,5 @@
 import React from 'react';
-import {Folder,ChevronRight,PanelLeft,GitCompareArrows,FolderOpen,Terminal,Globe,MoreHorizontal} from 'lucide-react';
+import {Folder,ChevronRight,PanelLeft,GitCompareArrows,FolderOpen,Terminal,Globe,MoreHorizontal,PanelRight} from 'lucide-react';
 export const primaryTools=[['changes','变更',GitCompareArrows],['files','文件',FolderOpen],['terminal','终端',Terminal],['browser','网址浏览',Globe]];
 export function IconButton({label,children,onClick,active=false,...props}){return <button className={`icon-button ${active?'active':''}`} title={label} aria-label={label} aria-pressed={active} onClick={onClick} {...props}>{children}</button>;}
 export function ApprovedWorkbenchShell({dark,colorStyle,sidebarOpen,hasPanel,wide,settings,native,mobileList,title,connectionLabel,navigation,onToggleSidebar,onOpenList,panel,onPanel,sidebar,children}){
@@ -9,7 +9,7 @@ export function ApprovedWorkbenchShell({dark,colorStyle,sidebarOpen,hasPanel,wid
    <button className="mobile-open-list" onClick={onOpenList}>会话列表</button>
    <span className="window-title"><Folder size={13}/> VibeOne <ChevronRight size={12}/> {settings?'设置':title}</span>
    {navigation}<span className="review-badge">{connectionLabel}</span>
-   <div className="window-actions">{primaryTools.map(([key,label,Icon])=><IconButton key={key} label={`打开${label}`} active={hasPanel&&panel===key} onClick={()=>onPanel(hasPanel&&panel===key?'chat':key)}><Icon size={16}/></IconButton>)}<details className="workbench-tool-menu"><summary className="icon-button" aria-label="更多工具" title="更多工具"><MoreHorizontal size={16}/></summary><div>{[['runs','执行记录'],['artifacts','产物'],['agent','Agent 设置']].map(([id,label])=><button key={id} onClick={event=>{event.currentTarget.closest('details').open=false;onPanel(id);}}>{label}</button>)}</div></details></div>
+   <div className="window-actions"><IconButton label={hasPanel?'收起工作区':'展开工作区'} active={hasPanel} onClick={()=>onPanel(hasPanel?'chat':'home')}><PanelRight size={17}/></IconButton></div>
   </header>
   {sidebarOpen&&!settings&&sidebar}
   <main className="desktop-main">{children}</main>

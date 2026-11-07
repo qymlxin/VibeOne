@@ -12,3 +12,13 @@ export function workspacePath(value,workspace){
  if(path.includes('\\')||path.split('/').some(part=>part==='..'))return null;
  path=path.replace(/^\.\//,'');return path && path!=='.'?path:null;
 }
+
+export function browserAddress(value){
+ const term=String(value??'').trim();if(!term)return null;
+ if(/^https?:\/\//i.test(term))return previewUrl(term);
+ if(/^(localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::\d+)?(?:[/?#]|$)/i.test(term))return previewUrl('http://'+term);
+ if(/^[a-z][a-z\d+.-]*:/i.test(term))return null;
+ if(/^\/\//.test(term))return previewUrl('https:'+term);
+ if(/^[\w.-]+\.[a-z\d-]+(?::\d+)?(?:[/?#]|$)/i.test(term)&&!term.includes(' '))return previewUrl('https://'+term);
+ return 'https://www.baidu.com/s?wd='+encodeURIComponent(term);
+}
