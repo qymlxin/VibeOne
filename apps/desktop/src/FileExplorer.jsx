@@ -22,6 +22,7 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
  const generation=useRef(0),selectionId=useRef(0),pending=useRef(new Map()),navigationId=useRef(0);
  const root=useRef(null);
  async function directory(path='.',epoch=generation.current){
+   path=clean(path).replace(/\/$/,'')||'.';
    if(pending.current.has(path))return pending.current.get(path);
    setDirectoryErrors(previous=>{const next=Object.assign(Object.create(null),previous);delete next[path];return next;});
    const reading=Promise.resolve().then(async()=>{
@@ -60,7 +61,7 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
    catch(reason){if(id===selectionId.current&&epoch===generation.current)setError(reason.message??String(reason));}
  }
  useEffect(()=>{if(fileTarget?.path&&tab==='files')void inspect({path:clean(fileTarget.path)});},[fileTarget,tab,session.id]);
- const toggle=path=>{setExpanded(previous=>{const next=new Set(previous);if(next.has(path))next.delete(path);else next.add(path);return next;});if(!directories[path]){setError('');void directory(path);}};
+ const toggle=rawPath=>{const path=clean(rawPath).replace(/\/$/,'')||'.';setExpanded(previous=>{const next=new Set(previous);if(next.has(path))next.delete(path);else next.add(path);return next;});if(!directories[path]){setError('');void directory(path);}};
 
  const changedNodes=nodes=>nodes.map(node=>node.children.size?{...node,kind:'directory',children:changedNodes([...node.children.values()])}:{...node.file,kind:'file'});
  const directoryNodes=directoryPath=>(directories[directoryPath]?.entries??[]).map(file=>({...file,children:file.kind==='directory'?directoryNodes(file.path):undefined}));
