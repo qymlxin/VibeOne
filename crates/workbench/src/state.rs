@@ -408,6 +408,7 @@ impl Workbench {
                     "profileCommandIdempotency",
                     "stopCommandIdempotency",
                     "queueCommandIdempotency",
+                    "metadataCommandIdempotency",
                     "artifactCaptureIdempotency",
                     "structuredErrors",
                 ]
@@ -976,21 +977,80 @@ impl Workbench {
         .await
         .map_err(|_| DomainError::storage())
     }
+    #[cfg(test)]
     pub(crate) async fn metadata(
         &self,
         id: &str,
         title: Option<String>,
         archived: Option<bool>,
     ) -> Result<(), DomainError> {
+        self.metadata_command(
+            id,
+            crate::contracts::UpdateSessionRequest {
+                title,
+                archived,
+                key: None,
+            },
+        )
+        .await
+    }
+    pub(crate) async fn metadata_command(
+        &self,
+        id: &str,
+        mut request: crate::contracts::UpdateSessionRequest,
+    ) -> Result<(), DomainError> {
         self.command_available()?;
         let entry = self.command_entry(id)?;
-        let _catalog = if archived == Some(false) {
+        let _catalog = if request.archived == Some(false) {
             Some(self.catalog_gate.lock().await)
         } else {
             None
         };
         let _gate = entry.gate.lock().await;
         self.command_available()?;
+        use sha2::{Digest, Sha256};
+        let hash = |value: &Value| {
+            Sha256::digest(serde_json::to_vec(value).expect("JSON serializes"))
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        };
+        let key = request.key.take();
+        if key
+            .as_ref()
+            .is_some_and(|key| key.is_empty() || key.len() > 128)
+        {
+            return Err(DomainError::new(
+                ErrorKind::InvalidInput,
+                "会话操作幂等键须为1至128字节",
+            ));
+        }
+        let receipt_key = key.map(|key| hash(&json!([id, key])));
+        let fingerprint = hash(
+            &serde_json::to_value(&request)
+                .map_err(|_| DomainError::new(ErrorKind::Internal, "会话操作参数编码失败"))?,
+        );
+        if let Some(key) = &receipt_key {
+            let saved = self
+                .catalog
+                .lock()
+                .expect("catalog poisoned")
+                .get("metadata-command")
+                .and_then(|items| items.get(key))
+                .cloned();
+            if let Some(saved) = saved {
+                if saved["fingerprint"] != fingerprint {
+                    return Err(DomainError::new(
+                        ErrorKind::IdempotencyConflict,
+                        "同一会话操作幂等键的参数不同",
+                    ));
+                }
+                return Ok(());
+            }
+        }
+        let crate::contracts::UpdateSessionRequest {
+            title, archived, ..
+        } = request;
         let mut view = entry.view.lock().expect("view poisoned").clone();
         if let Some(title) = title {
             let title = title.trim();
@@ -1019,9 +1079,18 @@ impl Workbench {
             }
             view.archived = archived;
         }
-        self.commit(&entry, view, "session.metadata_updated", &json!({}))
-            .await
-            .map_err(|_| DomainError::storage())
+        let receipt = json!({"sessionId":id,"fingerprint":fingerprint});
+        self.commit_with_receipt(
+            &entry,
+            view,
+            "session.metadata_updated",
+            &json!({}),
+            receipt_key
+                .as_deref()
+                .map(|key| ("metadata-command", key, &receipt)),
+        )
+        .await
+        .map_err(|_| DomainError::storage())
     }
     async fn attention_delivery_uncertain(
         &self,

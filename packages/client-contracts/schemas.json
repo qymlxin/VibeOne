@@ -913,6 +913,12 @@
           "null"
         ]
       },
+      "key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "title": {
         "type": [
           "string",

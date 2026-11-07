@@ -51,6 +51,6 @@ export type SnapshotMetadata = { "apiVersion": number; "device"?: (DeviceView) |
 export type SnapshotResponse = { "apiVersion": number; "device"?: (DeviceView) | (null); "examplePluginPath"?: string | null; "features": Array<string>; "notifications": Array<JsonValue>; "operations": Array<PluginOperationSummary>; "persistent": boolean; "pluginEvents": Array<JsonValue>; "plugins": Array<JsonValue>; "profileIssues": Array<ProfileIssue>; "profiles": Array<ProfileView>; "protocolVersion": number; "providers": Array<Provider>; "revision": number; "sdkVersion": string; "sessions": Array<SessionView>; "storageError"?: string | null; "workspaces": Array<WorkspaceView>; };
 export type SubmitMessageReceipt = { "duplicate": boolean; "operationId": string; "queued": boolean; };
 export type SubmitMessageRequest = { "attachments"?: Array<string>; "files"?: Array<string>; "key"?: string | null; "text": string; };
-export type UpdateSessionRequest = { "archived"?: boolean | null; "title"?: string | null; };
+export type UpdateSessionRequest = { "archived"?: boolean | null; "key"?: string | null; "title"?: string | null; };
 export type WorkspaceImportRequest = { "path": string; };
 export type WorkspaceView = { "id": string; "name": string; "path": string; };

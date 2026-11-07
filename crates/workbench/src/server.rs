@@ -777,15 +777,10 @@ async fn metadata(
     Path(id): Path<String>,
     Json(body): Json<UpdateSessionRequest>,
 ) -> ApiResult<SessionUpdateResponse> {
-    domain_command(async move {
-        state
-            .workbench
-            .metadata(&id, body.title, body.archived)
-            .await
-    })
-    .await
-    .map(|_| Json(SessionUpdateResponse { updated: true }))
-    .map_err(domain_fail)
+    domain_command(async move { state.workbench.metadata_command(&id, body).await })
+        .await
+        .map(|_| Json(SessionUpdateResponse { updated: true }))
+        .map_err(domain_fail)
 }
 async fn decide(
     State(state): State<Server>,

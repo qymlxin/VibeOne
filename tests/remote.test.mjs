@@ -36,6 +36,8 @@ test(
     await writeFile(join(directory,'owner-artifact.txt'),'owner snapshot');await writeFile(join(directory,'mobile-artifact.txt'),'phone snapshot original');await writeFile(join(hidden,'hidden-artifact.txt'),'hidden snapshot');
     await call(`/sessions/${visible.id}/artifacts`,{path:'owner-artifact.txt',key:'visible-artifact-receipt'});
     await call(`/sessions/${invisible.id}/artifacts`,{path:'hidden-artifact.txt',key:'hidden-artifact-receipt'});
+    await call(`/sessions/${visible.id}/metadata`,{title:'visible metadata seed',key:'visible-metadata-receipt'});
+    await call(`/sessions/${invisible.id}/metadata`,{title:'hidden metadata seed',key:'hidden-metadata-receipt'});
     const remote = await call("/remote", {
       enabled: true,
       ip: "127.0.0.1",
@@ -142,6 +144,7 @@ test(
     assert.equal((await request(`/v1/sessions/${invisible.id}/history`, undefined, cookie)).status,403);
     assert.equal((await request(`/v1/sessions/${visible.id}/history`)).status,401);
     assert.equal((await request('/v1/sessions',{provider:'demo',workspace:workspace.path,key:'visible-creation'},cookie)).status,403,'a known creation receipt cannot grant viewer execution rights');
+    assert.equal((await request(`/v1/sessions/${visible.id}/metadata`,{title:'visible metadata seed',key:'visible-metadata-receipt'},cookie)).status,403);
     assert.equal((await request("/v1/devices", undefined, cookie)).status, 403);
     assert.equal((await request("/v1/providers/demo/probe", {}, cookie)).status, 403);
     assert.equal((await request("/v1/profiles", undefined, cookie)).status, 403);
@@ -215,6 +218,7 @@ test(
     assert.equal(await page.evaluate(async id=>(await fetch(`/v1/sessions/${id}/cancel`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'hidden-stop-receipt'})})).status,invisible.id),403,'operator stop receipts remain scoped to authorized workspaces');
     assert.equal(await page.evaluate(async id=>(await fetch(`/v1/sessions/${id}/queue`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'hidden-queue-receipt'})})).status,invisible.id),403);
     assert.equal(await page.evaluate(async id=>(await fetch(`/v1/sessions/${id}/artifacts`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:'hidden-artifact.txt',key:'hidden-artifact-receipt'})})).status,invisible.id),403);
+    assert.equal(await page.evaluate(async id=>(await fetch(`/v1/sessions/${id}/metadata`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'hidden metadata seed',key:'hidden-metadata-receipt'})})).status,invisible.id),403);
     const replays=await page.evaluate(async({directory,hidden})=>{
       const replay=async(workspace,key)=>{const response=await fetch('/v1/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'demo',workspace,key})});return {status:response.status,body:await response.json()};};
       return [await replay(directory,'visible-creation'),await replay(hidden,'hidden-creation')];
@@ -223,6 +227,13 @@ test(
     assert.equal(replays[1].status,403);assert.equal(replays[1].body.id,undefined,'a durable receipt must not disclose a forbidden session');
     await page.getByRole('combobox',{name:'主题',exact:true}).selectOption('dark');
     await page.locator(".desktop-session").first().click();
+    const metadataBodies=[];const lostMetadata=async route=>{if(route.request().method()!=='POST'){await route.continue();return;}metadataBodies.push(route.request().postDataJSON());const response=await route.fetch();if(metadataBodies.length===1)await route.abort('failed');else await route.fulfill({response});};
+    await page.route('**/v1/sessions/*/metadata',lostMetadata);
+    await page.getByRole('button',{name:'重命名',exact:true}).click();await page.getByRole('textbox',{name:'会话标题',exact:true}).fill('手机重命名');await page.getByRole('button',{name:'保存标题',exact:true}).click();
+    const retryMetadata=page.getByRole('button',{name:'重试会话修改',exact:true});await retryMetadata.waitFor();assert.ok((await retryMetadata.boundingBox()).height>=44);
+    assert.ok((await page.getByRole('button',{name:'关闭会话修改提示',exact:true}).boundingBox()).height>=44);
+    await page.screenshot({path:join(tmpdir(),'vibeone-metadata-retry-mobile.png')});await retryMetadata.click();await page.getByRole('heading',{name:'手机重命名',exact:true}).waitFor();
+    assert.equal(metadataBodies.length,2);assert.equal(typeof metadataBodies[0].key,'string');assert.deepEqual(metadataBodies[0],metadataBodies[1]);await page.unroute('**/v1/sessions/*/metadata',lostMetadata);
     await page.getByRole('textbox',{name:'发送任务'}).fill('/fi');
     await page.getByRole('option',{name:/files/}).waitFor();
     await page.screenshot({animations:'disabled',path:join(tmpdir(),'vibeone-composer-mobile.png')});

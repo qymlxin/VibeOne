@@ -30,6 +30,7 @@ import { commandPanel } from "./composer.js";
 import {useStopCommand} from './use-stop-command.js';
 import {useQueueCommands} from './use-queue-commands.js';
 import {useArtifactCapture} from './use-artifact-capture.js';
+import {useMetadataCommands} from './use-metadata-commands.js';
 import { useNotifications } from "./notifications.js";
 import { RemoteSettings, PhoneGate } from "./Remote.jsx";
 import { isNative } from "./api.js";
@@ -494,6 +495,7 @@ function Conversation({ session, workbench, online, act }) {
   const stopCurrentRun=useStopCommand(workbench,session);
   const queueCommands=useQueueCommands(workbench,session.id);
   const artifactCapture=useArtifactCapture(workbench,session.id);
+  const metadataCommands=useMetadataCommands(workbench,session.id);
   useEffect(()=>{let stale=false;setChangeSummary(null);if(online&&lastRun?.finishedAt)workbench.call(`/sessions/${session.id}/changes`).then(value=>{if(!stale)setChangeSummary(value);}).catch(()=>{});return()=>{stale=true;};},[session.id,lastRun?.id,lastRun?.finishedAt,online,workbench.call]);
   const openFile=useCallback(path=>{setFileTarget({path,key:crypto.randomUUID()});setTab('files');},[]);
   const previewContext=useMemo(()=>({workspace:session.workspace,sessionId:session.id,read:workbench.read,openUrl,openFile}),[session.workspace,session.id,workbench.read,openUrl,openFile]);
@@ -570,19 +572,18 @@ function Conversation({ session, workbench, online, act }) {
               className="desktop-title-form"
               onSubmit={async (event) => {
                 event.preventDefault();
-                const result = await act(() =>
-                  workbench.call(`/sessions/${session.id}/metadata`, { title }),
-                );
+                const result = await metadataCommands.execute({title});
                 if (result) setEditingTitle(false);
               }}
             >
               <input
                 aria-label="会话标题"
                 maxLength={120}
+                disabled={!online||!canOperate||metadataCommands.busy||!!metadataCommands.failure}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
               />
-              <button disabled={!online || !title.trim()}>保存标题</button>
+              <button disabled={!online || !canOperate || !title.trim() || metadataCommands.busy || !!metadataCommands.failure}>保存标题</button>
               <button type="button" onClick={() => setEditingTitle(false)}>
                 取消
               </button>
@@ -593,7 +594,7 @@ function Conversation({ session, workbench, online, act }) {
           {workbench.persistent && (
             <div className="desktop-session-actions">
               <button
-                disabled={!online || !canOperate}
+                disabled={!online || !canOperate || metadataCommands.busy || !!metadataCommands.failure}
                 onClick={() => {
                   setTitle(session.title);
                   setEditingTitle(true);
@@ -602,19 +603,17 @@ function Conversation({ session, workbench, online, act }) {
                 重命名
               </button>
               <button
-                disabled={!online || !canOperate || active}
+                disabled={!online || !canOperate || active || metadataCommands.busy || !!metadataCommands.failure}
                 onClick={() =>
-                  void act(() =>
-                    workbench.call(`/sessions/${session.id}/metadata`, {
-                      archived: !session.archived,
-                    }),
-                  )
+                  void metadataCommands.execute({archived:!session.archived})
                 }
               >
                 {session.archived ? "取消归档" : "归档"}
               </button>
             </div>
           )}
+          {metadataCommands.busy&&<p role="status">正在确认会话修改…</p>}
+          {metadataCommands.failure&&<div className="desktop-metadata-failure" role="alert"><span>{metadataCommands.failure.body.title!==undefined?`重命名为「${metadataCommands.failure.body.title}」`:metadataCommands.failure.body.archived?'归档会话':'取消归档'}未确认：{metadataCommands.failure.message}</span><button disabled={!online||!canOperate||metadataCommands.busy} onClick={async()=>{const renaming=metadataCommands.failure.body.title!==undefined;if(await metadataCommands.retry()&&renaming)setEditingTitle(false);}}>重试会话修改</button><button disabled={metadataCommands.busy} onClick={metadataCommands.dismiss}>关闭会话修改提示</button></div>}
           <p title={session.workspace}>
             <FolderOpen size={12} />
             {session.workspace}

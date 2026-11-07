@@ -560,15 +560,23 @@ test(
     const stopBody=(await stopRequest).postDataJSON();assert.equal(typeof stopBody.key,'string');assert.equal(typeof stopBody.runId,'string');
     await page.getByText("本轮已停止", { exact: true }).waitFor();
     assert.equal(await page.locator(".desktop-live-status").count(), 0);
+    const metadataBodies=[];const seenMetadata=new Set();
+    const lostMetadata=async route=>{if(route.request().method()!=='POST'){await route.continue();return;}const body=route.request().postDataJSON();metadataBodies.push(body);const response=await route.fetch();if(!seenMetadata.has(body.key)){seenMetadata.add(body.key);await route.abort('failed');}else await route.fulfill({response});};
+    await page.route('**/v1/sessions/*/metadata',lostMetadata);
     await page.getByRole("button", { name: "重命名", exact: true }).click();
     await page
       .getByRole("textbox", { name: "会话标题" })
       .fill("已保存的桌面会话");
     await page.getByRole("button", { name: "保存标题", exact: true }).click();
+    await page.getByRole('button',{name:'重试会话修改',exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'保存标题',exact:true}).isDisabled(),true);
+    await page.screenshot({path:join(tmpdir(),'vibeone-metadata-retry-light.png')});
+    await page.getByRole('button',{name:'重试会话修改',exact:true}).click();
     await page
       .getByRole("heading", { name: "已保存的桌面会话", exact: true })
       .waitFor();
     await page.getByRole("button", { name: "归档", exact: true }).click();
+    await page.getByRole('button',{name:'重试会话修改',exact:true}).click();
     await page.waitForFunction(
       () => document.querySelector('textarea[aria-label="发送任务"]')?.disabled,
     );
@@ -580,6 +588,11 @@ test(
       .filter({ hasText: "已保存的桌面会话" })
       .waitFor();
     await page.getByRole("button", { name: "取消归档", exact: true }).click();
+    await page.getByRole('button',{name:'重试会话修改',exact:true}).click();
+    await page.getByRole('button',{name:'重命名',exact:true}).waitFor({state:'visible'});
+    await page.waitForFunction(()=>!document.querySelector('.desktop-metadata-failure'));
+    assert.equal(metadataBodies.length,6);for(let i=0;i<6;i+=2){assert.equal(typeof metadataBodies[i].key,'string');assert.deepEqual(metadataBodies[i],metadataBodies[i+1]);}
+    await page.unroute('**/v1/sessions/*/metadata',lostMetadata);
     await page.waitForFunction(
       () =>
         !document.querySelector('textarea[aria-label="发送任务"]')?.disabled,

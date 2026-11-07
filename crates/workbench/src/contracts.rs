@@ -168,6 +168,7 @@ pub struct CancelResponse {
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UpdateSessionRequest {
+    pub key: Option<String>,
     pub title: Option<String>,
     pub archived: Option<bool>,
 }
