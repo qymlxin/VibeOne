@@ -15,7 +15,9 @@ npm run desktop
 
 如果出现Authentication required，请在工作主机上使用相应官方CLI完成登录，再回到VibeOne新建会话重试。本机已安装官方CLI时，Codex使用 `codex login`，Claude Code使用 `claude auth login`；这些入口已用本机CLI的help核对。登录由用户在官方流程中完成，VibeOne不要求把令牌填入聊天或插件配置。仅从源码安装依赖而没有全局Codex命令时，也可在仓库目录运行 `node node_modules/@openai/codex/bin/codex.js login`。
 
-构建不依赖Vite的本地应用：`npm run desktop:bundle`。Electron产物位于`target/electron/VibeOne-darwin-arm64/VibeOne.app`（平台/架构随机器变化）；`npm run desktop:build`使用release Host。实现见[Electron桌面说明](docs/electron-desktop.md)。Tauri兼容源码及依赖已移除，`bundle:smoke`检查Electron包内的Host资源。当前为本机开发包，正式签名、公证与跨平台验收后置。
+日常开发使用固定的 `~/Applications/VibeOne.app`，界面通过Vite热更新，主进程修改重启同一应用。Rust/共享资源更新时运行 `npm run desktop:prepare`，任务结束后在设置重启工作主机。
+
+构建不依赖Vite的本地应用：`npm run desktop:bundle`。Electron产物位于`target/desktop-builds.noindex/VibeOne-darwin-arm64/VibeOne.app`（平台/架构随机器变化）；`npm run desktop:build`使用release Host。实现见[Electron桌面说明](docs/electron-desktop.md)。Tauri兼容源码及依赖已移除，`bundle:smoke`检查Electron包内的Host资源。当前为本机开发包，正式签名、公证与跨平台验收后置。
 
 桌面通过loopback HTTP/WS与Host通信；手机使用HTTPS/WSS和可撤销设备凭据。关闭Electron窗口退出桌面，独立Host继续运行。会话、消息、审批、队列、空间成员与组记录保存在SQLite中；失败或取消后暂停，重启不自动续跑。旧会话默认恢复原Agent上下文，失败明确提示，不静默替换上下文。
 

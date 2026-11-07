@@ -26,8 +26,10 @@ ACP是Host与Agent适配器之间的JSON-RPC协议，经子进程标准输入/�
 
 ## 开发与打包
 
-- `npm run desktop`：准备Host及前端资源，启动Electron。
-- `npm run desktop:electron:bundle`：构建本机Electron应用，位于`target/electron/VibeOne-darwin-arm64/VibeOne.app`（平台及架构随机器变化）。
+- `npm run desktop`：打开固定开发应用 `~/Applications/VibeOne.app`。首次缺少资源时准备一次；之后直接启动，不重复构建应用包。React/CSS通过Vite热更新，Electron主进程或预加载脚本修改后重启同一个应用。
+- `npm run desktop:prepare`：需要更新Rust Host、桥接器、插件运行时或手机网页时，重新准备共享资源。主机仍有任务时等待任务结束，再从设置重启主机。
+- `npm run desktop:setup`：仅安装或更新固定开发入口，不打开窗口。
+- `npm run desktop:electron:bundle`：构建本机Electron应用，位于`target/desktop-builds.noindex/VibeOne-darwin-arm64/VibeOne.app`（平台及架构随机器变化）。
 - `npm run desktop:build`：使用release Host构建Electron应用。
 
 打包包含当前平台Electron、PTY原生模块、Rust Host、桥接器、插件运行时与Web资源。macOS打包修正PTY辅助进程的执行权限。本版本为本机开发包，正式分发签名、公证和其他平台体验仍待后续验收。
@@ -37,3 +39,11 @@ ACP是Host与Agent适配器之间的JSON-RPC协议，经子进程标准输入/�
 已在本机Electron窗口确认原有会话可见、项目空间入口和固定管家正常；百度主页与搜索结果可操作，PTY终端能实际输入命令并返回输出。组内转交、上下文隔离、发送去重及停止时序通过隔离协议检查；真实Codex管家已完成首次介绍回复；完整多工具协作与手机空间管理仍交由后续体验验收。未运行全量桌面/手机回归。
 
 窗口退出时终端/网页可能继续回传事件；主进程在窗口不存在、已销毁或渲染内容已销毁时丢弃事件。已确认带终端的原生窗口退出不报错，重新启动后项目与管家历史保持。
+
+## 固定开发入口
+
+macOS开发应用只保留一个固定路径与Bundle ID，入口加载当前仓库的Electron源码，连接本机5174端口上的Vite。已有本项目Vite服务会被复用；没有服务时由应用启动。React组件尽量保留热更新状态，入口文件或主进程更新仍可能重新加载界面；草稿按现有规则保存，Host中的会话独立持久化。开发模式依赖当前仓库，独立分发仍使用打包命令。
+
+Host从`target/desktop-resources`启动，避免依赖某个历史应用包。开发时无需每次打包；发行构建默认放在`target/desktop-builds.noindex`，避免构建副本不断出现在Spotlight中。2026-11-07已注销7个旧应用包并移至废纸篓，项目/会话数据未删除；Spotlight查询当前仅返回固定入口。
+
+本次仅验证文件/变更黑屏修复、Vite热更新事件、主进程同路径重启和Web构建，未运行全量桌面或手机回归。

@@ -31,7 +31,7 @@ npm run desktop:bundle
 npm run bundle:smoke
 ```
 
-本机产物为`target/electron/VibeOne-darwin-arm64/VibeOne.app`，当前架构对应当前构建平台，不宣称通用/全平台包。系统要求以锁定的Electron运行时为准；完整使用还须满足Node22+及所含本平台CLI的要求。发行签名、公证和其他平台实机仍未完成。
+本机产物为`target/desktop-builds.noindex/VibeOne-darwin-arm64/VibeOne.app`，当前架构对应当前构建平台，不宣称通用/全平台包。系统要求以锁定的Electron运行时为准；完整使用还须满足Node22+及所含本平台CLI的要求。发行签名、公证和其他平台实机仍未完成。
 
 `bundle:smoke`把全部资源复制到仓库外的临时目录，并且只启动这个副本中的Host、Runner、Provider和适配器。验证：
 

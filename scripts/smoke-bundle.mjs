@@ -12,7 +12,7 @@ import {createInterface} from 'node:readline';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 const exec=promisify(execFile);
-const app=resolve(process.argv[2]??`target/electron/VibeOne-${process.platform}-${process.arch}${process.platform==='darwin'?'/VibeOne.app':''}`);
+const app=resolve(process.argv[2]??`target/desktop-builds.noindex/VibeOne-${process.platform}-${process.arch}${process.platform==='darwin'?'/VibeOne.app':''}`);
 const directory=await mkdtemp(join(tmpdir(),'vibeone-bundle-smoke-'));
 let child,exited,connection;
 async function initializeBridge(path,cwd){

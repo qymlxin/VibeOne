@@ -22,7 +22,7 @@
     "desktop:test": "cargo build -p vibeone-host && node --test tests/desktop.test.mjs",
     "agent:smoke": "cargo build -p vibeone-host && node scripts/smoke-real-agents.mjs",
     "plugin:scan": "npm run build && cargo run -p vibeone-host -- plugin scan --workspace .",
-    "desktop": "node scripts/prepare-desktop.mjs && npm run electron -w @vibeone/desktop",
+    "desktop": "node scripts/desktop-dev.mjs",
     "bundle:smoke": "node scripts/smoke-bundle.mjs",
     "desktop:bundle": "node scripts/prepare-desktop.mjs && npm run bundle:electron -w @vibeone/desktop",
     "desktop:build": "node scripts/prepare-desktop.mjs --release && npm run bundle:electron -w @vibeone/desktop",
@@ -35,7 +35,9 @@
     "contracts:generate": "node scripts/generate-host-contracts.mjs",
     "contracts:check": "node scripts/generate-host-contracts.mjs --check && npm run check -w @vibeone/client-contracts",
     "agent:chat": "cargo build -p vibeone-host && node --test tests/real-chat-presentation.test.mjs",
-    "desktop:electron:bundle": "node scripts/prepare-desktop.mjs && npm run bundle:electron -w @vibeone/desktop"
+    "desktop:electron:bundle": "node scripts/prepare-desktop.mjs && npm run bundle:electron -w @vibeone/desktop",
+    "desktop:setup": "node scripts/desktop-dev.mjs --setup-only",
+    "desktop:prepare": "node scripts/prepare-desktop.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
@@ -51,6 +53,7 @@
     "@electron/packager": "^20.3.0",
     "@playwright/test": "^1.56.0",
     "@types/node": "22.19.0",
+    "@vitejs/plugin-react": "^4.7.0",
     "electron": "^45.2.3",
     "esbuild": "^0.25.12",
     "typescript": "5.9.3",
