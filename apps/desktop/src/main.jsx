@@ -51,6 +51,7 @@ import {SessionRow} from "./SessionIdentity.jsx";
 import {AppearanceSettings,useAppearance} from "./AppearanceSettings.jsx";
 import {readAppearance,applyAppearance} from "./appearance.js";
 const SettingsCenter=lazy(()=>import("./SettingsCenter.jsx").then(module=>({default:module.SettingsCenter})));
+import {CreationMenu} from './CreationMenu.jsx';
 import {CreateProjectDialog} from './CreateProjectDialog.jsx';
 import {ProjectSwitcher,SidebarHome} from './ProjectSwitcher.jsx';
 import {useSpaces,ProjectSpaceSidebar,SpaceOverview,SpaceEditor,GroupTranscript} from './ProjectSpaces.jsx';
@@ -176,22 +177,9 @@ function App() {
   const mode=appearance.dark?'dark':'light',colors=appearance.value[mode];
   useEffect(()=>{if(panelWidth)try{localStorage.setItem('vibeone-panel-width',String(panelWidth));}catch{}},[panelWidth]);
   const colorStyle={'--accent':appearance.value.accent,'--link':'color-mix(in srgb,var(--accent) 70%,var(--fg))',...(panelWidth?{'--panel-width':`${panelWidth}px`}:{}),...(colors.background||colors.foreground?{'--bg':colors.background??(appearance.dark?'#181818':'#FFFFFF'),'--fg':colors.foreground??(appearance.dark?'#FFFFFF':'#1A1C1F'),'--sidebar':'color-mix(in srgb,var(--bg) 97%,var(--fg))','--panel':'var(--bg)','--bar':'color-mix(in srgb,var(--bg) 94%,var(--fg))','--raised':'color-mix(in srgb,var(--bg) 91%,var(--fg))','--hover':'color-mix(in srgb,var(--bg) 92%,var(--fg))','--selected':'color-mix(in srgb,var(--bg) 86%,var(--fg))','--muted':'color-mix(in srgb,var(--fg) 64%,var(--bg))','--line':'color-mix(in srgb,var(--bg) 88%,var(--fg))','--border':'color-mix(in srgb,var(--bg) 62%,var(--fg))'}:{})};
-  return <ApprovedWorkbenchShell dark={appearance.dark} colorStyle={colorStyle} sidebarOpen={sidebarOpen} hasPanel={panel!=='chat'&&!settings&&!creating&&!overview&&!!session} wide={expandedPanel} settings={settings} native={isNative()} mobileList={showList} title={currentProject?.name??(overview?'所有项目':creating||!session?'新会话':session.title)} navigation={spaces.enabled?<ProjectSwitcher project={currentProject} projects={projects.items} onSelect={enterProject} busy={projectBusy}/>:null} connectionLabel={online?'工作主机 · 本机已连接':workbench.phase==='upgrading'?'正在重启工作主机':'正在连接工作主机'} onToggleSidebar={()=>setSidebarOpen(!sidebarOpen)} onOpenList={()=>{setSidebarOpen(true);setShowList(true);}} panel={panel} onPanel={value=>{setSettings(false);if(overview){const target=(currentProject?spaces.agents.find(a=>a.projectId===spaceId&&a.steward)?.sessionId:null)??session?.id??sessions[0]?.id;if(target)openSession(target);else setError('先选择一个项目对话，再打开工作区工具');}setPanel(value);}} sidebar={currentProject&&spaces.enabled?<ProjectSpaceSidebar project={currentProject} spaces={spaces} workbench={workbench} selected={overview?null:selected} onSelect={openSession} onBack={home} onCreate={kind=>setSpaceEditor({kind})} onEdit={(initial,kind)=>setSpaceEditor({initial,kind})} onCode={openCode}/>:<aside className="session-sidebar desktop-sidebar">
+  return <ApprovedWorkbenchShell dark={appearance.dark} colorStyle={colorStyle} sidebarOpen={sidebarOpen} hasPanel={panel!=='chat'&&!settings&&!creating&&!overview&&!!session} wide={expandedPanel} settings={settings} native={isNative()} mobileList={showList} title={currentProject?.name??(overview?'所有项目':creating||!session?'新会话':session.title)} navigation={spaces.enabled?<ProjectSwitcher project={currentProject} projects={projects.items} onSelect={enterProject} busy={projectBusy}/>:null} connectionLabel={online?'工作主机 · 本机已连接':workbench.phase==='upgrading'?'正在重启工作主机':'正在连接工作主机'} onToggleSidebar={()=>setSidebarOpen(!sidebarOpen)} onOpenList={()=>{setSidebarOpen(true);setShowList(true);}} panel={panel} onPanel={value=>{setSettings(false);if(overview){const target=(currentProject?spaces.agents.find(a=>a.projectId===spaceId&&a.steward)?.sessionId:null)??session?.id??sessions[0]?.id;if(target)openSession(target);else setError('先选择一个项目对话，再打开工作区工具');}setPanel(value);}} sidebar={currentProject&&spaces.enabled?<ProjectSpaceSidebar project={currentProject} spaces={spaces} workbench={workbench} selected={overview?null:selected} onSelect={openSession} onBack={home} onCreate={kind=>kind==='project'?setCreatingProject(true):setSpaceEditor({kind})} onEdit={(initial,kind)=>setSpaceEditor({initial,kind})} onCode={openCode}/>:<aside className="session-sidebar desktop-sidebar">
         <div className="brand desktop-brand">
-          <Brand/>          <button
-            className="icon-button desktop-icon"
-            aria-label="新建会话"
-            onClick={async () => {
-              const project=projects.items.find(p=>p.paths.includes(session?.workspace))??projects.items[0];
-              if(spaces.enabled&&project){if(await enterProject(project))setSpaceEditor({kind:'agent'});return;}
-              setNewProject(projects.items.find(p=>p.paths.includes(session?.workspace))?.id??'');
-              setCreating(true);
-              setShowList(false);
-              setSettings(false);
-            }}
-          >
-            <Plus size={17} />
-          </button>
+          <Brand/><CreationMenu onAgent={()=>{const project=projects.items.find(p=>p.id===spaceId)??projects.items.find(p=>p.paths.includes(session?.workspace))??projects.items.find(p=>p.paths.length);if(spaces.enabled&&project){setSpaceEditor({kind:'agent',projectId:project.id,preservePage:true});}else if(spaces.enabled){setError('请先创建项目并添加一个工作目录');}else{setNewProject(project?.id??'');setCreating(true);}}} onProject={()=>setCreatingProject(true)}/>
         </div>
         {spaces.enabled&&<SidebarHome active={overview&&!currentProject&&!settings} onClick={home}/>}
         <label className="session-search desktop-search">
@@ -307,14 +295,15 @@ function App() {
             )}
           </div>
         )}
+          {spaceEditor&&(currentProject||spaceEditor.projectId)&&<SpaceEditor key={spaceEditor.projectId??currentProject?.id} {...spaceEditor} project={projects.items.find(p=>p.id===spaceEditor.projectId)??currentProject} projectChoices={spaceEditor.preservePage?projects.items.filter(p=>p.paths.length):null} onProjectChange={id=>setSpaceEditor({...spaceEditor,projectId:id})} spaces={spaces} workbench={workbench} onClose={()=>setSpaceEditor(null)} onCreated={id=>{if(id&&!spaceEditor.preservePage)openSession(id);}}/>}
         {creatingProject&&<CreateProjectDialog projects={projects} onClose={()=>setCreatingProject(false)}/> }
         {settings ? (
           <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter key={settingsTarget} initialPage={settingsTarget} projects={projects} workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance} onBack={()=>setSettings(false)}/>}/></Suspense>
         ) : <>
-          {overview&&spaces.enabled&&<SpaceOverview projects={projects} project={currentProject} spaces={spaces} workbench={workbench} onEnter={enterProject} onSelect={openSession} onCreate={kind=>setSpaceEditor({kind})} onCode={openCode}/>}
+          {overview&&spaces.enabled&&<SpaceOverview projects={projects} project={currentProject} spaces={spaces} workbench={workbench} onEnter={enterProject} onSelect={openSession} onCreate={kind=>kind==='project'?setCreatingProject(true):setSpaceEditor({kind})} onCode={openCode}/>}
           {!session&&!(overview&&spaces.enabled)&&<section className="new-session-home"><BrandMark/><h1>开始新的工作</h1><p>选择一个项目，或开启一段新的对话。</p><button className="desktop-button" onClick={()=>setCreating(true)}><Plus size={15}/>新建会话</button></section>}
           {session&&!(overview&&spaces.enabled)&&<Conversation spaceIdentity={agentIdentity} onEditIdentity={()=>{const p=projects.items.find(p=>p.id===agentIdentity?.projectId);if(p){setSpaceId(p.id);setSpaceEditor({kind:"agent-update",initial:agentIdentity});}}} fixedIdentity={!!agentIdentity?.steward} spaces={spaces} thread={spaces.threadFor(session.id)} onOpenExecution={openSession} key={session.id} session={session} workbench={workbench} online={online} act={act} tab={creating?'chat':panel} setTab={setPanel} panelWidth={panelWidth} setPanelWidth={setPanelWidth} expandedPanel={expandedPanel} setExpandedPanel={setExpandedPanel}/>}
-          {spaceEditor&&currentProject&&<SpaceEditor {...spaceEditor} project={currentProject} spaces={spaces} workbench={workbench} onClose={()=>setSpaceEditor(null)} onCreated={id=>{if(id)openSession(id);}}/>}
+
           {creating&&
           <NewSession
             key={newProject}

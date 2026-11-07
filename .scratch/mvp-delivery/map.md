@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [125 · Electron清理与新建菜单](issues/125-electron-only-create-menu.md)：移除Tauri，迁移共享资源；新建Agent/项目保持当前页和草稿，补通信SVG，已切换最新版。
+
 - [124 · 统一创建项目弹窗](issues/124-create-project-dialog.md)：与Agent复用紧凑弹窗外壳，支持名称与多源目录，亮暗及局部保存验证通过。
 
 - [123 · 项目切换与首页导航](issues/123-project-switcher.md)：顶部仅项目切换、左侧首页，修复头像编辑紧凑弹窗；局部检查通过，独立Electron包已生成。
