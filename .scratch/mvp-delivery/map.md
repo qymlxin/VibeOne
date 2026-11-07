@@ -192,6 +192,8 @@
 
 - [95-plugin-lifecycle-ui](issues/95-plugin-lifecycle-ui.md)：正式插件页接入生命周期持久回执，保留App验证/两阶段发布和旧Host回退；网络断言、完整回归、手机权限及打包烟测通过。
 
+- [116 · Pierre 差异与文件树](issues/116-pierre-diffs-trees.md) 已交付：原生组件连接真实数据，替换手工差异/着色与目录树；桌面已更新，定向交互检查通过。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。

@@ -1,8 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {ChevronRight,FileText,Folder,PanelRight,Search,X} from 'lucide-react';
-import {CodeText} from './CodeText.jsx';
+import {FileText} from 'lucide-react';
+import {PierreFile} from './PierreCode.jsx';
 import {ChangeStack} from './ChangeStack.jsx';
-import {codeLines} from './code-lines.js';
 import './file-explorer.css';
 import {FilePanelHeader,FilePanelTree} from './approved/FilePanel.jsx';
 const clean=path=>path.replace(/^\.\//,'');
@@ -17,7 +16,6 @@ function changeTree(files){
 export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:capture,onTitle}){
  const online=workbench.phase==='online';
  const [directories,setDirectories]=useState(()=>Object.create(null)),[expanded,setExpanded]=useState(new Set(['.'])),[result,setResult]=useState(null),[preview,setPreview]=useState(null),[selected,setSelected]=useState(null),[filter,setFilter]=useState(''),[showTree,setShowTree]=useState(true),[path,setPath]=useState('.'),[pathDraft,setPathDraft]=useState('.'),[navigating,setNavigating]=useState(false),[directoryErrors,setDirectoryErrors]=useState(()=>Object.create(null)),[error,setError]=useState(''),[busy,setBusy]=useState(false);
- const [closedChanges,setClosedChanges]=useState(new Set());
  const generation=useRef(0),selectionId=useRef(0),pending=useRef(new Map()),navigationId=useRef(0);
  const root=useRef(null);
  async function directory(path='.',epoch=generation.current){
@@ -62,14 +60,11 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
  const toggle=path=>{setExpanded(previous=>{const next=new Set(previous);if(next.has(path))next.delete(path);else next.add(path);return next;});if(!directories[path]){setError('');void directory(path);}};
 
  const changedNodes=nodes=>nodes.map(node=>node.children.size?{...node,kind:'directory',children:changedNodes([...node.children.values()])}:{...node.file,kind:'file'});
- const directoryNodes=directoryPath=>(directories[directoryPath]?.entries??[]).filter(file=>file.kind==='directory'||file.path.toLowerCase().includes(filter.toLowerCase())).map(file=>({...file,children:file.kind==='directory'?directoryNodes(file.path):undefined}));
+ const directoryNodes=directoryPath=>(directories[directoryPath]?.entries??[]).map(file=>({...file,children:file.kind==='directory'?directoryNodes(file.path):undefined}));
  const [panelMenu,setPanelMenu]=useState(false);
  const finishedRun=session.runs?.at(-1)?.finishedAt;const previousFinish=useRef(finishedRun);
  useEffect(()=>{if(previousFinish.current===finishedRun)return;previousFinish.current=finishedRun;void load();if(selected)void inspect(selected,selected.stagedView);},[finishedRun]);
  useEffect(()=>{if(tab==='files'&&selected?.path)onTitle?.(selected.path.split(/[\\/]/).at(-1));},[selected?.path,onTitle]);
- const parts=path.split('/').filter(part=>part&&part!=='.');
- const trail=[{name:'工作区',path:'.'},...parts.map((name,index)=>({name,path:parts.slice(0,index+1).join('/')}))];
- const lines=codeLines(preview?.text??'',preview?.isDiff);
  return <section ref={root} className="desktop-inspector explorer" aria-label={tab==='changes'?'变更浏览器':'文件浏览器'}>
   <FilePanelHeader file={selected?.path??(tab==='changes'?'工作区变更':path==='.'?'工作区文件':path)} changes={tab==='changes'} status={selected?.status?.trim()==='??'?'U':selected?.status?.trim()} tree={showTree} onToggle={()=>setShowTree(!showTree)} onMenu={()=>setPanelMenu(!panelMenu)}/>
   {panelMenu&&<div className="file-panel-menu"><button onClick={()=>{void load();if(selected)void inspect(selected,selected.stagedView);for(const path of expanded)if(path!=='.')void directory(path);setPanelMenu(false);}} disabled={busy||navigating}>刷新</button>{selected&&<button onClick={()=>{selectionId.current++;setSelected(null);setPreview(null);setPanelMenu(false);}}>关闭预览</button>}{tab==='files'&&<form onSubmit={event=>{event.preventDefault();void navigate(pathDraft);setPanelMenu(false);}}><input aria-label="浏览目录" value={pathDraft} disabled={navigating} onChange={event=>setPathDraft(event.target.value)}/><button disabled={busy||navigating}>打开目录</button></form>}{tab==='files'&&preview&&!preview.binary&&(!workbench.device||workbench.device.role==='operator')&&<button disabled={!online||capture.busy||!!capture.failure} onClick={()=>void capture.save(preview.path)}>保存为文本产物</button>}</div>}
@@ -83,14 +78,14 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
      {tab==='changes'&&!selected.untracked&&<div className="explorer-diff-modes"><button aria-pressed={!selected.stagedView} onClick={()=>void inspect(selected,false)}>未暂存差异</button><button aria-pressed={!!selected.stagedView} onClick={()=>void inspect(selected,true)}>已暂存差异</button></div>}
      {!preview&&!error&&<p role="status">正在读取文件…</p>}
      {preview&&<>{preview.binary?<p>二进制文件 · {preview.size} 字节</p>:<>
-       <div className="code-label explorer-code-heading"><span>{preview.isDiff?'统一差异':'UTF-8 · 只读'}</span>{preview.isDiff&&<span><em>+{lines.added}</em> <b>−{lines.removed}</b></span>}</div>
-       {preview.text?<pre className="explorer-code">{lines.rows.map((row,index)=><span className={`code-line explorer-code-line ${row.kind}`} key={index}><span className="explorer-line-number" aria-hidden="true">{row.line??''}</span><span aria-hidden="true">{row.kind==='added'?'+':row.kind==='removed'?'−':''}</span><CodeText path={selected.path} text={['added','removed'].includes(row.kind)?row.text.slice(1):row.text||' '}/></span>)}</pre>:<p>{preview.isDiff?'当前范围没有文本差异。':'空文件'}</p>}
+       <div className="code-label explorer-code-heading"><span>{preview.isDiff?'统一差异':'UTF-8 · 只读'}</span>{preview.isDiff&&<span>真实 Git 差异</span>}</div>
+       <PierreFile path={selected.path} text={preview.text??''}/>
        <div className="code-end">{preview.isDiff?'其余内容未变化':'文件结束'}</div>
-       {lines.clipped&&<p>超过 5,000 行，当前预览仅显示前 5,000 行。</p>}
+
      </>}{preview.truncated&&<p>内容超过显示上限，已截断。</p>}</>}
     </>:<div className="explorer-empty"><FileText size={22}/><p>选择文件{tab==='changes'?'查看真实差异':'查看内容'}。</p>{!showTree&&<button onClick={()=>setShowTree(true)}>显示文件列表</button>}</div>}
    </div>
-   {showTree&&<FilePanelTree entries={tab==='changes'?changedNodes(changeTree((result?.files??[]).filter(file=>file.path.toLowerCase().includes(filter.toLowerCase())))):directoryNodes(path)} selected={selected?.path} filter={filter} onFilter={setFilter} changes={tab==='changes'} count={result?.files?.length??0} onFile={file=>void inspect(file,tab==='changes'&&file.staged&&!file.unstaged)} onFolder={folder=>{if(tab==='changes')setClosedChanges(previous=>{const next=new Set(previous);if(next.has(folder))next.delete(folder);else next.add(folder);return next;});else toggle(folder);}} expanded={folder=>tab==='changes'?!closedChanges.has(folder):expanded.has(folder)}/>}
+   {showTree&&<FilePanelTree key={`${session.id}:${tab}:${path}`} entries={tab==='changes'?changedNodes(changeTree(result?.files??[])):directoryNodes(path)} selected={selected?.path} filter={filter} onFilter={setFilter} changes={tab==='changes'} count={result?.files?.length??0} onFile={file=>void inspect(file,tab==='changes'&&file.staged&&!file.unstaged)} onFolder={toggle}/>}
 
   </div>
   <footer className="panel-status"><span>{tab==='changes'?`${result?.files?.length??0} 个文件变更${result?.statsAvailable?`  +${result.added} −${result.removed}`:''}`:path==='.'?'工作区文件':path}</span><span>只读预览</span></footer>
