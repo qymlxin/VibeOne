@@ -194,6 +194,8 @@
 
 - [116 · Pierre 差异与文件树](issues/116-pierre-diffs-trees.md) 已交付：原生组件连接真实数据，替换手工差异/着色与目录树；桌面已更新，定向交互检查通过。
 
+- [117 · 窗口拖动与浏览器调查](issues/117-window-drag-cursor-browser.md) 已交付：主窗口拖动权限/deep区域修复并打包；浏览器宿主实现的静态调查及SVG已归档，Chromium迁移未实施。
+
 ## Fog
 
 - 原上下文恢复已由77补齐，真实Codex记忆与权限已验证；其他Agent恢复仍受其协议及本机认证状态约束。
