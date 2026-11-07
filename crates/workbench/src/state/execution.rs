@@ -128,6 +128,18 @@ impl Workbench {
             return Err(DomainError::new(ErrorKind::InvalidInput, "无效的幂等键"));
         }
         let entry = self.command_entry(id)?;
+        let needs_resume = {
+            let view = entry.view.lock().expect("view poisoned");
+            view.history_only
+                && !view.archived
+                && !key
+                    .as_ref()
+                    .is_some_and(|key| view.runs.iter().any(|run| run.key.as_ref() == Some(key)))
+        };
+        if needs_resume {
+            self.resume_context(id).await?;
+        }
+
         let _gate = entry.gate.lock().await;
         self.command_available()?;
         if entry.configuring.load(Ordering::SeqCst) {

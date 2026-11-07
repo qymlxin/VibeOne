@@ -11,11 +11,14 @@ impl Workbench {
         self.available()
             .map_err(|_| DomainError::new(ErrorKind::HostUnavailable, "工作主机不可用"))?;
         let mut view = entry.view.lock().expect("view poisoned").clone();
-        if view.active || view.archived || !view.history_only {
+        if view.active || view.archived {
             return Err(DomainError::new(
                 ErrorKind::ContextConflict,
                 "仅可在已停止的历史会话中选择原上下文",
             ));
+        }
+        if !view.history_only {
+            return Ok(());
         }
         let upstream = view.agent_state["upstreamSessionId"]
             .as_str()

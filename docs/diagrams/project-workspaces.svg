@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="260" viewBox="0 0 860 260" role="img" aria-label="一个项目包含多个目录和会话，每个会话选择一个执行目录">
+<rect width="860" height="260" fill="#fff"/>
+<g font-family="system-ui,sans-serif" font-size="15" fill="#1a1c1f" stroke="#ccc">
+<rect x="24" y="92" width="180" height="62" rx="9" fill="#f5f5f5"/><rect x="310" y="30" width="220" height="62" rx="9" fill="#fff"/><rect x="310" y="166" width="220" height="62" rx="9" fill="#fff"/>
+<rect x="634" y="30" width="200" height="62" rx="9" fill="#f5f5f5"/><rect x="634" y="166" width="200" height="62" rx="9" fill="#f5f5f5"/>
+<path d="M204 123H258V61H310M258 123V197H310M530 61H634M530 197H634" fill="none" stroke="#777"/>
+<g stroke="none" text-anchor="middle"><text x="114" y="129" font-weight="600">项目 / 工作区</text><text x="420" y="55">工作目录 A</text><text x="420" y="77" font-size="12" fill="#686868">例如 /app/frontend</text><text x="420" y="191">工作目录 B</text><text x="420" y="213" font-size="12" fill="#686868">例如 /app/backend</text><text x="734" y="55">会话 1、会话 2</text><text x="734" y="77" font-size="12" fill="#686868">选择目录 A 执行</text><text x="734" y="191">会话 3</text><text x="734" y="213" font-size="12" fill="#686868">选择目录 B 执行</text></g></g></svg>

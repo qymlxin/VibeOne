@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [110 项目与默认续接](issues/110-project-workspaces-default-resume.md)：一个项目多个目录和会话，项目分组及持久管理接通，历史默认恢复原上下文，按快速迭代构建后体验。
+
 - [108 对话过程与读取](issues/108-chat-process-prototype-parity.md)：完成整轮/工具组两层折叠、读取文件链接与变更整行入口；真实Codex及本机包确认。
 
 - [109 右侧原型源码](issues/109-direct-prototype-file-panel.md)：按用户最新要求直接迁入右侧JSX和CSS，Git目录聚合修正，快速构建后交用户体验。

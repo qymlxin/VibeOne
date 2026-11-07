@@ -25,7 +25,8 @@ import {
   X,
 } from "lucide-react";
 import { AttachmentPicker,useAttachmentDraft } from "./Attachments.jsx";
-import { recentSessions, sessionGroups } from "./session-groups.js";
+import { recentSessions } from "./session-groups.js";
+import {useProjects,projectGroups} from "./projects.jsx";
 import { AgentConfigControls } from "./AgentConfigControls.jsx";
 import { ComposerInput } from "./ComposerInput.jsx";
 import { commandPanel } from "./composer.js";
@@ -97,6 +98,8 @@ applyAppearance(readAppearance(),document.documentElement.dataset.theme);
 function App() {
   const workbench = useWorkbench();
   const plugins = usePlugins(workbench);
+  const projects=useProjects(workbench);
+  const [newProject,setNewProject]=useState('');
   useNotifications(workbench);
   const [selected, setSelected] = useState(null);
   const [showList, setShowList] = useState(true);
@@ -105,7 +108,7 @@ function App() {
   const [query, setQuery] = useState("");
   const searchInput=useRef(null);
   const [sidebarOpen,setSidebarOpen]=useState(()=>{try{return localStorage.getItem('vibeone-sidebar-open')!=='false';}catch{return true;}});
-  const [sessionView,setSessionView]=useState(()=>{try{return localStorage.getItem('vibeone-session-view-v2')??'workbench';}catch{return 'workbench';}});
+  const sessionView='projects';
   const [collapsedProjects,setCollapsedProjects]=useState(new Set());
   const [settingsTarget,setSettingsTarget]=useState('general');
   const [panel,setPanel]=useState('chat'),[panelWidth,setPanelWidth]=useState(null),[expandedPanel,setExpandedPanel]=useState(false);
@@ -162,6 +165,7 @@ function App() {
             className="icon-button desktop-icon"
             aria-label="新建会话"
             onClick={() => {
+              setNewProject(projects.items.find(p=>p.paths.includes(session?.workspace))?.id??'');
               setCreating(true);
               setShowList(false);
               setSettings(false);
@@ -198,17 +202,16 @@ function App() {
           待处理<span className="count desktop-count">{pending}</span>
         </button>
         <div className="session-list desktop-session-list">
-          <div className="section-label"><span>{archived?'已归档':sessionView==='recent'?'最近':'项目'}</span><div className="session-list-actions">
+          <div className="section-label"><span>{archived?'已归档':'项目'}</span><div className="session-list-actions">
             {!workbench.device&&<button className="icon-button" aria-label="添加项目" onClick={()=>{setSettingsTarget('workspaces');setSettings(true);setShowList(false);}}><Plus size={13}/></button>}
             <details className="workbench-tool-menu"><summary className="icon-button" aria-label="会话列表选项"><MoreHorizontal size={14}/></summary><div>
-              {[['workbench','项目与最近'],['projects','按项目'],['recent','最近']].map(([value,label])=><button key={value} aria-pressed={sessionView===value} onClick={event=>{setSessionView(value);event.currentTarget.closest('details').open=false;}}>{label}</button>)}
+
               <button onClick={event=>{setArchived(!archived);event.currentTarget.closest('details').open=false;}}>{archived?'已归档 · 查看会话':'会话 · 查看归档'}</button>
             </div></details>
           </div></div>
-          {!sessions.length?<p className="desktop-list-empty">{query?'没有匹配的会话':'从一个新会话开始'}</p>:sessionView==='recent'?sessions.map(renderSession):<>
-            {sessionGroups(sessions,workbench.workspaces).filter((group,index)=>sessionView==='projects'||group.path===(session?.workspace??sessions[0]?.workspace)||(!session&&index===0)).map(group=><section className="desktop-project-group" key={group.path}><button className="project-name desktop-project-heading" title={group.path} aria-expanded={!!query.trim()||!collapsedProjects.has(group.path)} onClick={()=>setCollapsedProjects(previous=>{const next=new Set(previous);if(next.has(group.path))next.delete(group.path);else next.add(group.path);return next;})}><ChevronRight size={12}/><FolderOpen size={13}/><span>{group.name}</span><small>{group.sessions.length}</small></button>{(!!query.trim()||!collapsedProjects.has(group.path))&&group.sessions.map(renderSession)}</section>)}
-            {sessionView==='workbench'&&<><div className="section-label recent">最近</div>{sessions.filter(item=>item.workspace!==(session?.workspace??sessions[0]?.workspace)).map(renderSession)}</>}
-          </>}
+          {projectGroups(sessions,projects.items,workbench.workspaces).map(group=><section className="desktop-project-group" key={group.id}><div className="project-sidebar-heading"><button className="project-name desktop-project-heading" title={group.paths.join('\n')} aria-expanded={!!query.trim()||!collapsedProjects.has(group.id)} onClick={()=>setCollapsedProjects(previous=>{const next=new Set(previous);if(next.has(group.id))next.delete(group.id);else next.add(group.id);return next;})}><ChevronRight size={12}/><FolderOpen size={13}/><span>{group.name}</span><small>{group.sessions.length}</small></button><button className="icon-button" aria-label={`在项目 ${group.name} 新建会话`} onClick={()=>{setNewProject(group.id);setCreating(true);setSettings(false);setShowList(false);}}><Plus size={13}/></button></div>{(!!query.trim()||!collapsedProjects.has(group.id))&&group.sessions.map(renderSession)}</section>)}
+          {!sessions.length&&!projects.items.some(p=>!p.implicit)&&<p className="desktop-list-empty">{query?'没有匹配的会话':'从一个新项目开始'}</p>}
+
         </div>
         <div className="sidebar-footer desktop-sidebar-bottom">
           <div className="desktop-host">
@@ -284,9 +287,11 @@ function App() {
           </div>
         )}
         {settings ? (
-          <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter key={settingsTarget} initialPage={settingsTarget} workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance} onBack={()=>setSettings(false)}/>}/></Suspense>
+          <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter key={settingsTarget} initialPage={settingsTarget} projects={projects} workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance} onBack={()=>setSettings(false)}/>}/></Suspense>
         ) : creating || !session ? (
           <NewSession
+            key={newProject}
+            projects={projects} initialProject={newProject||projects.items.find(p=>p.paths.includes(session?.workspace))?.id}
             workbench={workbench}
             online={
               online &&
@@ -311,10 +316,12 @@ function App() {
     </ApprovedWorkbenchShell>;
 }
 
-function NewSession({ workbench, online, act, onCreated }) {
+function NewSession({ workbench, online, act, onCreated,projects,initialProject }) {
+  const [projectId,setProjectId]=useState(initialProject??'');
+  const project=projects.items.find(p=>p.id===projectId);
   const creation = useRef(null);
-  const [workspace, setWorkspace] = useState("");
-  const [provider, setProvider] = useState("demo");
+  const [workspace, setWorkspace] = useState(()=>projects.items.find(p=>p.id===initialProject)?.paths[0]??"");
+  const [provider, setProvider] = useState("codex");
   const [busy, setBusy] = useState(false);
   const profile = (workbench.profiles ?? []).find(
     (item) => item.id === provider,
@@ -335,7 +342,10 @@ function NewSession({ workbench, online, act, onCreated }) {
         workbench.call(...createSessionCommand(profile?.provider ?? provider,workspace,profile?.id,
           workbench.features?.includes('sessionCreationIdempotency')?intent.key:undefined)),
       );
-      if (result) {creation.current=null;onCreated(result.id);}
+      if (result) {
+        if(project){const snapshot=await workbench.call('/snapshot');const created=snapshot.sessions.find(s=>s.id===result.id);if(created&&!project.paths.includes(created.workspace)){const saved=await act(()=>projects.save({id:project.id,addPath:created.workspace}));if(!saved)return;}}
+        await projects.reload();creation.current=null;onCreated(result.id);
+      }
     } finally {intent.busy=false;setBusy(false);}
   };
   return (
@@ -346,6 +356,9 @@ function NewSession({ workbench, online, act, onCreated }) {
         <p>选择 Agent 即可开始，也可以关联已有项目。</p>
       </div>
       <form className="desktop-setup-form" onSubmit={create}>
+        <label htmlFor="session-project">项目</label><select id="session-project" value={projectId} onChange={e=>{setProjectId(e.target.value);setWorkspace(projects.items.find(p=>p.id===e.target.value)?.paths[0]??'');}}><option value="">按工作目录自动归入项目</option>{projects.items.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
+        {project&&<><label htmlFor="project-directory">项目工作目录</label><select id="project-directory" value={project.paths.includes(workspace)?workspace:''} onChange={e=>setWorkspace(e.target.value)}><option value="">新建或引入其他目录</option>{project.paths.map(path=><option key={path} value={path}>{path}</option>)}</select></>}
+
         <label htmlFor="workspace">工作区{!workbench.device && "（可选）"}</label>
         {isNative() ? (
           <div className="desktop-path">
@@ -488,7 +501,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
     try {if(files.length)localStorage.setItem(`vibeone-references:${session.id}`,JSON.stringify(files));else localStorage.removeItem(`vibeone-references:${session.id}`);}catch{}
   };
   const [title, setTitle] = useState(session.title);
-  const readOnly = session.historyOnly || session.archived || !canOperate;
+  const readOnly = session.archived || !canOperate;
   const [sending, setSending] = useState(false);
   const attachmentDraft=useAttachmentDraft({session,workbench,disabled:readOnly||sending,onMutate:()=>{requestKey.current=null;}});
   const [deciding, setDeciding] = useState(null);
@@ -612,6 +625,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
               >
                 {session.archived?"取消归档":"归档"}
               </button>
+              {session.historyOnly&&!session.archived&&canOperate&&!(session.queue??[]).length&&<button disabled={!online||sending} onClick={async event=>{event.currentTarget.closest('details').open=false;setSending(true);await queueCommands.execute({resume:true,freshContext:true});setSending(false);}}>新开 Agent 上下文</button>}
             </div></details>
           )}
       </header>
@@ -752,24 +766,6 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
         </div>
       )}
       <div className="composer-area desktop-composer-wrap">
-        {session.historyOnly && !session.archived && canOperate && (
-          <div className="desktop-context-restart">
-            <span>{session.agentState?.contextRestoreState==='failed'?'原上下文连接失败，本轮任务保留在失败记录，未自动改用新上下文。':'历史记录已保留。选择原上下文后，下一轮才连接 Agent；排队消息仍需手动恢复。'}</span>
-            {workbench.features?.includes('upstreamResume')&&session.agentState?.upstreamSessionId&&session.agentState?.capabilities?.session&&<button className="desktop-button" disabled={!online||sending} onClick={async()=>{
-              setSending(true);await act(()=>workbench.call(`/sessions/${session.id}/context/resume`,{}));setSending(false);
-            }}>在原上下文继续</button>}
-            {!(session.queue??[]).length&&
-            <button className="desktop-button" disabled={!online || sending} onClick={async () => {
-              setSending(true);
-              await queueCommands.execute({resume:true,freshContext:true});
-              setSending(false);
-            }}>在新上下文继续</button>}
-          </div>
-        )}
-        {!session.historyOnly&&['pending','restoring','restored'].includes(session.agentState?.contextRestoreState)&&<p className="desktop-field-help">{session.agentState.contextRestoreState==='restored'?'已恢复 Agent 原上下文；本地历史不会重复回放。':session.agentState.contextRestoreState==='restoring'?'正在连接原上下文；确认空闲状态和上次配置后才发送任务。':'已选择原上下文；发送下一轮或手动恢复队列时连接，失败会停止，不自动新建替代会话。'}</p>}
-        {!session.historyOnly && session.agentState?.contextRestartedAt && (
-          <p className="desktop-field-help">正在新的 Agent 上下文中继续；上方旧消息仅作为本地历史保留。</p>
-        )}
         <div className="composer desktop-composer" onPaste={attachmentDraft.onPaste} onDrop={attachmentDraft.onDrop} onDragOver={attachmentDraft.onDragOver}>
           <AttachmentPicker inputRef={attachmentInput} draft={attachmentDraft} disabled={readOnly||sending} supported={workbench.features?.includes('attachments')}/>
           <Queue
@@ -782,7 +778,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
             onChange={text=>{setDraft(text);requestKey.current=null;}}
             files={fileReferences} onFiles={changeReferences} onSubmit={()=>void send()}
             onPanel={setTab} disabled={readOnly || sending} online={online}
-            placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档或选择继续使用的上下文" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 引用文件…"}/>
+            placeholder={!canOperate ? "此设备仅可查看或审批，不能发送任务" : readOnly ? "先取消归档后继续会话" : active ? "当前正在执行，发送后加入下一轮队列…" : "描述任务，输入 / 选择指令，@ 引用文件…"}/>
           <div className="composer-toolbar desktop-composer-toolbar"><div>
             <div className="composer-context-control" ref={contextControl}><IconButton label="添加上下文" disabled={readOnly||sending} onClick={()=>setContextMenuOpen(!contextMenuOpen)}><Plus size={19}/></IconButton>{contextMenuOpen&&<div className="composer-context-actions"><button type="button" aria-label="添加附件" disabled={!workbench.features?.includes('attachments')||!online||attachmentDraft.busy} onClick={()=>{setContextMenuOpen(false);attachmentInput.current?.click();}}><Paperclip size={14}/>添加附件</button><button type="button" onClick={()=>{setContextMenuOpen(false);composerActions.current?.trigger('/');}}><Slash size={14}/>选择指令</button><button type="button" onClick={()=>{setContextMenuOpen(false);composerActions.current?.trigger('@');}}><AtSign size={14}/>引用文件</button></div>}</div>
             <button type="button" className="permission" onClick={()=>setTab('agent')}><ShieldCheck size={13}/>会话权限<ChevronDown size={11}/></button>
@@ -826,7 +822,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
           ) : (
             <span>
               {session.historyOnly
-                ? "历史已保留 · Agent 上下文尚未恢复"
+                ? "会话已保存到本机"
                 : workbench.persistent
                   ? "会话已保存到本机"
                   : "本次主机运行期间保留会话"}

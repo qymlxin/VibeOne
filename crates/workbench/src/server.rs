@@ -143,6 +143,7 @@ fn routes(state: Server) -> Router {
         .route("/v1/snapshot",get(snapshot))
         .route("/v1/sync",get(sync_view))
         .route("/v1/workspaces",post(import_workspace))
+        .route("/v1/projects",get(project_list).post(project_save))
         .route("/v1/profiles",get(profile_catalog).post(profile))
         .route("/v1/providers/{id}/probe",post(provider_probe))
         .route("/v1/remote",post(remote::configure))
@@ -269,7 +270,8 @@ async fn authorize(
             matches!(
                 path.as_str(),
                 "/v1/health" | "/v1/snapshot" | "/v1/event-log" | "/v1/sync"
-            ) || path == "/v1/sessions" && request.method() == Method::POST
+            ) || path == "/v1/projects" && request.method() == Method::GET
+                || path == "/v1/sessions" && request.method() == Method::POST
         };
         if !allowed {
             return (
@@ -929,4 +931,47 @@ mod sync_socket_tests {
         let _ = server.await;
         workbench.close().await;
     }
+}
+
+async fn project_list(
+    State(state): State<Server>,
+    Extension(identity): Extension<remote::Identity>,
+) -> Json<Value> {
+    let snapshot = state.workbench.snapshot();
+    let paths: Vec<&str> = snapshot["workspaces"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|w| identity.allowed(w["id"].as_str().unwrap_or_default(), "read"))
+        .filter_map(|w| w["path"].as_str())
+        .collect();
+    let projects: Vec<Value> = state
+        .workbench
+        .project_views()
+        .into_iter()
+        .filter_map(|mut p| {
+            if identity.device.is_some() {
+                p["paths"] = json!(
+                    p["paths"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter(|path| path.as_str().is_some_and(|path| paths.contains(&path)))
+                        .cloned()
+                        .collect::<Vec<_>>()
+                );
+                if p["paths"].as_array().is_none_or(Vec::is_empty) {
+                    return None;
+                }
+            }
+            Some(p)
+        })
+        .collect();
+    Json(json!({"projects":projects}))
+}
+async fn project_save(State(state): State<Server>, Json(body): Json<Value>) -> ApiResult {
+    domain_command(async move { state.workbench.save_project(body).await })
+        .await
+        .map(Json)
+        .map_err(domain_fail)
 }

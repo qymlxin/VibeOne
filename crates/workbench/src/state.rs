@@ -20,6 +20,7 @@ mod history;
 mod operations;
 mod outbox;
 mod probe;
+mod projects;
 mod sync;
 use vibeone_storage::{SavedSession, Store, Workspace};
 

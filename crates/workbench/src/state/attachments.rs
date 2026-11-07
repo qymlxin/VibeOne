@@ -77,6 +77,14 @@ impl Workbench {
             name.trim()
         };
         let entry = self.command_entry(id)?;
+        let needs_resume = {
+            let view = entry.view.lock().expect("view poisoned");
+            view.history_only && !view.archived
+        };
+        if needs_resume {
+            self.resume_context(id).await?;
+        }
+
         let _gate = entry.gate.lock().await;
         self.command_available()?;
         {

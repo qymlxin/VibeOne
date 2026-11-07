@@ -4,9 +4,13 @@ VibeOne connects coding agents to a shared desktop and phone workbench. These te
 
 ## Work and execution
 
-**Workspace**:
-An authorized project directory in which an agent works. A workspace may contain several conversations.
-_Avoid_: Project when referring specifically to an authorized execution directory.
+**Project (Workspace)**:
+A named collection of working directories and conversations. One project can contain several directories and several sessions.
+_Avoid_: Working Directory when referring to the whole project.
+
+**Working Directory**:
+An authorized filesystem directory selected for an agent's execution. A working directory belongs to one project; several sessions can use it.
+_Avoid_: Project when referring specifically to a filesystem path.
 
 **Agent Provider**:
 A supported way of connecting a coding tool to VibeOne, including the capabilities that connection offers.
@@ -17,7 +21,7 @@ A named configuration of an Agent Provider selected for a conversation.
 _Avoid_: Agent account, model when referring to the complete configuration.
 
 **Session**:
-A conversation bound to one Workspace and one Agent Profile. A Session contains successive Runs and their conversation history.
+A conversation in a Project, bound to one Working Directory and one Agent Profile. A Session contains successive Runs and their conversation history.
 _Avoid_: Task, Run, process when referring to the conversation.
 
 **Run**:
