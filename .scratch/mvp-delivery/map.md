@@ -203,7 +203,7 @@
 - [120 · 会话弹窗与模型](issues/120-session-dialog-models.md) 已交付：紧凑弹窗、11色6形图标和真实Agent模型选择，首条消息前应用；中文说明/SVG、局部检查与原生打包完成。
 
 - [121 · 项目空间与协作](issues/121-project-spaces.md) 已交付：命名成员、固定管家、预设、组对话、显示分组与轻量看板；Host负责有限转交、持久去重与停止，真实Codex管家已回复。
-- [122 · Electron桌面](issues/122-electron-desktop.md) 已交付：Chromium网页、PTY终端及独立打包；原生搜索与终端已确认，最终包切换待解锁。
+- [122 · Electron桌面](issues/122-electron-desktop.md) 已交付：Chromium网页、PTY终端及独立打包；原生搜索与终端已确认，解锁后最终包已切换，终端退出事件生命周期已修复并原生确认。
 
 ## Fog
 
