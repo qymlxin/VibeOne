@@ -1,0 +1,20 @@
+import React,{useEffect,useId,useRef,useState} from 'react';
+import {Check,ChevronDown,FolderOpen,Home,LoaderCircle,Search} from 'lucide-react';
+export function SidebarHome({active=false,onClick}){return <button className={`sidebar-home ${active?'selected':''}`} aria-current={active?'page':undefined} onClick={onClick}><Home size={15}/><span>首页</span></button>;}
+export function ProjectSwitcher({project,projects=[],onSelect,busy=false}){
+ const[open,setOpen]=useState(false),[query,setQuery]=useState(''),[recent,setRecent]=useState(()=>{try{const ids=JSON.parse(localStorage.getItem('vibeone-recent-projects-v1')??'[]');return Array.isArray(ids)?ids.filter(id=>typeof id==='string').slice(0,8):[];}catch{return [];}});
+ const root=useRef(null),trigger=useRef(null),search=useRef(null),listId=useId();
+ useEffect(()=>{if(!project?.id)return;setRecent(previous=>{const next=[project.id,...previous.filter(id=>id!==project.id)].slice(0,8);try{localStorage.setItem('vibeone-recent-projects-v1',JSON.stringify(next));}catch{}return next;});},[project?.id]);
+ const close=()=>{setOpen(false);setQuery('');trigger.current?.focus();};
+ useEffect(()=>{if(!open)return;search.current?.focus();const outside=e=>{if(!root.current?.contains(e.target)){setOpen(false);setQuery('');}};document.addEventListener('pointerdown',outside);return()=>document.removeEventListener('pointerdown',outside);},[open]);
+ const filtered=projects.filter(p=>`${p.name} ${(p.paths??[]).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
+ const recentProjects=recent.map(id=>filtered.find(p=>p.id===id)).filter(p=>p&&p.id!==project?.id);
+ const sections=query.trim()?[['搜索结果',filtered]]:[['当前项目',filtered.filter(p=>p.id===project?.id)],['最近项目',recentProjects],['所有项目',filtered.filter(p=>p.id!==project?.id&&!recent.includes(p.id))]];
+ return <div className="project-switcher" ref={root} onKeyDown={e=>{
+  if(e.key==='Escape'&&open){e.preventDefault();e.stopPropagation();close();}
+  if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)&&open&&(e.key.startsWith('Arrow')||document.activeElement!==search.current)){const buttons=[...root.current.querySelectorAll('[role=option]:not(:disabled)')];if(!buttons.length)return;e.preventDefault();const index=buttons.indexOf(document.activeElement),next=e.key==='Home'?0:e.key==='End'?buttons.length-1:index<0?(e.key==='ArrowUp'?buttons.length-1:0):(index+(e.key==='ArrowUp'?-1:1)+buttons.length)%buttons.length;buttons[next].focus();}
+ }}>
+ <button ref={trigger} type="button" className="project-switcher-trigger" aria-label="切换项目" aria-expanded={open} aria-controls={open?listId:undefined} aria-haspopup="listbox" disabled={busy} onClick={()=>{setOpen(!open);setQuery('');}} onKeyDown={e=>{if(!open&&['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();setOpen(true);}}}>{busy?<LoaderCircle size={14} className="desktop-spin"/>:<FolderOpen size={14}/>}<strong>{project?.name??'选择项目'}</strong><ChevronDown size={12}/></button>
+ {open&&<div className="project-switcher-popup"><label className="project-switcher-search"><Search size={13}/><input ref={search} aria-label="搜索项目" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索项目名称或路径…"/></label><div id={listId} role="listbox" aria-label="项目列表" className="project-switcher-list">{sections.map(([label,items])=>!!items.length&&<div role="group" aria-label={label} key={label}><div className="project-switcher-section">{label}</div>{items.map(p=><button type="button" role="option" aria-selected={p.id===project?.id} key={p.id} title={(p.paths??[]).join('\n')} disabled={!p.paths?.length} onClick={()=>{close();void onSelect(p);}}><span className="project-switcher-icon"><FolderOpen size={17}/></span><span className="project-switcher-copy"><strong>{p.name}</strong><small>{p.paths?.[0]??'尚未引入工作目录'}{p.paths?.length>1?` · ${p.paths.length} 个目录`:''}</small></span>{p.id===project?.id&&<Check size={14}/>}</button>)}</div>)}{!filtered.length&&<p className="project-switcher-empty">{projects.length?'没有匹配的项目':'先在首页设置中创建项目'}</p>}</div></div>}
+ </div>;
+}
