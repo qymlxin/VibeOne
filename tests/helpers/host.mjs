@@ -8,7 +8,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 export async function host(t, environment = {}) {
   const directory = await mkdtemp(join(tmpdir(), "vibeone-feature-"));
-  const child = spawn(resolve("target/debug/vibeone-host"), ["serve", "--data-dir", directory], { stdio: "ignore", env: {...process.env, ...environment} });
+  const child = spawn(resolve(`target/debug/vibeone-host${process.platform==="win32"?".exe":""}`), ["serve", "--data-dir", directory], { stdio: "ignore", env: {...process.env, ...environment} });
   const exited = once(child, "exit");
   let connection;
   t.after(async () => {
