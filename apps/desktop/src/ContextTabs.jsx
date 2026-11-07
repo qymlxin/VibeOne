@@ -1,0 +1,23 @@
+import React,{useEffect,useRef,useState} from 'react';
+import {File,Folder,GitBranch,Globe,Terminal,Plus,X,Maximize2,Minimize2} from 'lucide-react';
+import {BrowserPreview} from './BrowserPreview.jsx';
+const tools=[['changes','变更',GitBranch],['files','文件',Folder],['terminal','终端',Terminal],['browser','网页',Globe]];
+const label=kind=>tools.find(item=>item[0]===kind)?.[1]??({runs:'执行记录',agent:'Agent 设置',artifacts:'产物'})[kind]??'新标签页';
+const make=(kind,extra={})=>({id:crypto.randomUUID(),kind,title:label(kind),...extra});
+function BrowserTab({initialUrl}){
+ const [history,setHistory]=useState({urls:initialUrl?[initialUrl]:[],index:initialUrl?0:-1});
+ return <BrowserPreview url={history.urls[history.index]} canBack={history.index>0} canForward={history.index<history.urls.length-1} onBack={()=>setHistory(h=>({...h,index:h.index-1}))} onForward={()=>setHistory(h=>({...h,index:h.index+1}))} onNavigate={url=>setHistory(h=>{const urls=[...h.urls.slice(0,h.index+1),url].slice(-100);return {urls,index:urls.length-1};})}/>;
+}
+export function ContextTabs({kind,onKind,fileRequest,browserRequest,expanded,onExpand,renderTool}){
+ const [state,setState]=useState({items:[],active:null});
+ const seenFile=useRef(null),seenUrl=useRef(null);
+ useEffect(()=>{if(kind==='chat'||kind==='files'&&fileRequest&&seenFile.current!==fileRequest.key||kind==='browser'&&browserRequest&&seenUrl.current!==browserRequest.key)return;setState(s=>{if(s.items.find(t=>t.id===s.active)?.kind===kind)return s;const found=s.items.find(t=>t.kind===kind),next=found??make(kind);return {items:found?s.items:[...s.items,next],active:next.id};});},[kind]);
+ useEffect(()=>{if(!fileRequest||seenFile.current===fileRequest.key)return;seenFile.current=fileRequest.key;setState(s=>{const found=s.items.find(t=>t.kind==='files'&&t.file?.path===fileRequest.path);const next=found??make('files',{file:fileRequest,title:fileRequest.path.split(/[\\/]/).at(-1)});return {items:found?s.items:[...s.items,next],active:next.id};});},[fileRequest]);
+ useEffect(()=>{if(!browserRequest||seenUrl.current===browserRequest.key)return;seenUrl.current=browserRequest.key;setState(s=>{const found=s.items.find(t=>t.kind==='browser'&&t.url===browserRequest.url);const next=found??make('browser',{url:browserRequest.url,title:new URL(browserRequest.url).hostname});return {items:found?s.items:[...s.items,next],active:next.id};});},[browserRequest]);
+ const select=item=>{setState(s=>({...s,active:item.id}));onKind(item.kind);};
+ const add=()=>{const next=make('home');setState(s=>({items:[...s.items,next],active:next.id}));onKind('home');};
+ const close=item=>{const items=state.items.filter(t=>t.id!==item.id),active=state.active===item.id?(items[Math.max(0,state.items.indexOf(item)-1)]??items.at(-1))?.id:state.active;setState({items,active});if(state.active===item.id)onKind(items.find(t=>t.id===active)?.kind??'chat');};
+ const choose=(item,nextKind)=>{setState(s=>({...s,items:s.items.map(t=>t.id===item.id?{...t,kind:nextKind,title:label(nextKind)}:t)}));onKind(nextKind);};
+ const title=(id,value)=>setState(s=>s.items.some(t=>t.id===id&&t.title!==value)?({...s,items:s.items.map(t=>t.id===id?{...t,title:value}:t)}):s);
+ return <><header className="panel-tabs desktop-right-panel-header"><div className="context-tabstrip" role="tablist" aria-label="工作区标签页">{state.items.map(item=>{const Icon=tools.find(t=>t[0]===item.kind)?.[2]??File;return <div className={`context-tab ${state.active===item.id?'active':''}`} key={item.id}><button role="tab" aria-selected={state.active===item.id} aria-controls={`pane-${item.id}`} id={`tab-${item.id}`} onClick={()=>select(item)} title={item.title}><Icon size={14}/><span>{item.title}</span></button><button aria-label={`关闭 ${item.title}`} onClick={()=>close(item)}><X size={12}/></button></div>;})}</div><button className="icon-button" aria-label="新增标签页" onClick={add}><Plus size={15}/></button><div className="panel-controls"><button className="icon-button" aria-label={expanded?'恢复面板宽度':'扩大预览'} onClick={onExpand}>{expanded?<Minimize2 size={15}/>:<Maximize2 size={15}/>}</button><button className="icon-button" aria-label="收起右侧面板" onClick={()=>onKind('chat')}><X size={15}/></button></div></header>{state.items.map(item=><div className="context-tabpane" role="tabpanel" id={`pane-${item.id}`} aria-labelledby={`tab-${item.id}`} hidden={state.active!==item.id} key={item.id}>{item.kind==='home'?<section className="context-new-tab"><h2>打开工具</h2>{tools.map(([value,name,Icon])=><button key={value} onClick={()=>choose(item,value)}><Icon size={18}/>{name}</button>)}</section>:item.kind==='browser'?<BrowserTab initialUrl={item.url}/>:renderTool(item,value=>title(item.id,value))}</div>)}</>;
+}

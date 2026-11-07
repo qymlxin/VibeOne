@@ -43,7 +43,7 @@ export function describeTool(tool) {
   const append=value=>{ if(value!=null && value!=='') outputs.push({type:'value',value:parseToolValue(value)}); };
   append(tool.output);append(tool.rawOutput);
   for (const block of Array.isArray(tool.content)?tool.content:[]) {
-    if (block?.type==='diff') outputs.push({type:'diff',path:block.path,oldText:block.oldText,newText:block.newText});
+    if (block?.type==='diff') outputs.push({type:'diff',path:block.path??block.changes?.[0]?.path,oldText:block.oldText,newText:block.newText,patch:block.patch?.text});
     else if (block?.type==='content') {
       const content=block.content;
       if (content?.type==='text') append(content.text);
@@ -64,6 +64,7 @@ export function describeAction(tool) {
   const paths=[...new Set([
     ...strings(first(input.file_path,input.filePath,input.path)),
     ...(Array.isArray(tool.locations)?tool.locations.map(location=>typeof location==='string'?location:location?.path):[]),
+    ...(Array.isArray(tool.content)?tool.content.flatMap(block=>block?.type==='diff'?[block.path,...(block.changes??[]).map(change=>change.path)]:[]):[]),
   ].filter(path=>typeof path==='string' && path.trim()))];
   // Codex's read reporter can provide a title even when old projections omit locations.
   const titlePath=tool.kind==='read' ? /^Read file '(.+)'$/.exec(tool.title ?? '')?.[1] : null;

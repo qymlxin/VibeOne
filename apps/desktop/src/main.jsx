@@ -54,7 +54,7 @@ import {readAppearance,applyAppearance} from "./appearance.js";
 const SettingsCenter=lazy(()=>import("./SettingsCenter.jsx").then(module=>({default:module.SettingsCenter})));
 import {SplitHandle} from "./SplitHandle.jsx";
 import {PreviewContext} from "./PreviewLinks.jsx";
-import {BrowserPreview} from "./BrowserPreview.jsx";
+import {ContextTabs} from "./ContextTabs.jsx";
 import { Brand } from "./Brand.jsx";
 import {ApprovedWorkbenchShell,primaryTools,IconButton} from "./ApprovedWorkbenchShell.jsx";
 import "./approved/review.css";
@@ -478,9 +478,8 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
     !workbench.device ||
     ["operator", "approver"].includes(workbench.device.role);
   const [editingTitle, setEditingTitle] = useState(false);
-  const [browserHistory,setBrowserHistory]=useState({urls:[],index:-1}),[fileTarget,setFileTarget]=useState(null);
-  const browserUrl=browserHistory.urls[browserHistory.index]??null;
-  const openUrl=useCallback(url=>{setBrowserHistory(previous=>{if(previous.urls[previous.index]===url)return previous;const urls=[...previous.urls.slice(0,previous.index+1),url].slice(-100);return {urls,index:urls.length-1};});setTab('browser');},[]);
+  const [browserRequest,setBrowserRequest]=useState(null),[fileTarget,setFileTarget]=useState(null);
+  const openUrl=useCallback(url=>{setBrowserRequest({url,key:crypto.randomUUID()});setTab('browser');},[]);
   const [changeSummary,setChangeSummary]=useState(null);
   const lastRun=session.runs?.at(-1);
   const stopCurrentRun=useStopCommand(workbench,session);
@@ -556,7 +555,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
     }
     setSending(false);
   };
-  const toolNavigation=<>{primaryTools.map(([id,label,Icon])=><button key={id} className={tab===id?'active':''} aria-label={label} aria-pressed={tab===id} onClick={()=>setTab(id)}><Icon size={14}/>{id==='browser'?'浏览':label}</button>)}</>;
+
   return (
     <PreviewContext.Provider value={previewContext}>
       <div className="desktop-conversation-body">
@@ -663,7 +662,7 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
         {turns.map(turn => (
           <div className="conversation-round desktop-turn" tabIndex={-1} key={turn.id} data-turn-id={turn.id}>
             {turn.user && <ChatMessage message={turn.user} name={name}/>}
-            <AgentResponse onChanges={()=>setTab('changes')} changeCount={turn.id===lastRun?.id&&changeSummary?.isGit?changeSummary.files.length:0} turn={turn} name={name} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
+            <AgentResponse onChanges={()=>setTab('changes')} changeStats={changeSummary} changeCount={turn.id===lastRun?.id&&changeSummary?.isGit?changeSummary.files.length:0} turn={turn} name={name} status={session.status} hasInput={!!session.inputs?.length} onReadHistory={()=>{followLatest.current=false;setFollowing(false);}}/>
           </div>
         ))}
         {(session.inputs ?? []).map((request) => (
@@ -831,7 +830,8 @@ function Conversation({ session, workbench, online, act,tab,setTab,panelWidth,se
         </div>
       </div>
       </div>
-      {tab!=="chat" && <><SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}}/><aside style={expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:undefined} className={`context-panel desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><header className="panel-tabs desktop-right-panel-header">{toolNavigation}<div className="panel-controls"><button className="icon-button desktop-expand-preview" aria-label={expandedPanel?'恢复面板宽度':'扩大预览'} onClick={()=>setExpandedPanel(!expandedPanel)}>{expandedPanel?<Minimize2 size={15}/>:<Maximize2 size={15}/>}</button><button className="icon-button" aria-label="收起右侧面板" onClick={()=>setTab('chat')}><X size={15}/></button></div></header>{tab==='browser'?<BrowserPreview url={browserUrl} onNavigate={openUrl} canBack={browserHistory.index>0} canForward={browserHistory.index<browserHistory.urls.length-1} onBack={()=>setBrowserHistory(previous=>({...previous,index:Math.max(0,previous.index-1)}))} onForward={()=>setBrowserHistory(previous=>({...previous,index:Math.min(previous.urls.length-1,previous.index+1)}))}/>:<SessionTools key={tab} artifactCapture={artifactCapture} session={history.session} workbench={workbench} tab={tab} act={act} fileTarget={fileTarget} onLocateRun={locateRun} availableRunIds={turns.map(turn=>turn.id)}/>}</aside></>}
+      {tab!=="chat"&&<SplitHandle onResize={width=>{setExpandedPanel(false);setPanelWidth(width);}}/>}
+      <aside hidden={tab==='chat'} style={{display:tab==='chat'?'none':undefined,...(expandedPanel?{'--panel-width':'min(70%, 1100px)'}:panelWidth?{'--panel-width':`${panelWidth}px`}:{})}} className={`context-panel desktop-right-panel ${expandedPanel?'expanded-preview':''}`} aria-label="工作区预览"><ContextTabs kind={tab} onKind={setTab} fileRequest={fileTarget} browserRequest={browserRequest} expanded={expandedPanel} onExpand={()=>setExpandedPanel(!expandedPanel)} renderTool={(item,onTitle)=><SessionTools artifactCapture={artifactCapture} session={history.session} workbench={workbench} tab={item.kind} act={act} fileTarget={item.file} onTitle={onTitle} onLocateRun={locateRun} availableRunIds={turns.map(turn=>turn.id)}/>}/></aside>
       </div>
     </PreviewContext.Provider>
   );

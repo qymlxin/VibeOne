@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [111 工作面板标签与真实差异](issues/111-context-tabs-change-diffs.md)：新增/关闭/切换标签，多层Git树、多文件差异、ACP编辑补丁与统计接通；实际桌面显示4文件 +15 −8，快速检查后交用户体验。
+
 - [110 项目与默认续接](issues/110-project-workspaces-default-resume.md)：一个项目多个目录和会话，项目分组及持久管理接通，历史默认恢复原上下文，按快速迭代构建后体验。
 
 - [108 对话过程与读取](issues/108-chat-process-prototype-parity.md)：完成整轮/工具组两层折叠、读取文件链接与变更整行入口；真实Codex及本机包确认。

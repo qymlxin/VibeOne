@@ -204,8 +204,48 @@ pub async fn changes(workspace: &str) -> Result<Value, DomainError> {
         };
         files.push(json!({"path":relative.to_string_lossy(),"status":status,"staged":record[0]!=b' '&&record[0]!=b'?',"unstaged":record[1]!=b' '&&record[1]!=b'?',"untracked":status=="??"}));
     }
+    let (mut stats, mut stats_truncated, mut stats_ok) = git(
+        &root,
+        &["diff", "--numstat", "-z", "HEAD", "--", "."],
+        262144,
+    )
+    .await?;
+    if !stats_ok {
+        let fallback = git(&root, &["diff", "--numstat", "-z", "--", "."], 262144).await?;
+        stats = fallback.0;
+        stats_truncated = fallback.1;
+        stats_ok = fallback.2;
+    }
+    let mut added = 0u64;
+    let mut removed = 0u64;
+    if stats_ok && !stats_truncated {
+        for record in stats.split(|byte| *byte == 0) {
+            let text = String::from_utf8_lossy(record);
+            let fields: Vec<_> = text.splitn(3, '\t').collect();
+            if fields.len() != 3 {
+                continue;
+            }
+            let (Ok(a), Ok(r)) = (fields[0].parse::<u64>(), fields[1].parse::<u64>()) else {
+                continue;
+            };
+            let full = git_root.join(fields[2]);
+            let Ok(relative) = full.strip_prefix(&root) else {
+                continue;
+            };
+            let path = relative.to_string_lossy();
+            if let Some(file) = files
+                .iter_mut()
+                .find(|f| f["path"].as_str() == Some(path.as_ref()))
+            {
+                file["added"] = json!(a);
+                file["removed"] = json!(r);
+                added += a;
+                removed += r;
+            }
+        }
+    }
     Ok(
-        json!({"isGit":true,"branch":if branch_known&&!branch_truncated{String::from_utf8_lossy(&branch).trim().to_owned()}else{String::new()},"files":files,"truncated":truncated,"collectedAt":SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis(),"notice":"这是工作区当前变更，可能包含用户和其他工具的修改。"}),
+        json!({"isGit":true,"added":added,"removed":removed,"statsAvailable":stats_ok&&!stats_truncated,"branch":if branch_known&&!branch_truncated{String::from_utf8_lossy(&branch).trim().to_owned()}else{String::new()},"files":files,"truncated":truncated,"collectedAt":SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis(),"notice":"这是工作区当前变更，可能包含用户和其他工具的修改。"}),
     )
 }
 pub async fn diff(workspace: &str, path: &str, staged: bool) -> Result<Value, DomainError> {

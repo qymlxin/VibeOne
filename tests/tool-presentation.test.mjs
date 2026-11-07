@@ -60,3 +60,11 @@ test('appearance storage accepts only six-digit colors and isolates light and da
  assert.equal(value.accent,'#3564F5');assert.deepEqual(value.light,{background:'#f4f1eb'});assert.deepEqual(value.dark,{foreground:'#FFFFFF'});
  assert.ok(contrastRatio('#FFFFFF','#181818')>17);assert.equal(contrastRatio('#FFFFFF','#FFFFFF'),1);
 });
+
+test('ACP patch updates retain changed paths and the actual Git patch',()=>{
+ const patch='diff --git a/a.rs b/a.rs\n@@ -1 +1 @@\n-old\n+new\n';
+ const tool={kind:'edit',status:'completed',title:'Editing files',content:[{type:'diff',changes:[{operation:'modify',path:'/workspace/a.rs'}],patch:{format:'git_patch',text:patch}}]};
+ assert.deepEqual(describeAction(tool).paths,['/workspace/a.rs']);
+ assert.equal(describeTool(tool).outputs[0].patch,patch);
+ assert.equal(describeTool(tool).outputs[0].path,'/workspace/a.rs');
+});

@@ -1,5 +1,6 @@
 import {PreviewLink,FilePreviewLink} from './PreviewLinks.jsx';
 import React, {useState} from 'react';
+import {codeLines} from './code-lines.js';
 import {describeAction,describeTool,safeToolUrl} from './tool-presentation.js';
 
 const labels={query:'搜索词',queries:'搜索词',url:'网页',title:'标题',snippet:'摘要',description:'说明',path:'路径',file_path:'文件',kind:'变更类型',command:'命令',cwd:'工作目录',stdout:'标准输出',stderr:'错误输出',exit_code:'退出码',exitCode:'退出码',result:'结果',results:'结果',status:'状态',output:'输出',content:'内容',step:'步骤',demo:'演示'};
@@ -18,7 +19,8 @@ function Value({value,depth=0}) {
   return entries.length ? <><dl className="desktop-tool-fields">{entries.slice(0,30).map(([key,item])=><React.Fragment key={key}><dt>{Object.hasOwn(labels,key)?labels[key]:key}</dt><dd><Value value={item} depth={depth+1}/></dd></React.Fragment>)}</dl>{entries.length>30 && <p>更多字段见原始数据。</p>}</> : <span>无</span>;
 }
 function Output({output}) {
-  if (output.type==='diff') return <div className="desktop-tool-diff">{output.path && <p><strong>文件</strong> <code>{output.path}</code></p>}{output.oldText!=null && <><h5>修改前</h5><pre>{output.oldText}</pre></>}{output.newText!=null && <><h5>修改后</h5><pre>{output.newText}</pre></>}</div>;
+  if (output.type==='diff') {const lines=codeLines(output.patch??'',true);return <div className="desktop-tool-diff">{output.path&&<p><FilePreviewLink path={output.path}>{output.path.split(/[\\/]/).at(-1)}</FilePreviewLink>{output.patch&&<span className="patch-count"><em>+{lines.added}</em> <b>−{lines.removed}</b></span>}</p>}{output.patch?<div className="patch-preview">{lines.rows.map((row,index)=><div className={`code-line ${row.kind}`} key={index}><span>{row.line??''}</span><span>{row.kind==='added'?'+':row.kind==='removed'?'−':''}</span><code>{['added','removed'].includes(row.kind)?row.text.slice(1):row.text||' '}</code></div>)}</div>:<>{output.oldText!=null&&<><h5>修改前</h5><pre>{output.oldText}</pre></>}{output.newText!=null&&<><h5>修改后</h5><pre>{output.newText}</pre></>}</>}</div>;}
+
   if (output.type==='link') return <LinkValue value={output.url} name={output.name}/>;
   if (output.type==='notice') return <p className="desktop-tool-muted">{output.text}</p>;
   if (typeof output.value==='string') return <pre className="desktop-tool-output">{output.value}</pre>;

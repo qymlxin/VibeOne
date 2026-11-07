@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {ChevronRight,FileText,Folder,PanelRight,Search,X} from 'lucide-react';
+import {ChangeStack} from './ChangeStack.jsx';
 import {codeLines} from './code-lines.js';
 import './file-explorer.css';
 import {FilePanelHeader,FilePanelTree} from './approved/FilePanel.jsx';
@@ -12,7 +13,7 @@ function changeTree(files){
  return [...root.children.values()];
 }
 
-export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:capture}){
+export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:capture,onTitle}){
  const online=workbench.phase==='online';
  const [directories,setDirectories]=useState(()=>Object.create(null)),[expanded,setExpanded]=useState(new Set(['.'])),[result,setResult]=useState(null),[preview,setPreview]=useState(null),[selected,setSelected]=useState(null),[filter,setFilter]=useState(''),[showTree,setShowTree]=useState(true),[path,setPath]=useState('.'),[pathDraft,setPathDraft]=useState('.'),[navigating,setNavigating]=useState(false),[directoryErrors,setDirectoryErrors]=useState(()=>Object.create(null)),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [closedChanges,setClosedChanges]=useState(new Set());
@@ -50,6 +51,7 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
  }
  useEffect(()=>{const epoch=++generation.current;selectionId.current++;pending.current=new Map();navigationId.current++;setNavigating(false);setDirectoryErrors(Object.create(null));setDirectories(Object.create(null));setExpanded(new Set(['.']));setResult(null);setPreview(null);setSelected(null);setPath('.');setPathDraft('.');setFilter('');void load(epoch,'.');return()=>{generation.current++;selectionId.current++;};},[session.id,tab]);
  async function inspect(file,staged=false){
+   if(tab==='changes'){setSelected(file);return;}
    const id=++selectionId.current,epoch=generation.current;
    setSelected({...file,stagedView:staged});setPreview(null);setError('');
    try{const value=await workbench.call(`/sessions/${session.id}/${tab==='changes'&&!file.untracked?'diff':'file'}?path=${encodeURIComponent(file.path)}&staged=${staged}`);if(id===selectionId.current&&epoch===generation.current)setPreview({...value,isDiff:tab==='changes'&&!file.untracked});}
@@ -61,6 +63,9 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
  const changedNodes=nodes=>nodes.map(node=>node.children.size?{...node,kind:'directory',children:changedNodes([...node.children.values()])}:{...node.file,kind:'file'});
  const directoryNodes=directoryPath=>(directories[directoryPath]?.entries??[]).filter(file=>file.kind==='directory'||file.path.toLowerCase().includes(filter.toLowerCase())).map(file=>({...file,children:file.kind==='directory'?directoryNodes(file.path):undefined}));
  const [panelMenu,setPanelMenu]=useState(false);
+ const finishedRun=session.runs?.at(-1)?.finishedAt;const previousFinish=useRef(finishedRun);
+ useEffect(()=>{if(previousFinish.current===finishedRun)return;previousFinish.current=finishedRun;void load();if(selected)void inspect(selected,selected.stagedView);},[finishedRun]);
+ useEffect(()=>{if(tab==='files'&&selected?.path)onTitle?.(selected.path.split(/[\\/]/).at(-1));},[selected?.path,onTitle]);
  const parts=path.split('/').filter(part=>part&&part!=='.');
  const trail=[{name:'工作区',path:'.'},...parts.map((name,index)=>({name,path:parts.slice(0,index+1).join('/')}))];
  const lines=codeLines(preview?.text??'',preview?.isDiff);
@@ -73,7 +78,7 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
   {capture.failure&&<div className="explorer-capture-failure" role="alert"><p>保存 {capture.failure.path} 未确认：{capture.failure.message}</p><button disabled={!online||capture.busy} onClick={()=>void capture.retry()}>重试保存产物</button><button disabled={capture.busy} aria-label="关闭产物保存提示" onClick={capture.dismiss}>关闭提示</button></div>}
   <div className={`file-workspace ${showTree?'with-tree':''}`}>
    <div className="code-view">
-    {selected?<>
+    {tab==='changes'?<ChangeStack files={(result?.files??[]).filter(file=>file.path.toLowerCase().includes(filter.toLowerCase()))} selected={selected} onSelect={setSelected} sessionId={session.id} workbench={workbench} revision={result?.collectedAt}/>:selected?<>
      {tab==='changes'&&!selected.untracked&&<div className="explorer-diff-modes"><button aria-pressed={!selected.stagedView} onClick={()=>void inspect(selected,false)}>未暂存差异</button><button aria-pressed={!!selected.stagedView} onClick={()=>void inspect(selected,true)}>已暂存差异</button></div>}
      {!preview&&!error&&<p role="status">正在读取文件…</p>}
      {preview&&<>{preview.binary?<p>二进制文件 · {preview.size} 字节</p>:<>
@@ -87,6 +92,6 @@ export function FileExplorer({session,workbench,tab,fileTarget,artifactCapture:c
    {showTree&&<FilePanelTree entries={tab==='changes'?changedNodes(changeTree((result?.files??[]).filter(file=>file.path.toLowerCase().includes(filter.toLowerCase())))):directoryNodes(path)} selected={selected?.path} filter={filter} onFilter={setFilter} changes={tab==='changes'} count={result?.files?.length??0} onFile={file=>void inspect(file,tab==='changes'&&file.staged&&!file.unstaged)} onFolder={folder=>{if(tab==='changes')setClosedChanges(previous=>{const next=new Set(previous);if(next.has(folder))next.delete(folder);else next.add(folder);return next;});else toggle(folder);}} expanded={folder=>tab==='changes'?!closedChanges.has(folder):expanded.has(folder)}/>}
 
   </div>
-  <footer className="panel-status"><span>{tab==='changes'?`${result?.files?.length??0} 个文件变更`:path==='.'?'工作区文件':path}</span><span>只读预览</span></footer>
+  <footer className="panel-status"><span>{tab==='changes'?`${result?.files?.length??0} 个文件变更${result?.statsAvailable?`  +${result.added} −${result.removed}`:''}`:path==='.'?'工作区文件':path}</span><span>只读预览</span></footer>
  </section>;
 }
