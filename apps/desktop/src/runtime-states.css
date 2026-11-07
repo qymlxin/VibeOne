@@ -545,3 +545,6 @@
 }
 @layer runtime {.explorer .code-view:has(.change-stack){display:flex;flex-direction:column;padding-bottom:0}.context-tab button:focus-visible,.context-new-tab button:focus-visible,.change-file-heading:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}.change-stack .code-line{display:flex}.file-tree .tree-file i{white-space:nowrap}}
 
+
+/* Native title text is a drag surface; interactive controls keep normal input. */
+.native-desktop .windowbar{user-select:none;-webkit-user-select:none}.native-desktop .window-actions{touch-action:manipulation}
