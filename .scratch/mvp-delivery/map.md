@@ -6,6 +6,8 @@
 
 ## Decisions-so-far
 
+- [124 · 统一创建项目弹窗](issues/124-create-project-dialog.md)：与Agent复用紧凑弹窗外壳，支持名称与多源目录，亮暗及局部保存验证通过。
+
 - [123 · 项目切换与首页导航](issues/123-project-switcher.md)：顶部仅项目切换、左侧首页，修复头像编辑紧凑弹窗；局部检查通过，独立Electron包已生成。
 
 - [114 浏览兼容与吸顶标题](issues/114-browser-compat-sticky-diff.md)：确认Chromium/WebKit差异及默认UA缺失；补齐标识、HTTPS跳转和不透明吸顶。百度搜索仍触发真实安全验证，后续115保留。

@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {ArrowUpRight,Check,ChevronDown,ChevronRight,FolderOpen,LayoutDashboard,LoaderCircle,MessageSquare,Plus,Settings2,ShieldCheck,Terminal,Users,X,Save} from 'lucide-react';
+import {ArrowUpRight,Check,ChevronDown,ChevronRight,FolderOpen,LoaderCircle,MessageSquare,Plus,Settings2,ShieldCheck,Terminal,Users,Save} from 'lucide-react';
 import {SessionAvatar,avatarColors,avatarShapes,avatarShapeNames} from './SessionIdentity.jsx';
 import {ChatMessage,AgentResponse} from './ChatTimeline.jsx';
 import {InputRequest} from './InputRequest.jsx';
@@ -7,6 +7,7 @@ import {buildTurns} from './chat-timeline.js';
 import {Choice} from './NewSession.jsx';
 import {modelOptions,isModelOption} from './session-models.js';
 import './project-spaces.css';
+import {CompactDialog as Modal} from './CompactDialog.jsx';
 import {SidebarHome} from './ProjectSwitcher.jsx';
 const blank={agents:[],threads:[],groups:[],presets:[]};
 export function useSpaces(workbench){
@@ -38,7 +39,6 @@ export function SpaceOverview({projects,spaces,workbench,project,onEnter,onSelec
  <div className="space-board">{groups.map(g=>{const list=visible.filter(g.test).sort((a,b)=>(b.lastActivityAt??0)-(a.lastActivityAt??0));return <section key={g.id}><header><h2>{g.name}</h2><small>{list.length}</small></header>{list.map(s=>{const a=spaces.agentFor(s.id),t=spaces.threadFor(s.id);return <button className="space-board-item" key={s.id} onClick={()=>onSelect(s.id)}><span className="space-board-identity">{t&&!t.coordination?<Users size={16}/>:<SessionAvatar color={a?.color} shape={a?.shape}/>}<strong>{a?.name??t?.name??s.title}</strong></span><p>{s.messages.filter(m=>m.role==='assistant'||m.role==='user').at(-1)?.text?.slice(0,140)||'尚未开始对话'}</p><small>{projects.items.find(p=>p.paths.includes(s.workspace))?.name} · {liveStatus(s,t)}</small></button>;})}{!list.length&&<p className="space-board-empty">{g.id==='ready'?'暂无对话':'当前没有'}{g.id==='active'?'进行中的任务':g.id==='waiting'?'待处理事项':''}</p>}</section>;})}</div>
  </section>;
 }
-function Modal({title,close,children,busy}){const ref=useRef();useEffect(()=>{const node=ref.current;node.showModal();return()=>node.close();},[]);return <dialog ref={ref} className="new-session-dialog space-editor" aria-label={title} onCancel={e=>{e.preventDefault();if(!busy)close();}}><header><h1>{title}</h1><button className="icon-button" type="button" aria-label="关闭空间配置" disabled={busy} onClick={close}><X size={17}/></button></header>{children}</dialog>;}
 export function SpaceEditor({kind,initial,project,spaces,workbench,onClose,onCreated}){
  const[name,setName]=useState(initial?.name??''),[role,setRole]=useState(initial?.role??''),[provider,setProvider]=useState(initial?.profileId??initial?.provider??'codex'),[workspace,setWorkspace]=useState(initial?.workspace??project.paths[0]??''),[color,setColor]=useState(initial?.color??'#347DE1'),[shape,setShape]=useState(initial?.shape??'circle'),[avatarTab,setAvatarTab]=useState('color'),[members,setMembers]=useState([]),[groupId,setGroupId]=useState(initial?.groupId??''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[model,setModel]=useState(''),[options,setOptions]=useState(null),[loading,setLoading]=useState(false);
  const intent=useRef(crypto.randomUUID()),epoch=useRef(0);const creatingAgent=kind==='agent',editingAgent=kind==='agent-update',thread=kind==='thread',presetId=useRef(null);const agent=creatingAgent||editingAgent;

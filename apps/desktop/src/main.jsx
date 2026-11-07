@@ -51,6 +51,7 @@ import {SessionRow} from "./SessionIdentity.jsx";
 import {AppearanceSettings,useAppearance} from "./AppearanceSettings.jsx";
 import {readAppearance,applyAppearance} from "./appearance.js";
 const SettingsCenter=lazy(()=>import("./SettingsCenter.jsx").then(module=>({default:module.SettingsCenter})));
+import {CreateProjectDialog} from './CreateProjectDialog.jsx';
 import {ProjectSwitcher,SidebarHome} from './ProjectSwitcher.jsx';
 import {useSpaces,ProjectSpaceSidebar,SpaceOverview,SpaceEditor,GroupTranscript} from './ProjectSpaces.jsx';
 import {NewSession} from "./NewSession.jsx";
@@ -104,6 +105,7 @@ function App() {
   const plugins = usePlugins(workbench);
   const projects=useProjects(workbench);
   const [newProject,setNewProject]=useState('');
+  const [creatingProject,setCreatingProject]=useState(false);
   const spaces=useSpaces(workbench);
   const [spaceId,setSpaceId]=useState(null),[overview,setOverview]=useState(true),[spaceEditor,setSpaceEditor]=useState(null);
   const [projectBusy,setProjectBusy]=useState(false);
@@ -222,7 +224,7 @@ function App() {
         </button>
         <div className="session-list desktop-session-list">
           <div className="section-label"><span>{archived?'已归档':'项目'}</span><div className="session-list-actions">
-            {!workbench.device&&<button className="icon-button" aria-label="添加项目" onClick={()=>{setSettingsTarget('workspaces');setSettings(true);setShowList(false);}}><Plus size={13}/></button>}
+            {!workbench.device&&<button className="icon-button" aria-label="添加项目" onClick={()=>setCreatingProject(true)}><Plus size={13}/></button>}
             <details className="workbench-tool-menu"><summary className="icon-button" aria-label="会话列表选项"><MoreHorizontal size={14}/></summary><div>
 
               <button onClick={event=>{setArchived(!archived);event.currentTarget.closest('details').open=false;}}>{archived?'已归档 · 查看会话':'会话 · 查看归档'}</button>
@@ -305,6 +307,7 @@ function App() {
             )}
           </div>
         )}
+        {creatingProject&&<CreateProjectDialog projects={projects} onClose={()=>setCreatingProject(false)}/> }
         {settings ? (
           <Suspense fallback={<p role="status">正在打开设置…</p>}><SettingsCenter key={settingsTarget} initialPage={settingsTarget} projects={projects} workbench={workbench} plugins={plugins} theme={theme} setTheme={setTheme} onBack={()=>setSettings(false)} appearance={<AppearanceSettings theme={theme} setTheme={setTheme} appearance={appearance} onBack={()=>setSettings(false)}/>}/></Suspense>
         ) : <>
