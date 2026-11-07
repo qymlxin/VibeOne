@@ -949,8 +949,8 @@ test(
     await page.waitForResponse(response=>new URL(response.url()).pathname==='/v1/devices'&&response.ok());
     assert.equal(await remoteIp.inputValue(),'127.0.0.1','status polling preserves unsaved IP');
     assert.equal(await remotePort.inputValue(),'0');
-    await page.getByRole('button',{name:'开启 HTTPS 手机入口',exact:true}).click();
-    await page.getByRole('button',{name:'关闭手机入口',exact:true}).waitFor();
+    await page.getByRole('switch',{name:'HTTPS 手机入口',exact:true,checked:false}).click();
+    await page.getByRole('switch',{name:'HTTPS 手机入口',exact:true,checked:true}).waitFor();
     assert.equal(await remotePort.inputValue(),'0','automatic port remains configuration intent');
     const remoteDeviceState=await (await fetch(`${connection.url}/v1/devices`,{headers:historyHeaders})).json();
     const pairCode=await post('/pairing/code',{});
@@ -965,7 +965,7 @@ test(
 
     await settingsNav.getByRole('button',{name:'常规',exact:true}).click();
     await settingsNav.getByRole('button',{name:'远程连接',exact:true}).click();
-    await page.getByRole('button',{name:'关闭手机入口',exact:true}).waitFor();
+    await page.getByRole('switch',{name:'HTTPS 手机入口',exact:true,checked:true}).waitFor();
     assert.equal(await remoteIp.inputValue(),'127.0.0.1');
     assert.equal(await remotePort.inputValue(),'0');
     await page.getByRole('img',{name:'手机入口二维码',exact:true}).waitFor();
@@ -981,7 +981,7 @@ test(
     await deviceCard.filter({hasText:'已撤销'}).waitFor();
     assert.equal(await deviceCard.getByRole('button',{name:'撤销设备',exact:true}).isDisabled(),true);
 
-    await page.getByRole('button',{name:'关闭手机入口',exact:true}).click();
+    await page.getByRole('switch',{name:'HTTPS 手机入口',exact:true,checked:true}).click();
     await page.waitForFunction(()=>!document.querySelector('[aria-label="远程入口 IP"]')?.disabled);
     await settingsNav.getByRole('button',{name:'常规',exact:true}).click();
     await settingsNav.getByRole('button',{name:'远程连接',exact:true}).click();

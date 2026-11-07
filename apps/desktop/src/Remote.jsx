@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import {SettingsSwitch} from './SettingsRows.jsx';
 import { remotePreferences, devicePresentation } from "./remote-preferences.js";
 import { exportRemoteCertificate } from "./api.js";
 
@@ -50,7 +51,7 @@ export function RemoteSettings({ workbench }) {
       <p>通过局域网或已有可信网络连接。首次配对需先在手机信任主机证书。</p>
       {state?.configuration?.enabled&&!state.url&&<p role="status">配置已保存为开启，但当前入口未运行。请核对 IP 和端口后重新开启。</p>}
       <section className="desktop-settings-section"><h2>手机入口</h2><div className="desktop-settings-card">
-        <div className="desktop-settings-row"><div><strong>HTTPS 远程访问</strong><p>使用局域网或已有可信网络，不自动建立公网隧道。</p></div>{state?.url?<button disabled={busy} onClick={stop}>关闭手机入口</button>:<button disabled={busy||!state||!ip||!/^\d+$/.test(port)||Number(port)>65535} onClick={start}>开启 HTTPS 手机入口</button>}</div>
+        <div className="desktop-settings-row"><div><strong>HTTPS 远程访问</strong><p>使用局域网或已有可信网络，不自动建立公网隧道。</p></div><SettingsSwitch label="HTTPS 手机入口" checked={!!state?.url} disabled={busy||!state||(!state.url&&(!ip||!/^\d+$/.test(port)||Number(port)>65535))} onChange={enabled=>enabled?start():stop()}/></div>
         <label className="desktop-settings-row desktop-remote-field"><span>主机 IP</span><input value={ip} aria-label="远程入口 IP" onChange={event=>{dirty.current=true;setIp(event.target.value);}} disabled={busy||!state||!!state.url}/></label>
         <label className="desktop-settings-row desktop-remote-field"><span>端口 <small>0 表示自动选择</small></span><input type="number" min="0" max="65535" value={port} aria-label="远程入口端口" onChange={event=>{dirty.current=true;setPort(event.target.value);}} disabled={busy||!state||!!state.url}/></label>
         {state?.url&&<div className="desktop-settings-row"><span>连接地址</span><a href={state.url} target="_blank" rel="noopener noreferrer">{state.url}</a><button onClick={()=>void run(()=>navigator.clipboard.writeText(state.url))}>复制地址</button></div>}

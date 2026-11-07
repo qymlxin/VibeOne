@@ -5,7 +5,8 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-import {Plus} from 'lucide-react';
+import {Plus,Plug} from 'lucide-react';
+import {PluginDetails} from './PluginDetails.jsx';
 import {operationPresentation} from './plugin-operations.js';
 import * as jsx from "react/jsx-runtime";
 import * as ReactDOM from "react-dom";
@@ -242,6 +243,7 @@ export function PluginManager({ workbench, plugins }) {
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [result, setResult] = useState(undefined);
+  const installTrigger=useRef(null);
   const [installOpen,setInstallOpen]=useState(false),[selectedPlugin,setSelectedPlugin]=useState(null);
   async function run(action) {
     setBusy(true);
@@ -260,7 +262,7 @@ export function PluginManager({ workbench, plugins }) {
       <p>
         JS 插件作为可信本机代码运行。支持安装、更新、停用、动态面板与后台命令。
       </p>
-      <details className="desktop-plugin-install" open={installOpen} onToggle={event=>setInstallOpen(event.currentTarget.open)}><summary><Plus size={14}/>安装 / 更新本地插件</summary>
+      <details className="desktop-plugin-install" open={installOpen} onToggle={event=>setInstallOpen(event.currentTarget.open)}><summary ref={installTrigger}><Plus size={14}/>安装 / 更新本地插件</summary>
       <button
         onClick={() => {
           setPath(workbench.examplePluginPath);
@@ -367,7 +369,7 @@ export function PluginManager({ workbench, plugins }) {
                     workspaces: selected,
                     config: JSON.parse(config),
                     expectedManifest: inspection,
-                  }),
+                  }).then(()=>{setInstallOpen(false);setSelectedPlugin(inspection.id);installTrigger.current?.focus();}),
                 )
               }
             >
@@ -377,63 +379,12 @@ export function PluginManager({ workbench, plugins }) {
         )}
       </div>
       </details>
-      <div className="desktop-settings-object-layout"><aside className="desktop-settings-object-list"><header>已安装插件</header>{(workbench.plugins??[]).map(plugin=><button key={plugin.id} className={(selectedPlugin??workbench.plugins?.[0]?.id)===plugin.id?'selected':''} onClick={()=>setSelectedPlugin(plugin.id)}><span><strong>{plugin.name??plugin.id}</strong><small>{plugin.version} · {plugin.enabled?'已启用':'已停用'}</small></span></button>)}{!workbench.plugins?.length&&<p>尚未安装本地插件。</p>}</aside><div className="desktop-settings-object-detail">
+      {!installOpen&&<div className="desktop-settings-object-layout"><aside className="desktop-settings-object-list"><header>已安装插件<span>{workbench.plugins?.length??0}</span></header>{(workbench.plugins??[]).map(plugin=><button key={plugin.id} className={(selectedPlugin??workbench.plugins?.[0]?.id)===plugin.id?'selected':''} onClick={()=>setSelectedPlugin(plugin.id)}><span className="desktop-provider-symbol"><Plug size={16}/></span><span><strong>{plugin.name??plugin.id}</strong><small>{plugin.version} · {plugin.enabled?'已启用':'已停用'}</small></span></button>)}{!workbench.plugins?.length&&<p>尚未安装本地插件。</p>}</aside><div className="desktop-settings-object-detail">
       {(workbench.plugins ?? []).filter(plugin=>plugin.id===(selectedPlugin??workbench.plugins?.[0]?.id)).map((plugin) => (
-        <article className="desktop-plugin-card" key={plugin.id}>
-          <strong>{plugin.name ?? plugin.id}</strong> · {plugin.version} ·{" "}
-          {plugin.enabled ? "已启用" : "已停用"}
-          <p>
-            代次 {plugin.generation} · {(plugin.capabilities ?? []).join("、")}
-          </p>
-          {plugin.error && <p role="alert">{plugin.error}</p>}
-          <button
-            disabled={busy || !plugin.enabled}
-            onClick={() => void run(() => plugins.disable(plugin.id))}
-          >
-            停用
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => {
-              setInstallOpen(true);
-              setPath(plugin.path);
-              setInspection(plugin.manifest);
-              setSelected(plugin.workspaces);
-              setConfig(JSON.stringify(plugin.config, null, 2));
-              setTrusted(false);
-            }}
-          >
-            重新配置 / 启用
-          </button>
-          {plugin.enabled &&
-            plugin.manifest.contributions
-              .filter(
-                (item) =>
-                  item.kind === "app.command" && item.binding.type === "worker",
-              )
-              .map((item) => (
-                <button
-                  key={item.id}
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () =>
-                      setResult(
-                        await workbench.invokePlugin(plugin.id, {
-                          handler: item.binding.handler,
-                          input: { path: "." },
-                          workspaceId: plugin.workspaces[0],
-                        }),
-                      ),
-                    )
-                  }
-                >
-                  {item.title ?? item.id}
-                </button>
-              ))}
-        </article>
-      ))}
-      </div></div>
-      {plugins.registrations.map((app) => (
+        <PluginDetails key={plugin.id} plugin={plugin} workspaces={workbench.workspaces??[]} busy={busy}
+          onDisable={()=>void run(()=>plugins.disable(plugin.id))}
+          onConfigure={()=>{setInstallOpen(true);setPath(plugin.path);setInspection(plugin.manifest);setSelected(plugin.workspaces);setConfig(JSON.stringify(plugin.config,null,2));setTrusted(false);}}
+          onInvoke={item=>void run(async()=>setResult(await workbench.invokePlugin(plugin.id,{handler:item.binding.handler,input:{path:'.'},workspaceId:plugin.workspaces[0]})))}>      {plugins.registrations.filter(app=>app.identity.pluginId===plugin.id).map((app) => (
         <PluginBoundary
           key={`${app.identity.pluginId}:${app.identity.generation}`}
         >
@@ -453,6 +404,10 @@ export function PluginManager({ workbench, plugins }) {
           </section>
         </PluginBoundary>
       ))}
+</PluginDetails>
+
+      ))}
+      {!workbench.plugins?.length&&<div className="desktop-settings-empty"><Plug size={26}/><p>安装本地插件后，在这里查看运行状态与授权范围。</p></div>}</div></div>}
       {!!workbench.operations?.length&&<details className="desktop-settings-group" aria-label="最近后台操作"><summary>最近后台操作 · {workbench.operations.length}</summary><p>操作在主机执行。关闭页面不会取消已受理的操作；中断记录不会自动重试。</p>{workbench.operations.map(operation=>{const display=operationPresentation(operation);return <div className="desktop-settings-row" key={operation.id}><div><strong>{display.title}</strong><p>{display.plugin} · {display.time}</p></div><span>{display.state}</span><button type="button" disabled={busy||workbench.phase!=='online'} aria-label={`查看操作结果 ${operation.id}`} onClick={()=>void run(async()=>{const record=await workbench.read(`/operations/${operation.id}`);setResult(record.state==='succeeded'?record.result:{state:record.state,...record.error});})}>查看结果</button></div>;})}</details>}
       {!!workbench.pluginEvents?.length && (
         <details>

@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn,execFileSync} from 'node:child_process';
 import {once} from 'node:events';
-import {join,resolve} from 'node:path';
+import {basename,join,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {writeFile,mkdir} from 'node:fs/promises';
 import {setTimeout as sleep} from 'node:timers/promises';
 import {chromium} from '@playwright/test';
 import {host} from './helpers/host.mjs';
 
-test('approved desktop geometry survives themes, panels and settings with live Host', {timeout:60000}, async t=>{
+test('approved desktop geometry survives themes, panels and settings with live Host', {timeout:90000}, async t=>{
  const h=await host(t);await writeFile(join(h.directory,'preview.txt'),'VibeOne workspace preview\n');
  const git=(...args)=>execFileSync('git',['-C',h.directory,...args],{stdio:'ignore'});git('init');await writeFile(join(h.directory,'tracked.txt'),'Before visual acceptance.\n');git('add','tracked.txt');git('-c','core.hooksPath=/dev/null','-c','user.name=Test','-c','user.email=test@example.com','commit','-m','fixture');await writeFile(join(h.directory,'tracked.txt'),'After visual acceptance.\n');
  const {id}=await h.call('/sessions',{provider:'demo',workspace:h.directory});
@@ -49,4 +49,50 @@ test('approved desktop geometry survives themes, panels and settings with live H
   for(const [name,key]of [['外观','appearance'],['通知','notifications'],['Agent','agents'],['工作区','workspaces'],['插件','plugins'],['远程连接','remote'],['数据与诊断','data']]){await page.getByRole('navigation',{name:'设置分类'}).getByRole('button',{name,exact:true}).click();await page.getByRole('heading',{name,exact:true,level:1}).waitFor();await page.screenshot({path:join(output,`${theme}-${key}.png`),animations:'disabled'});}
   await page.getByRole('button',{name:'返回工作台',exact:true}).click();
  }
+ // Populate the settings through their real write paths; empty screenshots do
+ // not prove the installed-plugin or saved-profile layouts.
+ await page.getByRole('button',{name:'连接与设置',exact:true}).click();
+ const settingsNav=page.getByRole('navigation',{name:'设置分类'});
+ await settingsNav.getByRole('button',{name:'Agent',exact:true}).click();
+ await page.getByRole('textbox',{name:'配置名称',exact:true}).fill('视觉验收 · 已保存的本地演示配置');
+ await page.getByRole('button',{name:'保存配置',exact:true}).click();
+ await page.getByRole('button',{name:'保存修订',exact:true}).waitFor();
+ for(const theme of ['dark','light']){
+  await settingsNav.getByRole('button',{name:'外观',exact:true}).click();
+  await page.getByRole('button',{name:theme==='dark'?'暗色':'亮色',exact:true}).click();
+  await settingsNav.getByRole('button',{name:'Agent',exact:true}).click();
+  await page.locator('.desktop-settings-object-list').getByRole('button',{name:/视觉验收 · 已保存/}).click();
+  await page.screenshot({path:join(output,`${theme}-saved-agent.png`),animations:'disabled'});
+ }
+ await settingsNav.getByRole('button',{name:'插件',exact:true}).click();
+ await page.getByText('安装 / 更新本地插件',{exact:true}).click();
+ await page.getByRole('button',{name:'选择内置示例插件',exact:true}).click();
+ await page.getByRole('button',{name:'检查插件',exact:true}).click();
+ await page.getByLabel(`允许访问 ${basename(h.directory)}`,{exact:true}).check();
+ await page.getByLabel('信任此本地插件及上述权限',{exact:true}).check();
+ await page.getByRole('button',{name:'安装 / 更新并启用',exact:true}).click();
+ await page.getByRole('heading',{name:'插件工作区面板',exact:true}).waitFor();
+ assert.equal(await page.locator('.desktop-plugin-install').getAttribute('open'),null,'successful install returns to the installed object');
+ for(const theme of ['dark','light']){
+  await settingsNav.getByRole('button',{name:'外观',exact:true}).click();
+  await page.getByRole('button',{name:theme==='dark'?'暗色':'亮色',exact:true}).click();
+  await settingsNav.getByRole('button',{name:'插件',exact:true}).click();
+  await page.getByRole('heading',{name:'运行状态',exact:true}).waitFor();
+  await page.getByRole('heading',{name:'权限与贡献',exact:true}).waitFor();
+  assert.equal(await page.getByRole('switch',{name:'启用插件',exact:true}).getAttribute('aria-checked'),'true');
+  await page.screenshot({path:join(output,`${theme}-installed-plugin.png`),animations:'disabled'});
+ }
+ await page.getByRole('switch',{name:'启用插件',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('[role="switch"][aria-label="启用插件"]')?.getAttribute('aria-checked')==='false');
+ assert.equal((await h.call('/snapshot')).plugins[0].enabled,false);
+ await page.getByRole('switch',{name:'启用插件',exact:true}).click();
+ await page.getByRole('checkbox',{name:'信任此本地插件及上述权限',exact:true}).waitFor();
+ assert.equal(await page.getByRole('checkbox',{name:'信任此本地插件及上述权限',exact:true}).isChecked(),false,'re-enabling must reopen candidate checks, not silently trust');
+ assert.equal((await h.call('/snapshot')).plugins[0].enabled,false,'opening the enable flow does not grant access');
+ await page.screenshot({path:join(output,'plugin-reenable-review.png'),animations:'disabled'});
+ await page.getByLabel('信任此本地插件及上述权限',{exact:true}).check();
+ await page.getByRole('button',{name:'安装 / 更新并启用',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('[role="switch"][aria-label="启用插件"]')?.getAttribute('aria-checked')==='true');
+ assert.equal((await h.call('/snapshot')).plugins[0].enabled,true);
+
 });
