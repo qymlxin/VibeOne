@@ -567,7 +567,14 @@ impl Plugins {
         if !capabilities.iter().all(|item| {
             matches!(
                 item.as_str(),
-                Some("workspace.read" | "notifications.send" | "agent.spawn" | "artifact.write" | "desktop.terminal" | "desktop.browser")
+                Some(
+                    "workspace.read"
+                        | "notifications.send"
+                        | "agent.spawn"
+                        | "artifact.write"
+                        | "desktop.terminal"
+                        | "desktop.browser"
+                )
             )
         }) {
             return Err(plugin_failure(
