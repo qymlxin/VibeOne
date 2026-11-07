@@ -1,0 +1,3 @@
+# 桌面采用Electron，执行权继续由Rust Host持有
+
+为获得Chromium的网页兼容性、独立持久浏览器分区及统一桌面能力，将正式桌面入口从Tauri切换到Electron，并复用现有React界面；Rust Host继续拥有ACP连接、持久化、审批和远程访问。选择独立WebContentsView而非iframe嵌入网页，代价是更大的应用包与Electron运行时维护；保留Host进程可避免迁移会话数据和重写插件/执行链路。Tauri入口暂保留以便对照和恢复，旧包不作为新版体验入口。

@@ -2,7 +2,7 @@
 
 基于 ACP 的 Agent 工作台设计，面向桌面操作与手机远程查看、控制和审批。
 
-当前提供 Tauri + React 主要功能预览版：独立 Rust Host、ACP v2 对话与人工处理、执行队列、SQLite 恢复、工作区文件和 Git 差异、文本产物、JS/TS 插件管理，以及 HTTPS 手机配对和控制。已自动验证的范围与待实机项目见 [体验与验收清单](docs/acceptance.md)，插件开发见 [作者指南](docs/plugin-authoring.md)。Codex 隔离对话验证通过，Claude Code 当前受本机认证阻塞；不将浏览器测试当作真实手机验收。
+当前提供 Electron + React 主要功能预览版：独立 Rust Host、ACP v2、项目空间、固定管家、命名Agent与会话组、执行队列、SQLite恢复、代码和差异、交互终端、Chromium网页预览、JS/TS插件，以及HTTPS手机控制。新增空间管理先开放本机桌面，手机保留既有会话和审批功能。详见[项目空间](docs/project-spaces.md)、[Electron桌面实现](docs/electron-desktop.md)与[体验清单](docs/acceptance.md)。
 
 ## 体验桌面应用（macOS）
 

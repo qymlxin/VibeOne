@@ -1,10 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./native.js";
 import { HostRequestError } from "./host-error.js";
 
 export const openExternal = url => invoke("open_external", {url});
 
 export const restartHost = () => invoke("restart_host");
-export const isNative = () => !!window.__TAURI_INTERNALS__;
+export const isNative = () => !!(window.__TAURI_INTERNALS__||window.vibeoneDesktop);
 export const connectHost = () =>
   isNative()
     ? invoke("host_connection")

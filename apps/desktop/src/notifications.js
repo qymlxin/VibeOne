@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { isNative } from "./api.js";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./native.js";
 
 export const canNotify = status => ['granted','provisional','ephemeral'].includes(status);
 export async function notificationPermission() {

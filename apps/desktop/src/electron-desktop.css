@@ -1,0 +1,2 @@
+/* Electron uses the same approved frame, with native traffic lights. */
+html.electron-desktop .windowbar{padding-left:86px;-webkit-app-region:drag}html.electron-desktop .windowbar button,html.electron-desktop .windowbar details,html.electron-desktop .windowbar input{-webkit-app-region:no-drag}
