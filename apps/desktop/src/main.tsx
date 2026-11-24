@@ -92,6 +92,7 @@ import { useMetadataCommands } from "./use-metadata-commands.ts";
 import { useQueueCommands } from "./use-queue-commands.ts";
 import { useStopCommand } from "./use-stop-command.ts";
 import { useWorkbench } from "./use-workbench.ts";
+import { type PluginHostBridge } from "./plugin-services.ts";
 import { WorkspaceExtensions } from "./workspace-extensions.tsx";
 import type {
   ActRunner,
@@ -107,6 +108,8 @@ import "./approved/settings-review.css";
 import "./runtime-states.css";
 import "./diff-treatment.css";
 import "./pane-resize.css";
+import "./editorial-cobalt.css";
+import "./styles/tailwind.css";
 
 const SettingsCenter = lazy(() =>
   import("./SettingsCenter.tsx").then((module) => ({
@@ -177,7 +180,16 @@ interface SpaceEditorState {
 
 function App() {
   const workbench = useWorkbench() as WorkbenchLike;
-  const plugins = usePlugins(workbench);
+  const pluginHostBridge = useRef<PluginHostBridge>({});
+  const plugins = usePlugins(workbench, pluginHostBridge);
+  const [panelParams, setPanelParams] = useState<
+    Record<string, Record<string, unknown>>
+  >({});
+  const [pluginNotice, setPluginNotice] = useState<{
+    message: string;
+    tone: "info" | "success" | "warning" | "error";
+  } | null>(null);
+  const pluginNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const projects = useProjects(workbench);
   const [newProject, setNewProject] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
@@ -424,6 +436,28 @@ function App() {
 
   const mode = appearance.dark ? "dark" : "light";
   const colors = appearance.value[mode];
+  pluginHostBridge.current.getTheme = () => mode;
+  pluginHostBridge.current.notify = (message, tone = "info") => {
+    setPluginNotice({ message, tone });
+    if (pluginNoticeTimer.current) {
+      clearTimeout(pluginNoticeTimer.current);
+    }
+    pluginNoticeTimer.current = setTimeout(() => {
+      setPluginNotice(null);
+    }, 4000);
+  };
+  pluginHostBridge.current.openPanel = (panelId, params) => {
+    if (params) {
+      setPanelParams((prev) => ({ ...prev, [panelId]: params }));
+    }
+    setSettings(false);
+    setPanel(panelId);
+  };
+  pluginHostBridge.current.closePanel = (panelId) => {
+    if (!panelId || panel === panelId) {
+      setPanel("chat");
+    }
+  };
   useEffect(() => {
     if (panel !== "chat") {
       lastPanel.current = panel;
@@ -468,7 +502,20 @@ function App() {
     currentProject;
 
   return (
-    <WorkspaceExtensions plugins={plugins}>
+    <WorkspaceExtensions
+      plugins={plugins}
+      theme={mode}
+      panelParams={panelParams}
+    >
+      {pluginNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl border border-[var(--border)] bg-[var(--raised)] px-4 py-2.5 text-[12.5px] font-medium text-[var(--fg)] shadow-lg"
+        >
+          {pluginNotice.message}
+        </div>
+      )}
       <ApprovedWorkbenchShell
         dark={appearance.dark}
         colorStyle={colorStyle}
@@ -928,6 +975,7 @@ function App() {
             )}
             {session && !(overview && spaces.enabled) && (
               <Conversation
+                pluginHostBridge={pluginHostBridge}
                 spaceIdentity={agentIdentity}
                 onEditIdentity={() => {
                   const p = projects.items.find(
@@ -994,6 +1042,7 @@ function App() {
 }
 
 function Conversation({
+  pluginHostBridge,
   session,
   workbench,
   online,
@@ -1012,6 +1061,7 @@ function Conversation({
   setExpandedPanel,
   restorePanel,
 }: {
+  pluginHostBridge?: { current: PluginHostBridge };
   session: DesktopSession;
   workbench: WorkbenchLike;
   online: boolean;
@@ -1375,6 +1425,49 @@ function Conversation({
     }
     setSending(false);
   };
+
+  useEffect(() => {
+    if (!pluginHostBridge) {
+      return;
+    }
+    pluginHostBridge.current.insertComposerText = (text: string) => {
+      if (readOnly) {
+        return;
+      }
+      setDraft((prev) => (prev ? `${prev}\n${text}` : text));
+    };
+    pluginHostBridge.current.submitComposer = async (text?: string) => {
+      if (!online || readOnly || !canOperate) {
+        return;
+      }
+      const trimmed = typeof text === "string" ? text.trim() : "";
+      if (!trimmed) {
+        await send();
+        return;
+      }
+      if (thread || sending) {
+        setDraft((prev) => (prev ? `${prev}\n${trimmed}` : trimmed));
+        return;
+      }
+      setSending(true);
+      await act(() =>
+        workbench.call(
+          ...submitMessageCommand(
+            session.id,
+            trimmed,
+            [],
+            [],
+            crypto.randomUUID(),
+          ),
+        ),
+      );
+      setSending(false);
+    };
+    return () => {
+      pluginHostBridge.current.insertComposerText = undefined;
+      pluginHostBridge.current.submitComposer = undefined;
+    };
+  }, [pluginHostBridge, session.id, online, readOnly, canOperate, thread, sending]);
 
   const decisionDeliveryLabels: Record<string, string> = {
     pending: "决定已记录，等待投递",

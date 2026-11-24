@@ -13,6 +13,7 @@ import type {
   RunRecord,
   WorkspaceView,
 } from "@vibeone/client-contracts";
+import type { PluginConfigSchema } from "@vibeone/plugin-sdk";
 import type { AgentConfigOptionInput } from "./agent-config.ts";
 import type {
   TimelineMessage,
@@ -134,9 +135,11 @@ export interface PluginRecord {
     name?: string;
     version?: string;
     description?: string;
+    author?: string;
     hostRequirements?: string[];
     contributions?: PluginContribution[];
     entrypoints?: { app?: string };
+    configSchema?: PluginConfigSchema;
   };
 }
 

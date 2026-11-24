@@ -1,9 +1,10 @@
 import React, { createContext, useContext } from "react";
-import type { AppRegistration } from "@vibeone/plugin-sdk/app";
+import type { AppPanelProps, AppRegistration } from "@vibeone/plugin-sdk/app";
 import type { DesktopSession, PluginRecord, WorkbenchLike } from "./types.ts";
 
 export interface WorkspaceToolItem {
   id: string;
+  contributionId: string;
   title: string;
   description: string;
   icon: string;
@@ -14,12 +15,16 @@ export interface WorkspaceToolItem {
 interface WorkspaceExtensionsContextValue {
   tools: WorkspaceToolItem[];
   builtins: Array<{ id: string }>;
+  theme: "dark" | "light";
+  panelParams: Record<string, Record<string, unknown>>;
   error?: string;
 }
 
 const Context = createContext<WorkspaceExtensionsContextValue>({
   tools: [],
   builtins: [],
+  theme: "dark",
+  panelParams: {},
 });
 
 export const useWorkspaceExtensions = () => useContext(Context);
@@ -33,6 +38,8 @@ const aliases = new Map(
 
 export function WorkspaceExtensions({
   plugins,
+  theme = "dark",
+  panelParams = {},
   children,
 }: {
   plugins?: {
@@ -40,6 +47,8 @@ export function WorkspaceExtensions({
     records: PluginRecord[];
     error: string;
   };
+  theme?: "dark" | "light";
+  panelParams?: Record<string, Record<string, unknown>>;
   children: React.ReactNode;
 }) {
   const tools: WorkspaceToolItem[] = [];
@@ -63,6 +72,7 @@ export function WorkspaceExtensions({
           id:
             aliases.get(`${record!.id}:${contribution.id}`) ??
             `plugin:${record!.id}:${contribution.id}`,
+          contributionId: contribution.id,
           title: String(contribution.title ?? contribution.id),
           description: String(
             contribution.description ?? record!.name ?? record!.id,
@@ -82,6 +92,8 @@ export function WorkspaceExtensions({
         builtins: ["files", "changes", "terminal", "browser"].map((id) => ({
           id,
         })),
+        theme,
+        panelParams,
         error: plugins?.error,
       }}
     >
@@ -107,7 +119,7 @@ export function WorkspaceTool({
   emptyState?: React.ReactNode;
   [key: string]: unknown;
 }) {
-  const { tools, error } = useWorkspaceExtensions();
+  const { tools, error, theme, panelParams } = useWorkspaceExtensions();
   const tool = tools.find((item) => item.id === kind);
   if (!tool) {
     return (
@@ -128,6 +140,10 @@ export function WorkspaceTool({
   return (
     <React.Fragment key={tool.generation}>
       {Component({
+        panelId: tool.contributionId,
+        theme,
+        params: (panelParams[tool.id] ??
+          panelParams[tool.contributionId]) as AppPanelProps["params"],
         fileTarget: props.fileTarget,
         visible: props.visible,
         initialUrl: props.initialUrl,

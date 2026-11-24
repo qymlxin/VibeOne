@@ -8,6 +8,11 @@ import {
 } from "lucide-react";
 import type { JsonValue } from "@vibeone/client-contracts";
 import type { PluginPackageEntry } from "../electron/ipc.ts";
+import { Alert } from "./components/ui/alert.tsx";
+import { Badge } from "./components/ui/badge.tsx";
+import { Button } from "./components/ui/button.tsx";
+import { Card } from "./components/ui/card.tsx";
+import { Input } from "./components/ui/input.tsx";
 import { invoke } from "./native.ts";
 import { capabilityNames, PluginIcon } from "./plugin-presentation.tsx";
 import type { PluginRecord, WorkbenchLike } from "./types.ts";
@@ -238,69 +243,98 @@ export function RemotePluginInstall({
   }
 
   return (
-    <section className="remote-plugin-install">
-      <h2>
-        <FolderGit2 size={17} />
-        连接插件仓库
-      </h2>
-      <p>输入一个仓库地址，自动发现其中的插件，选择需要的功能安装或更新。</p>
-      <div className="remote-plugin-fields">
-        <label>
-          GitHub 仓库
-          <input
-            value={repository}
-            disabled={busy}
-            onChange={(event) => {
-              setRepository(event.target.value);
-              reset();
-            }}
-            placeholder="https://github.com/owner/plugins"
-          />
-        </label>
-        <button
-          disabled={busy || !repository.trim()}
-          onClick={() => void discover()}
-        >
-          <Download size={14} />
-          {busy ? "正在处理…" : catalog ? "重新解析" : "解析仓库"}
-        </button>
+    <section className="remote-plugin-install space-y-5">
+      <div className="space-y-1.5">
+        <h2 className="m-0 flex items-center gap-2 text-[16px] font-semibold text-[var(--fg)]">
+          <FolderGit2 size={17} className="text-[var(--accent)]" />
+          连接插件仓库
+        </h2>
+        <p className="m-0 max-w-[65ch] text-[12.5px] leading-relaxed text-[var(--ink-secondary)]">
+          输入一个仓库地址，自动发现其中的插件，选择需要的功能安装或更新。
+        </p>
       </div>
-      {busy && <p role="status">{progress}</p>}
-      {error && <p role="alert">{error}</p>}
+
+      <Card className="p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="min-w-[220px] flex-1 space-y-1.5 text-[12px] font-medium text-[var(--fg)]">
+            <span>GitHub 仓库</span>
+            <Input
+              value={repository}
+              disabled={busy}
+              className="font-mono text-[12px]"
+              onChange={(event) => {
+                setRepository(event.target.value);
+                reset();
+              }}
+              placeholder="https://github.com/owner/plugins"
+            />
+          </label>
+          <Button
+            disabled={busy || !repository.trim()}
+            onClick={() => void discover()}
+          >
+            <Download size={14} />
+            {busy ? "正在处理…" : catalog ? "重新解析" : "解析仓库"}
+          </Button>
+        </div>
+      </Card>
+
+      {busy && (
+        <Alert variant="info" role="status">
+          {progress}
+        </Alert>
+      )}
+      {error && (
+        <Alert variant="destructive" role="alert">
+          {error}
+        </Alert>
+      )}
+
       {!catalog && !busy && (
-        <div className="plugin-discover-empty">
-          <FolderGit2 size={36} strokeWidth={1.3} />
-          <h3>一个仓库，按需添加功能</h3>
-          <p>
+        <Card className="flex min-h-[280px] flex-col items-center justify-center gap-2.5 p-8 text-center text-[var(--muted)]">
+          <FolderGit2 size={36} strokeWidth={1.4} />
+          <h3 className="m-0 mt-2 text-[16px] font-medium text-[var(--fg)]">
+            一个仓库，按需添加功能
+          </h3>
+          <p className="m-0 max-w-[42ch] text-[12.5px] leading-relaxed">
             解析仓库后，选择需要的插件。安装前会展示访问权限，之后可以随时停用。
           </p>
-          <span>支持独立插件包与多插件仓库</span>
-        </div>
+          <span className="mt-2 text-[11px]">支持独立插件包与多插件仓库</span>
+        </Card>
       )}
+
       {catalog && (
-        <div className="repository-plugin-catalog">
-          <header>
-            <div>
-              <strong>发现 {catalog.packages.length} 个插件</strong>
-              <small>
+        <div className="repository-plugin-catalog space-y-4">
+          <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div className="space-y-0.5">
+              <strong className="block text-[13.5px] font-semibold text-[var(--fg)]">
+                发现 {catalog.packages.length} 个插件
+              </strong>
+              <small className="font-mono text-[11.5px] text-[var(--muted)]">
                 提交 {catalog.source.revision.slice(0, 12)} ·
                 安装使用此次解析的版本
               </small>
             </div>
-            <label className="repository-plugin-search">
-              <Search size={14} />
-              <input
+            <div className="relative w-full sm:w-56">
+              <Search
+                size={14}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+              />
+              <Input
                 aria-label="筛选仓库插件"
                 value={query}
+                className="h-8 pl-8 text-[12px]"
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="搜索插件…"
               />
-            </label>
+            </div>
           </header>
+
           {Boolean(catalog.packages.length) && (
-            <label className="repository-plugin-select-all">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-[12px] text-[var(--ink-secondary)]">
               <input
                 type="checkbox"
+                className="accent-[var(--accent)]"
                 disabled={busy || !eligible.length}
                 checked={
                   eligible.length > 0 &&
@@ -324,7 +358,8 @@ export function RemotePluginInstall({
               选择当前列表的可安装插件
             </label>
           )}
-          <div className="repository-plugin-list">
+
+          <Card className="max-h-[360px] divide-y divide-[var(--line)] overflow-auto">
             {rows.map((item) => {
               const installed = workbench.plugins?.find(
                 (p) => p.id === item.manifest.id,
@@ -333,11 +368,16 @@ export function RemotePluginInstall({
               return (
                 <label
                   key={item.path}
-                  className={`repository-plugin-row ${item.error ? "invalid" : ""}`}
+                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                    item.error
+                      ? "cursor-default opacity-75"
+                      : "cursor-pointer hover:bg-[var(--hover)]"
+                  } ${chosen.includes(item.path) ? "bg-[var(--selected)]" : ""}`}
                 >
                   <input
                     type="checkbox"
                     aria-label={`选择${item.manifest.name}`}
+                    className="shrink-0 accent-[var(--accent)]"
                     checked={chosen.includes(item.path)}
                     disabled={
                       busy ||
@@ -352,115 +392,151 @@ export function RemotePluginInstall({
                       )
                     }
                   />
-                  <span className="repository-plugin-icon">
-                    <PluginIcon plugin={item} size={20} />
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-[var(--line)] bg-[var(--bg)] text-[var(--ink-secondary)]">
+                    <PluginIcon plugin={item} size={18} />
                   </span>
-                  <span className="repository-plugin-copy">
-                    <strong>
-                      {item.manifest.name}
-                      <span>{item.manifest.version ?? "无版本"}</span>
+                  <span className="min-w-0 flex-1 space-y-0.5">
+                    <strong className="flex items-baseline gap-2 text-[13px] font-medium text-[var(--fg)]">
+                      <span className="truncate">{item.manifest.name}</span>
+                      <span className="font-mono text-[11px] font-normal text-[var(--muted)]">
+                        {item.manifest.version ?? "无版本"}
+                      </span>
                     </strong>
-                    <small>
+                    <small className="block truncate text-[11.5px] text-[var(--muted)]">
                       {item.manifest.description || item.manifest.id} ·{" "}
                       {item.source.directory || "仓库根目录"}
                     </small>
-                    {item.error && <em>{item.error}</em>}
-                    {result?.state === "failed" && <em>{result.message}</em>}
+                    {item.error && (
+                      <em className="block text-[11.5px] not-italic text-[var(--red)] [overflow-wrap:anywhere]">
+                        {item.error}
+                      </em>
+                    )}
+                    {result?.state === "failed" && (
+                      <em className="block text-[11.5px] not-italic text-[var(--red)] [overflow-wrap:anywhere]">
+                        {result.message}
+                      </em>
+                    )}
                   </span>
-                  <span className="repository-plugin-state">
+                  <span className="shrink-0">
                     {result?.state === "success" ? (
-                      <>
-                        <Check size={14} />
+                      <Badge variant="success">
+                        <Check size={12} />
                         已安装
-                      </>
+                      </Badge>
                     ) : result?.state === "failed" ? (
-                      <>
-                        <AlertCircle size={14} />
+                      <Badge variant="destructive">
+                        <AlertCircle size={12} />
                         安装失败
-                      </>
+                      </Badge>
                     ) : installed ? (
-                      `已安装 ${installed.version}`
+                      <Badge variant="outline">
+                        已安装 {installed.version}
+                      </Badge>
                     ) : (
-                      "未安装"
+                      <Badge variant="secondary">未安装</Badge>
                     )}
                   </span>
                 </label>
               );
             })}
-          </div>
+          </Card>
+
           {!rows.length && (
-            <p>
+            <p className="m-0 text-[12.5px] text-[var(--muted)]">
               {catalog.packages.length
                 ? "没有匹配的插件。"
                 : "未发现插件包。仓库应在根目录或子目录中包含 plugin.json 及构建产物。"}
             </p>
           )}
+
           {Boolean(catalog.warnings.length) && (
-            <details>
-              <summary>有 {catalog.warnings.length} 个目录未能解析</summary>
-              {catalog.warnings.map((warning, index) => (
-                <p key={index}>{warning}</p>
-              ))}
+            <details className="text-[12px] text-[var(--muted)]">
+              <summary className="cursor-pointer hover:text-[var(--fg)]">
+                有 {catalog.warnings.length} 个目录未能解析
+              </summary>
+              <div className="mt-2 space-y-1 pl-3">
+                {catalog.warnings.map((warning, index) => (
+                  <p key={index} className="m-0">
+                    {warning}
+                  </p>
+                ))}
+              </div>
             </details>
           )}
+
           {selected.length > 0 && (
-            <div className="remote-plugin-candidate">
-              <strong>已选 {selected.length} 个插件</strong>
-              <p>
+            <Card className="space-y-3 border border-[color-mix(in_srgb,var(--accent)_30%,var(--line))] p-5">
+              <strong className="block text-[13.5px] font-semibold text-[var(--fg)]">
+                已选 {selected.length} 个插件
+              </strong>
+              <p className="m-0 text-[12.5px] text-[var(--ink-secondary)]">
                 所需权限：
-                {permissions
-                  .map((p) => capabilityNames[p] ?? p)
-                  .join("、") || "无"}
+                {permissions.map((p) => capabilityNames[p] ?? p).join("、") ||
+                  "无"}
               </p>
               {permissions.some((p) =>
-                ["workspace.read", "artifact.write", "desktop.terminal"].includes(
-                  p,
-                ),
+                [
+                  "workspace.read",
+                  "artifact.write",
+                  "desktop.terminal",
+                ].includes(p),
               ) && (
-                <fieldset>
-                  <legend>授权工作目录（应用于本次选中的插件）</legend>
-                  {(workbench.workspaces ?? []).map((w) => (
-                    <label key={w.id}>
-                      <input
-                        type="checkbox"
-                        disabled={busy}
-                        checked={workspaces.includes(w.id)}
-                        onChange={(event) => {
-                          setWorkspaces((current) =>
-                            event.target.checked
-                              ? [...current, w.id]
-                              : current.filter((id) => id !== w.id),
-                          );
-                          setTrusted(false);
-                        }}
-                      />
-                      {w.name}
-                    </label>
-                  ))}
+                <fieldset className="space-y-2 rounded-lg border border-[var(--line)] bg-[var(--bg)] p-3">
+                  <legend className="px-1 text-[11.5px] font-medium text-[var(--muted)]">
+                    授权工作目录（应用于本次选中的插件）
+                  </legend>
+                  <div className="flex flex-wrap gap-2">
+                    {(workbench.workspaces ?? []).map((w) => (
+                      <label
+                        key={w.id}
+                        className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-[12px]"
+                      >
+                        <input
+                          type="checkbox"
+                          className="accent-[var(--accent)]"
+                          disabled={busy}
+                          checked={workspaces.includes(w.id)}
+                          onChange={(event) => {
+                            setWorkspaces((current) =>
+                              event.target.checked
+                                ? [...current, w.id]
+                                : current.filter((id) => id !== w.id),
+                            );
+                            setTrusted(false);
+                          }}
+                        />
+                        {w.name}
+                      </label>
+                    ))}
+                  </div>
                 </fieldset>
               )}
-              <label>
-                <input
-                  type="checkbox"
-                  disabled={busy}
-                  checked={trusted}
-                  onChange={(event) => setTrusted(event.target.checked)}
-                />
-                信任选中的插件及上述权限
-              </label>
-              <button
-                className="plugin-primary"
-                disabled={busy || !trusted}
-                onClick={() => void install()}
-              >
-                安装 / 更新所选 {selected.length} 个插件
-              </button>
-            </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-[12.5px] font-medium text-[var(--fg)]">
+                  <input
+                    type="checkbox"
+                    className="accent-[var(--accent)]"
+                    disabled={busy}
+                    checked={trusted}
+                    onChange={(event) => setTrusted(event.target.checked)}
+                  />
+                  信任选中的插件及上述权限
+                </label>
+                <Button
+                  size="sm"
+                  disabled={busy || !trusted}
+                  onClick={() => void install()}
+                >
+                  安装 / 更新所选 {selected.length} 个插件
+                </Button>
+              </div>
+            </Card>
           )}
+
           {Object.values(results).some(
             (result) => result.state === "success",
           ) && (
-            <p role="status">
+            <Alert variant="info" role="status">
               已成功安装{" "}
               {
                 Object.values(results).filter(
@@ -473,7 +549,7 @@ export function RemotePluginInstall({
               )
                 ? "失败的插件可单独重试，成功项不会重复安装。"
                 : ""}
-            </p>
+            </Alert>
           )}
         </div>
       )}

@@ -1,5 +1,17 @@
 import type { Channel } from "./native.ts";
 
+export interface PluginHostBridge {
+  getTheme?: () => "dark" | "light";
+  notify?: (
+    message: string,
+    tone?: "info" | "success" | "warning" | "error",
+  ) => void;
+  openPanel?: (panelId: string, params?: Record<string, unknown>) => void;
+  closePanel?: (panelId?: string) => void;
+  insertComposerText?: (text: string) => void;
+  submitComposer?: (text?: string) => void | Promise<void>;
+}
+
 export interface PluginRecordSummary {
   id: string;
   generation: number;
@@ -31,6 +43,7 @@ export function pluginServices(
   snapshot: { current: PluginWorkbenchSnapshot },
   listeners: { current: Set<() => void> },
   native: NativeServiceAdapter,
+  hostBridge?: { current?: PluginHostBridge },
 ) {
   const { invoke, streamChannel } = native;
   const resourceId = (id: unknown) =>
@@ -147,8 +160,61 @@ export function pluginServices(
     },
   };
 
+  const resolvePanelTarget = (panelId: string): string => {
+    const builtinMap: Record<string, string> = {
+      "dev.vibeone.files:files": "files",
+      "dev.vibeone.changes:changes": "changes",
+      "dev.vibeone.terminal:terminal": "terminal",
+      "dev.vibeone.browser:browser": "browser",
+    };
+    const key = `${record.id}:${panelId}`;
+    if (builtinMap[key]) {
+      return builtinMap[key];
+    }
+    if (
+      panelId.startsWith("plugin:") ||
+      ["files", "changes", "terminal", "browser"].includes(panelId)
+    ) {
+      return panelId;
+    }
+    return `plugin:${record.id}:${panelId}`;
+  };
+
   const services = {
     desktop,
+    ui: {
+      notify(
+        message: string,
+        tone: "info" | "success" | "warning" | "error" = "info",
+      ) {
+        current();
+        hostBridge?.current?.notify?.(String(message), tone);
+      },
+      openPanel(panelId: string, params?: Record<string, unknown>) {
+        current();
+        hostBridge?.current?.openPanel?.(resolvePanelTarget(panelId), params);
+      },
+      closePanel(panelId?: string) {
+        current();
+        hostBridge?.current?.closePanel?.(
+          panelId ? resolvePanelTarget(panelId) : undefined,
+        );
+      },
+      getTheme(): "dark" | "light" {
+        current();
+        return hostBridge?.current?.getTheme?.() ?? "dark";
+      },
+    },
+    composer: {
+      insertText(text: string) {
+        current();
+        hostBridge?.current?.insertComposerText?.(String(text));
+      },
+      submit(text?: string) {
+        current();
+        return hostBridge?.current?.submitComposer?.(text);
+      },
+    },
     workbench: {
       snapshot: () => {
         const source = snapshot.current;

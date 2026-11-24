@@ -18,7 +18,14 @@ import {
   type AppRegistration,
 } from "@vibeone/plugin-sdk/app";
 import { chooseWorkspace } from "./api.ts";
+import { Alert } from "./components/ui/alert.tsx";
+import { Badge } from "./components/ui/badge.tsx";
+import { Button } from "./components/ui/button.tsx";
+import { Card } from "./components/ui/card.tsx";
+import { Input } from "./components/ui/input.tsx";
+import { Select } from "./components/ui/select.tsx";
 import {
+  buildDefaultPluginConfig,
   LocalPluginInstall,
   type LocalInspectionManifest,
 } from "./LocalPluginInstall.tsx";
@@ -27,6 +34,7 @@ import { operationPresentation } from "./plugin-operations.ts";
 import { PluginIcon } from "./plugin-presentation.tsx";
 import {
   pluginServices,
+  type PluginHostBridge,
   type PluginWorkbenchSnapshot,
 } from "./plugin-services.ts";
 import { PluginDetails } from "./PluginDetails.tsx";
@@ -123,7 +131,10 @@ async function definition(source: string): Promise<AppDefinition> {
   }
 }
 
-export function usePlugins(workbench: WorkbenchLike): PluginsController {
+export function usePlugins(
+  workbench: WorkbenchLike,
+  hostBridge?: { current?: PluginHostBridge },
+): PluginsController {
   const [error, setError] = useState("");
   const runtime = useRef<AppRuntime | null>(null);
   if (!runtime.current) {
@@ -191,6 +202,7 @@ export function usePlugins(workbench: WorkbenchLike): PluginsController {
         streamChannel,
         available: Boolean(window.vibeoneDesktop),
       },
+      hostBridge,
     );
     try {
       const candidate = await runtime.current.prepare(
@@ -426,19 +438,26 @@ export function PluginManager({
           }
         />
       )}
-      <section className="plugin-local-form" hidden={view !== "local"}>
-        <header>
-          <button
+      <section className="plugin-local-form max-w-[680px] space-y-5 pb-6" hidden={view !== "local"}>
+        <header className="space-y-1.5">
+          <Button
             ref={installTrigger}
+            variant="ghost"
+            size="sm"
+            className="mb-2 -ml-2"
             onClick={() => {
               setView("installed");
             }}
           >
             <ArrowLeft size={14} />
             返回已安装
-          </button>
-          <h2>安装与配置</h2>
-          <p>选择插件包目录，检查所需权限后启用。</p>
+          </Button>
+          <h2 className="m-0 text-[18px] font-semibold text-[var(--fg)]">
+            安装与配置
+          </h2>
+          <p className="m-0 text-[12.5px] text-[var(--ink-secondary)]">
+            选择插件包目录，检查所需权限后启用。
+          </p>
         </header>
         <LocalPluginInstall
           path={path}
@@ -476,11 +495,21 @@ export function PluginManager({
           }
           onInspect={() =>
             void run(async () => {
-              setInspection(
-                (await workbench.managePlugin("inspect", {
-                  path,
-                })) as LocalInspectionManifest,
-              );
+              const inspected = (await workbench.managePlugin("inspect", {
+                path,
+              })) as LocalInspectionManifest;
+              setInspection(inspected);
+              if (
+                config.trim() === "{}" &&
+                inspected.configSchema?.properties
+              ) {
+                const defaults = buildDefaultPluginConfig(
+                  inspected.configSchema,
+                );
+                if (Object.keys(defaults).length > 0) {
+                  setConfig(JSON.stringify(defaults, null, 2));
+                }
+              }
               setTrusted(false);
             })
           }
@@ -517,22 +546,27 @@ export function PluginManager({
         />
       </section>
       {view === "installed" && (
-        <div className="plugin-installed-layout">
-          <aside className="plugin-installed-list" aria-label="已安装插件">
-            <label className="plugin-list-search">
-              <Search size={14} />
-              <input
+        <Card className="plugin-installed-layout overflow-hidden">
+          <aside className="plugin-installed-list flex flex-col gap-3" aria-label="已安装插件">
+            <div className="relative">
+              <Search
+                size={14}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+              />
+              <Input
                 aria-label="搜索已安装插件"
                 placeholder="搜索插件…"
                 value={query}
+                className="h-8 pl-8 text-[12px]"
                 onChange={(event) => setQuery(event.target.value)}
               />
-            </label>
-            <div className="plugin-list-filter">
+            </div>
+            <div className="flex items-center justify-between gap-2 px-1 text-[11.5px] text-[var(--muted)]">
               <span>{records.length} 个插件</span>
-              <select
+              <Select
                 aria-label="筛选插件状态"
                 value={stateFilter}
+                className="h-7 border-transparent bg-transparent py-0 pl-2 pr-6 text-[11.5px]"
                 onChange={(event) =>
                   setStateFilter(
                     event.target.value as "all" | "enabled" | "disabled",
@@ -542,7 +576,7 @@ export function PluginManager({
                 <option value="all">全部状态</option>
                 <option value="enabled">已启用</option>
                 <option value="disabled">已停用</option>
-              </select>
+              </Select>
             </div>
             <div className="plugin-installed-items" ref={listRef}>
               {records.map((plugin) => (
@@ -626,7 +660,7 @@ export function PluginManager({
                       <PluginBoundary
                         key={`${app.identity.pluginId}:${app.identity.generation}`}
                       >
-                        <section className="plugin-app-settings">
+                        <section className="plugin-app-settings space-y-2 border-t border-[var(--line)] pt-4">
                           {[...app.panels]
                             .filter(
                               ([id]) =>
@@ -642,6 +676,12 @@ export function PluginManager({
                             .map(([id, Component]) => (
                               <React.Fragment key={id}>
                                 {Component({
+                                  panelId: id,
+                                  theme:
+                                    document.documentElement.dataset.theme ===
+                                    "light"
+                                      ? "light"
+                                      : "dark",
                                   workspaceId: (workbench.plugins ?? [])
                                     .find(
                                       (p) =>
@@ -657,14 +697,16 @@ export function PluginManager({
                               </React.Fragment>
                             ))}
                           {[...app.commands].map(([id, command]) => (
-                            <button
+                            <Button
                               key={id}
+                              variant="outline"
+                              size="sm"
                               onClick={() =>
                                 void run(() => Promise.resolve(command()))
                               }
                             >
                               {id}
-                            </button>
+                            </Button>
                           ))}
                         </section>
                       </PluginBoundary>
@@ -672,94 +714,106 @@ export function PluginManager({
                 </PluginDetails>
               ))}
             {!active && (
-              <div className="plugin-center-empty">
+              <div className="flex min-h-[400px] flex-col items-center justify-center gap-3 text-center text-[var(--muted)]">
                 <Plug size={30} strokeWidth={1.5} />
-                <h2>
+                <h2 className="m-0 mt-1 text-[16px] font-semibold text-[var(--fg)]">
                   {query || stateFilter !== "all"
                     ? "没有匹配的插件"
                     : "为工作台添加功能"}
                 </h2>
-                <p>
+                <p className="m-0 max-w-[32ch] text-[12.5px] leading-relaxed">
                   {query || stateFilter !== "all"
                     ? "换个名称或筛选条件试试。"
                     : "文件、终端、网页等功能都可以独立安装和更新。"}
                 </p>
                 {!query && stateFilter === "all" && (
-                  <button
-                    className="plugin-primary"
-                    onClick={() => setView("discover")}
-                  >
+                  <Button size="sm" onClick={() => setView("discover")}>
                     <Download size={14} />
                     获取插件
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
           </div>
-        </div>
+        </Card>
       )}
       {Boolean(workbench.operations?.length) && (
-        <details className="plugin-diagnostics" aria-label="最近后台操作">
-          <summary>最近后台操作 · {workbench.operations?.length}</summary>
-          <p>
+        <details className="plugin-diagnostics mt-5 border-t border-[var(--line)] pt-4 text-[12px] text-[var(--muted)]" aria-label="最近后台操作">
+          <summary className="cursor-pointer select-none hover:text-[var(--fg)]">
+            最近后台操作 · {workbench.operations?.length}
+          </summary>
+          <p className="my-2 leading-relaxed">
             操作在主机执行。关闭页面不会取消已受理的操作；中断记录不会自动重试。
           </p>
-          {workbench.operations?.map((operation) => {
-            const display = operationPresentation(operation);
-            return (
-              <div className="desktop-settings-row" key={operation.id}>
-                <div>
-                  <strong>{display.title}</strong>
-                  <p>
-                    {display.plugin} · {display.time}
-                  </p>
-                </div>
-                <span>{display.state}</span>
-                <button
-                  type="button"
-                  disabled={busy || workbench.phase !== "online"}
-                  aria-label={`查看操作结果 ${operation.id}`}
-                  onClick={() =>
-                    void run(async () => {
-                      const record = await workbench.read<{
-                        state: string;
-                        result?: unknown;
-                        error?: Record<string, unknown>;
-                      }>(`/operations/${operation.id}`);
-                      setResult(
-                        record.state === "succeeded"
-                          ? record.result
-                          : { state: record.state, ...record.error },
-                      );
-                    })
-                  }
+          <Card className="divide-y divide-[var(--line)]">
+            {workbench.operations?.map((operation) => {
+              const display = operationPresentation(operation);
+              return (
+                <div
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-[12.5px]"
+                  key={operation.id}
                 >
-                  查看结果
-                </button>
-              </div>
-            );
-          })}
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <strong className="block font-medium text-[var(--fg)]">
+                      {display.title}
+                    </strong>
+                    <p className="m-0 text-[11.5px] text-[var(--muted)]">
+                      {display.plugin} · {display.time}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{display.state}</Badge>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || workbench.phase !== "online"}
+                    aria-label={`查看操作结果 ${operation.id}`}
+                    onClick={() =>
+                      void run(async () => {
+                        const record = await workbench.read<{
+                          state: string;
+                          result?: unknown;
+                          error?: Record<string, unknown>;
+                        }>(`/operations/${operation.id}`);
+                        setResult(
+                          record.state === "succeeded"
+                            ? record.result
+                            : { state: record.state, ...record.error },
+                        );
+                      })
+                    }
+                  >
+                    查看结果
+                  </Button>
+                </div>
+              );
+            })}
+          </Card>
         </details>
       )}
       {Boolean(workbench.pluginEvents?.length) && (
-        <details className="plugin-diagnostics">
-          <summary>插件执行进度</summary>
+        <details className="plugin-diagnostics mt-4 text-[12px] text-[var(--muted)]">
+          <summary className="cursor-pointer">插件执行进度</summary>
           {workbench.pluginEvents?.map((event, index) => (
-            <pre className="desktop-diagnostic" key={index}>
+            <pre className="desktop-diagnostic mt-2 rounded-lg border border-[var(--line)] bg-[var(--bg)] p-3 font-mono text-[11.5px]" key={index}>
               {event.pluginId} · {event.text}
             </pre>
           ))}
         </details>
       )}
       {result !== undefined && (
-        <details className="plugin-diagnostics" open>
-          <summary>操作结果</summary>
-          <pre className="desktop-diagnostic">
+        <details className="plugin-diagnostics mt-4 text-[12px] text-[var(--muted)]" open>
+          <summary className="cursor-pointer">操作结果</summary>
+          <pre className="desktop-diagnostic mt-2 rounded-lg border border-[var(--line)] bg-[var(--bg)] p-3 font-mono text-[11.5px]">
             {JSON.stringify(result, null, 2)}
           </pre>
         </details>
       )}
-      {(error || plugins.error) && <p role="alert">{error || plugins.error}</p>}
+      {(error || plugins.error) && (
+        <Alert variant="destructive" role="alert" className="mt-4">
+          {error || plugins.error}
+        </Alert>
+      )}
     </section>
   );
 }

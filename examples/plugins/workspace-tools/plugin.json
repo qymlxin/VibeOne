@@ -3,8 +3,36 @@
   "id": "dev.vibeone.workspace-tools",
   "name": "工作区工具",
   "version": "0.1.0",
+  "description": "内置全能力插件示例，涵盖面板、设置项、通知渠道、Worker 扫描及声明式示例 Agent。",
+  "author": "VibeOne",
   "engines": {
     "pluginApi": ">=0.1 <0.2"
+  },
+  "configSchema": {
+    "type": "object",
+    "title": "扫描默认参数",
+    "description": "配置工作区扫描面板与示例设置项的初始行为。",
+    "properties": {
+      "defaultPath": {
+        "type": "string",
+        "title": "默认扫描路径",
+        "default": ".",
+        "placeholder": "."
+      },
+      "maxEntries": {
+        "type": "integer",
+        "title": "最多返回条目数",
+        "default": 50,
+        "minimum": 1,
+        "maximum": 500
+      },
+      "includeHidden": {
+        "type": "boolean",
+        "title": "包含隐藏文件",
+        "description": "扫描目录时保留以点号开头的配置文件。",
+        "default": false
+      }
+    }
   },
   "entrypoints": {
     "worker": {
