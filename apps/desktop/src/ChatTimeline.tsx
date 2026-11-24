@@ -11,13 +11,10 @@ import remarkGfm from "remark-gfm";
 import {
   BookOpen,
   Brain,
-  ChevronDown,
-  ChevronRight,
+  Check,
   Copy,
   ExternalLink,
   FileText,
-  GitCompareArrows,
-  LoaderCircle,
   Search,
   Terminal,
   Wrench,
@@ -35,6 +32,9 @@ import {
   type TimelineTool,
   type TimelineTurn,
 } from "./chat-timeline.ts";
+import { TurnChangesCard } from "./components/ai/confirmation.tsx";
+import { ReasoningActivityShell } from "./components/ai/reasoning.tsx";
+import { ToolCallItem, ToolGroupCard } from "./components/ai/tool-card.tsx";
 import { remarkSoftBreaks } from "./markdown-layout.ts";
 import { workspacePath } from "./preview-links.ts";
 import { PreviewContext, PreviewLink, markdownLink } from "./PreviewLinks.tsx";
@@ -92,7 +92,11 @@ export const ChatMessage = memo(
         {(message.text || !message.attachments?.length) && (
           <p className="desktop-message-text">{message.text || "…"}</p>
         )}
-        {message.pending && <small>已受理 · 等待 Agent 接受</small>}
+        {message.pending && (
+          <small className="mt-1.5 block text-[11px] text-[var(--muted)]">
+            已受理 · 等待 Agent 接受
+          </small>
+        )}
         <Truncated item={message} />
       </article>
     ) : (
@@ -183,40 +187,34 @@ function ActivityItem({
       ? Brain
       : (familyIcon[toolFamily(toolItem)] ?? Wrench);
 
+  const label =
+    type === "tool"
+      ? ((toolItem.status ? toolStatus[toolItem.status] : undefined) ??
+        toolItem.status ??
+        "处理中")
+      : "思考摘要";
+
   return (
-    <details
-      className={`desktop-activity-item ${type}`}
-      data-history-order={item.historyOrder}
-      onToggle={(event) => {
-        setOpen(event.currentTarget.open);
-        if (event.currentTarget.open) {
+    <ToolCallItem
+      kind={type}
+      icon={Icon}
+      title={type === "tool" ? toolTitle(toolItem) : activityTail(text)}
+      tooltip={
+        type === "tool"
+          ? describeAction(toolItem).paths.join("\n") || toolTitle(toolItem)
+          : undefined
+      }
+      status={type === "tool" ? toolItem.status : undefined}
+      statusLabel={label}
+      historyOrder={item.historyOrder}
+      open={open}
+      onToggle={(isOpen) => {
+        setOpen(isOpen);
+        if (isOpen) {
           onInspect();
         }
       }}
     >
-      <summary>
-        <span className="desktop-process-item-icon">
-          <Icon size={13} />
-        </span>
-        <span
-          title={
-            type === "tool"
-              ? describeAction(toolItem).paths.join("\n") ||
-                toolTitle(toolItem)
-              : undefined
-          }
-        >
-          {type === "tool" ? toolTitle(toolItem) : activityTail(text)}
-        </span>
-        <span>
-          {type === "tool"
-            ? ((toolItem.status ? toolStatus[toolItem.status] : undefined) ??
-              toolItem.status ??
-              "处理中")
-            : "思考摘要"}
-        </span>
-        <ChevronDown size={12} />
-      </summary>
       {open &&
         (type === "tool" ? (
           <ToolDetails tool={toolItem} />
@@ -226,7 +224,7 @@ function ActivityItem({
             <Truncated item={item as { textTruncated?: boolean }} />
           </div>
         ))}
-    </details>
+    </ToolCallItem>
   );
 }
 
@@ -248,7 +246,7 @@ function ReadFiles({
   }
   return (
     <div
-      className="desktop-read-files"
+      className="desktop-read-files flex flex-col gap-1"
       data-history-order={item.historyOrder}
     >
       {action.paths.map((filePath) => {
@@ -257,7 +255,7 @@ function ReadFiles({
         return (
           <button
             key={filePath}
-            className="event-file"
+            className="event-file inline-flex items-center gap-2 rounded-md px-2 py-1 text-[12px] text-[var(--ink-secondary)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--fg)] disabled:opacity-50"
             title={
               relative
                 ? filePath
@@ -271,10 +269,12 @@ function ReadFiles({
               }
             }}
           >
-            <BookOpen size={14} />
-            {action.label}
-            <span>{name}</span>
-            <ExternalLink size={12} />
+            <BookOpen size={13} className="shrink-0 text-[var(--accent)]" />
+            <span>{action.label}</span>
+            <span className="min-w-0 truncate font-mono text-[var(--fg)]">
+              {name}
+            </span>
+            <ExternalLink size={12} className="shrink-0 opacity-60" />
           </button>
         );
       })}
@@ -317,43 +317,33 @@ function ToolGroup({
     : familyLabel[group.family];
 
   return (
-    <details
-      className="event-group desktop-tool-group"
-      data-history-order={group.items[0]?.item.historyOrder}
-      onToggle={(event) => {
-        if (event.currentTarget.open) {
-          onInspect();
-        }
-      }}
+    <ToolGroupCard
+      icon={Icon}
+      label={label}
+      failed={failed}
+      working={working}
+      bodyClassName={
+        group.family === "read" ? "event-files" : "desktop-tool-group-body"
+      }
+      historyOrder={group.items[0]?.item.historyOrder}
+      onOpen={onInspect}
     >
-      <summary>
-        <Icon size={16} />
-        {label}
-        {(failed || working) && <small>{failed ? "含失败" : "执行中"}</small>}
-        <ChevronRight size={14} />
-      </summary>
-      <div
-        className={
-          group.family === "read" ? "event-files" : "desktop-tool-group-body"
-        }
-      >
-        {group.items.map((activity) =>
-          group.family === "read" ? (
-            <ReadFiles
-              key={activity.id}
-              activity={activity}
-              onInspect={onInspect}
-            />
-          ) : (
-            <ActivityItem
-              key={activity.id}
-              activity={activity}
-              onInspect={onInspect}
-            />
-          ),
-        )}
-      </div>
-    </details>
+      {group.items.map((activity) =>
+        group.family === "read" ? (
+          <ReadFiles
+            key={activity.id}
+            activity={activity}
+            onInspect={onInspect}
+          />
+        ) : (
+          <ActivityItem
+            key={activity.id}
+            activity={activity}
+            onInspect={onInspect}
+          />
+        ),
+      )}
+    </ToolGroupCard>
   );
 }
 
@@ -478,55 +468,31 @@ export function ActivityFeed({
     ),
   );
   const latestThought = preview.findLast((item) => item.type === "thought")?.id;
-  const StatusElement = activity.length ? "button" : "div";
 
   return (
-    <section
-      className="desktop-activity"
-      aria-label="Agent 处理过程"
-      data-live={live}
-    >
-      <StatusElement
-        className="turn-status desktop-activity-toggle"
-        type={activity.length ? "button" : undefined}
-        aria-label={
-          activity.length
-            ? `${label}，${expanded ? "收起过程" : "查看过程"}`
-            : undefined
-        }
-        aria-expanded={activity.length ? expanded : undefined}
-        onClick={
-          activity.length
-            ? () => {
-                setExpanded((value) => !value);
-                if (!expanded) {
-                  onReadHistory();
-                }
+    <ReasoningActivityShell
+      live={live}
+      expanded={expanded}
+      hasActivity={activity.length > 0}
+      label={label}
+      elapsedText={live || run?.finishedAt ? formatDuration(elapsed) : undefined}
+      motion={motion}
+      motionTargetRef={motionTarget}
+      onToggle={
+        activity.length
+          ? () => {
+              setExpanded((value) => !value);
+              if (!expanded) {
+                onReadHistory();
               }
-            : undefined
-        }
-      >
-        {live && (
-          <LoaderCircle
-            className="desktop-spin"
-            size={13}
-            aria-hidden="true"
-          />
-        )}
-        <span
-          ref={motionTarget}
-          role={live ? "status" : undefined}
-          className={motion ? "thinking-shimmer" : ""}
+            }
+          : undefined
+      }
+      preview={
+        <div
+          className="desktop-activity-preview mt-1.5 space-y-1 border-t border-[var(--line)] pt-2"
+          aria-label="最新处理动态"
         >
-          {label}
-        </span>
-        {(live || run?.finishedAt) && <time>{formatDuration(elapsed)}</time>}
-        {activity.length > 0 && (
-          <ChevronRight size={13} className={expanded ? "expanded" : ""} />
-        )}
-      </StatusElement>
-      {!expanded && live && (
-        <div className="desktop-activity-preview" aria-label="最新处理动态">
           {preview.map((item) => {
             const toolItem = item.item as TimelineTool;
             return (
@@ -534,7 +500,9 @@ export function ActivityFeed({
                 key={item.id}
                 className={`desktop-activity-preview-row ${item.type}`}
               >
-                <span>{typeLabel[item.type]}</span>
+                <span className="rounded bg-[var(--hover)] px-1.5 py-0.5 text-[10.5px] text-[var(--muted)]">
+                  {typeLabel[item.type]}
+                </span>
                 <span
                   className={
                     motion && item.id === latestThought
@@ -555,7 +523,7 @@ export function ActivityFeed({
             );
           })}
           {!preview.length && (
-            <div className="desktop-live-status">
+            <div className="desktop-live-status text-[12px] text-[var(--ink-secondary)]">
               <span>
                 {hasInput
                   ? "等待你处理下方请求后继续。"
@@ -567,14 +535,16 @@ export function ActivityFeed({
                 status === "running" &&
                 !turn.answer?.text &&
                 elapsed >= 3 && (
-                  <small>尚未收到可展示的思考摘要；收到后会自动显示。</small>
+                  <small className="text-[11px] text-[var(--muted)]">
+                    尚未收到可展示的思考摘要；收到后会自动显示。
+                  </small>
                 )}
             </div>
           )}
         </div>
-      )}
-      {expanded && (
-        <div className="desktop-activity-history">
+      }
+      history={
+        <div className="desktop-activity-history pt-2">
           {groups.map((group) =>
             group.type === "tools" ? (
               <ToolGroup
@@ -585,11 +555,13 @@ export function ActivityFeed({
             ) : group.type === "note" ? (
               <div
                 key={group.id}
-                className="desktop-process-note"
+                className="desktop-process-note py-1.5"
                 data-history-order={group.event.item.historyOrder}
               >
                 {group.event.unknownRole && (
-                  <small>历史消息（角色未记录）</small>
+                  <small className="text-[11px] text-[var(--muted)]">
+                    历史消息（角色未记录）
+                  </small>
                 )}
                 <MarkdownBody text={group.event.text} />
                 <Truncated item={group.event.item as { textTruncated?: boolean }} />
@@ -603,8 +575,8 @@ export function ActivityFeed({
             ),
           )}
         </div>
-      )}
-    </section>
+      }
+    />
   );
 }
 
@@ -614,11 +586,12 @@ function AnswerActions({ text, name }: { text: string; name: string }) {
   useEffect(() => setState(""), [text]);
 
   return (
-    <div className="message-actions desktop-answer-actions">
+    <div className="message-actions desktop-answer-actions mt-3 flex items-center gap-2 text-[11.5px] text-[var(--muted)]">
       <button
         type="button"
         aria-label="复制回答"
         disabled={busy}
+        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[var(--muted)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--fg)]"
         onClick={async () => {
           setBusy(true);
           try {
@@ -634,7 +607,11 @@ function AnswerActions({ text, name }: { text: string; name: string }) {
           }
         }}
       >
-        <Copy size={13} />
+        {state === "已复制" ? (
+          <Check size={13} className="text-[var(--green)]" />
+        ) : (
+          <Copy size={13} />
+        )}
       </button>
       <span>{name}</span>
       {state && <span role="status">{state}</span>}
@@ -706,24 +683,12 @@ export function AgentResponse({
         </article>
       )}
       {changeCount > 0 && !turn.live && changes && (
-        <button
-          className="change-summary"
+        <TurnChangesCard
+          fileCount={changeCount}
+          added={changes.added ?? 0}
+          removed={changes.removed ?? 0}
           onClick={() => onChanges?.(changes, turn.id)}
-        >
-          <GitCompareArrows size={16} />
-          <div>
-            <strong>查看本轮变更</strong>
-            <span>
-              {changeCount} 个文件
-              <>
-                {" "}
-                <em>+{changes.added}</em> <b>−{changes.removed}</b>
-              </>{" "}
-              · 执行前后差异
-            </span>
-          </div>
-          <ChevronRight size={15} />
-        </button>
+        />
       )}
       {turn.answer && !turn.live && (
         <AnswerActions text={turn.answer.text} name={name} />
