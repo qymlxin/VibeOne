@@ -1,10 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Activity } from "lucide-react";
 import {
   probeProvider,
   type ProviderProbeResponse,
 } from "@vibeone/client-contracts";
+import { Alert } from "./components/ui/alert.tsx";
+import { Badge } from "./components/ui/badge.tsx";
+import { Button } from "./components/ui/button.tsx";
+import {
+  SettingBlock,
+  SettingItem,
+  SettingSection,
+} from "./components/ui/setting-layout.tsx";
 import type { WorkbenchLike } from "./types.ts";
-import "./provider-probe.css";
 
 const states: Record<string, string> = {
   ready: "ACP v2 握手通过",
@@ -91,66 +99,86 @@ export function ProviderProbe({
     result?.authentication_command ?? result?.authenticationCommand;
 
   return (
-    <section className="desktop-provider-probe" aria-label="Agent 环境探测">
-      <div className="desktop-settings-row">
-        <div>
-          <h3>环境探测</h3>
-          <p>
-            只做初始化握手，不创建会话或发送任务。
-            {profileId ? "检测已保存的启动配置。" : "检测内置默认入口。"}
-          </p>
-        </div>
-        <button
+    <SettingSection
+      title="环境探测"
+      aria-label="Agent 环境探测"
+      className="desktop-provider-probe"
+    >
+      <SettingItem
+        title="握手与依赖检测"
+        description={`只做初始化握手，不创建会话或发送任务。${profileId ? "检测已保存的启动配置。" : "检测内置默认入口。"}`}
+      >
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           disabled={
             busy || dirty || !supported || workbench.phase !== "online"
           }
           onClick={() => void check()}
         >
+          <Activity size={13} />
           {busy ? "正在检测…" : "检查环境"}
-        </button>
-      </div>
-      {dirty && (
-        <p className="desktop-settings-help">
-          启动参数已修改，请保存修订后再检查。
-        </p>
+        </Button>
+      </SettingItem>
+
+      {(dirty || !supported || busy || error) && (
+        <SettingBlock className="space-y-2.5">
+          {dirty && (
+            <p className="m-0 text-[12px] text-[var(--muted)]">
+              启动参数已修改，请保存修订后再检查。
+            </p>
+          )}
+          {!supported && (
+            <p className="m-0 text-[12px] text-[var(--muted)]">
+              {provider.includes(":")
+                ? "插件入口通过会话连接验证。"
+                : "请在执行结束后升级并重启工作主机，启用环境探测。"}
+            </p>
+          )}
+          {busy && (
+            <Alert variant="info" role="status">
+              正在连接启动入口，通常在 15 秒内完成…
+            </Alert>
+          )}
+          {error && (
+            <Alert variant="destructive" role="alert">
+              {error}
+            </Alert>
+          )}
+        </SettingBlock>
       )}
-      {!supported && (
-        <p className="desktop-settings-help">
-          {provider.includes(":")
-            ? "插件入口通过会话连接验证。"
-            : "请在执行结束后升级并重启工作主机，启用环境探测。"}
-        </p>
-      )}
-      {busy && (
-        <p role="status">正在连接启动入口，通常在 15 秒内完成…</p>
-      )}
-      {error && <p role="alert">{error}</p>}
+
       {result && (
-        <div role="status">
-          <div className="desktop-settings-row">
-            <span>协议</span>
-            <span>{states[result.state] ?? "未知探测结果"}</span>
-          </div>
+        <div role="status" className="divide-y divide-[var(--line)]">
+          <SettingItem title="协议">
+            <Badge variant={result.state === "ready" ? "success" : "warning"}>
+              {states[result.state] ?? "未知探测结果"}
+            </Badge>
+          </SettingItem>
           {result.name && (
-            <div className="desktop-settings-row">
-              <span>桥接器</span>
-              <span>
+            <SettingItem title="桥接器">
+              <span className="font-mono text-[12px]">
                 {result.name}
                 {result.version ? ` · ${result.version}` : " · 未上报版本"}
               </span>
-            </div>
+            </SettingItem>
           )}
-          <div className="desktop-settings-row">
-            <span>认证</span>
-            <span>
+          <SettingItem title="认证">
+            <Badge
+              variant={
+                result.authentication === "authenticated" ||
+                result.authentication === "not_required"
+                  ? "success"
+                  : "secondary"
+              }
+            >
               {authentication[result.authentication] ?? authentication.unknown}
-            </span>
-          </div>
+            </Badge>
+          </SettingItem>
           {result.state === "ready" && (
-            <div className="desktop-settings-row">
-              <span>声明的能力</span>
-              <span>
+            <SettingItem title="声明的能力">
+              <span className="text-[12px] text-[var(--ink-secondary)]">
                 {(
                   [
                     ["session", "会话"],
@@ -164,19 +192,24 @@ export function ProviderProbe({
                   )
                   .join(" · ")}
               </span>
-            </div>
+            </SettingItem>
           )}
-          {authCmd && result.authentication !== "authenticated" && (
-            <p className="desktop-settings-help">
-              可在本机终端完成登录：<code>{authCmd}</code>
-              。本应用不会自动提交凭据。
+          <SettingBlock className="space-y-2">
+            {authCmd && result.authentication !== "authenticated" && (
+              <p className="m-0 text-[12px] text-[var(--ink-secondary)]">
+                可在本机终端完成登录：
+                <code className="mx-1 rounded bg-[var(--hover)] px-1.5 py-0.5 font-mono text-[11.5px]">
+                  {authCmd}
+                </code>
+                。本应用不会自动提交凭据。
+              </p>
+            )}
+            <p className="m-0 text-[11.5px] leading-relaxed text-[var(--muted)]">
+              握手及 CLI 登录状态不代表模型请求一定成功；额度、网络和会话恢复仍以实际连接结果为准。修改启动配置后请重新检查。
             </p>
-          )}
-          <p className="desktop-settings-help">
-            握手及 CLI 登录状态不代表模型请求一定成功；额度、网络和会话恢复仍以实际连接结果为准。修改启动配置后请重新检查。
-          </p>
+          </SettingBlock>
         </div>
       )}
-    </section>
+    </SettingSection>
   );
 }

@@ -9,6 +9,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { CompactDialog } from "./CompactDialog.tsx";
+import { Alert } from "./components/ui/alert.tsx";
+import { Button } from "./components/ui/button.tsx";
+import { Card } from "./components/ui/card.tsx";
+import { Input } from "./components/ui/input.tsx";
 import { SessionAvatar } from "./SessionIdentity.tsx";
 import type {
   DesktopSession,
@@ -335,64 +339,88 @@ export function ArchivedConversations({
   );
 
   return (
-    <>
-      <p className="settings-description">
+    <div className="space-y-4">
+      <p className="m-0 text-[13px] leading-relaxed text-[var(--ink-secondary)]">
         已归档及从侧栏删除的对话保留在这里，可恢复后继续。项目文件不受影响。
       </p>
-      <label className="archive-search">
-        <Search size={15} />
-        <input
+      <div className="relative">
+        <Search
+          size={15}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+        />
+        <Input
           aria-label="搜索归档"
           placeholder="搜索已归档对话"
           value={query}
+          className="pl-9"
           onChange={(e) => setQuery(e.target.value)}
         />
-      </label>
-      <div className="archive-list">
+      </div>
+      <Card className="divide-y divide-[var(--line)] overflow-hidden">
         {items.map((s) => {
           const identity = spaces.agentFor(s.id);
           return (
-            <div className="archive-row" key={s.id}>
-              <SessionAvatar
-                color={identity?.color}
-                shape={identity?.shape}
-              />
-              <span>
-                <strong>
-                  {identity?.name ?? spaces.threadFor(s.id)?.name ?? s.title}
-                </strong>
-                <small title={s.workspace}>{s.workspace}</small>
-              </span>
-              <button
-                disabled={Boolean(busy)}
-                onClick={() => {
-                  setBusy(s.id);
-                  setError("");
-                  void workbench
-                    .call(`/sessions/${s.id}/metadata`, {
-                      archived: false,
-                      key: crypto.randomUUID(),
-                    })
-                    .catch((e) =>
-                      setError(e instanceof Error ? e.message : String(e)),
-                    )
-                    .finally(() => setBusy(null));
-                }}
-              >
-                <ArchiveRestore size={14} />
-                {busy === s.id ? "正在恢复…" : "恢复"}
-              </button>
-              <button onClick={() => onOpen(s.id)}>查看</button>
+            <div
+              className="flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center"
+              key={s.id}
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <SessionAvatar
+                  color={identity?.color}
+                  shape={identity?.shape}
+                />
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="truncate text-[13.5px] font-medium text-[var(--fg)]">
+                    {identity?.name ?? spaces.threadFor(s.id)?.name ?? s.title}
+                  </div>
+                  <div
+                    title={s.workspace}
+                    className="truncate font-mono text-[11.5px] text-[var(--muted)]"
+                  >
+                    {s.workspace}
+                  </div>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={Boolean(busy)}
+                  onClick={() => {
+                    setBusy(s.id);
+                    setError("");
+                    void workbench
+                      .call(`/sessions/${s.id}/metadata`, {
+                        archived: false,
+                        key: crypto.randomUUID(),
+                      })
+                      .catch((e) =>
+                        setError(e instanceof Error ? e.message : String(e)),
+                      )
+                      .finally(() => setBusy(null));
+                  }}
+                >
+                  <ArchiveRestore size={13} />
+                  {busy === s.id ? "正在恢复…" : "恢复"}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => onOpen(s.id)}>
+                  查看
+                </Button>
+              </div>
             </div>
           );
         })}
         {!items.length && (
-          <p className="archive-empty">
+          <div className="py-12 text-center text-[13px] text-[var(--muted)]">
             {query ? "没有匹配的归档对话" : "暂无归档对话"}
-          </p>
+          </div>
         )}
-      </div>
-      {error && <p role="alert">{error}</p>}
-    </>
+      </Card>
+      {error && (
+        <Alert variant="destructive" role="alert">
+          {error}
+        </Alert>
+      )}
+    </div>
   );
 }

@@ -2,6 +2,9 @@ import React, { useRef, useState } from "react";
 import { FolderOpen, FolderPlus, LoaderCircle, Plus, X } from "lucide-react";
 import { chooseWorkspace } from "./api.ts";
 import { CompactDialog } from "./CompactDialog.tsx";
+import { Alert } from "./components/ui/alert.tsx";
+import { Button } from "./components/ui/button.tsx";
+import { Input } from "./components/ui/input.tsx";
 import type { ProjectItem, ProjectsController } from "./types.ts";
 
 export function CreateProjectDialog({
@@ -86,75 +89,102 @@ export function CreateProjectDialog({
       busy={busy || picking}
       className="create-project-dialog"
     >
-      <form onSubmit={submit}>
-        <fieldset disabled={busy || picking}>
-          <label className="project-name-input">
-            <FolderOpen size={17} />
-            <input
+      <form onSubmit={submit} className="space-y-4">
+        <fieldset disabled={busy || picking} className="space-y-4 border-0 px-5 py-1">
+          <div className="relative">
+            <FolderOpen
+              size={16}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+            />
+            <Input
               autoFocus
               aria-label="项目名称"
               placeholder="项目名称"
               value={name}
+              className="pl-9"
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
               required
             />
-          </label>
-          <div className="project-source-heading">
+          </div>
+
+          <div className="flex items-center justify-between text-[12.5px] font-medium text-[var(--fg)]">
             <span>源文件夹</span>
             {paths.length > 0 && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => void pick()}
                 disabled={paths.length >= 32}
               >
                 <Plus size={13} />
                 添加
-              </button>
+              </Button>
             )}
           </div>
-          <div
-            className={`project-sources ${paths.length ? "has-paths" : ""}`}
-          >
-            {paths.map((p) => (
-              <div className="project-source" key={p}>
-                <FolderOpen size={16} />
-                <span title={p}>{p}</span>
-                <button
-                  type="button"
-                  disabled={saved.current.has(p)}
-                  aria-label={`移除目录 ${p}`}
-                  onClick={() => setPaths((old) => old.filter((v) => v !== p))}
-                >
-                  <X size={14} />
-                </button>
+
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--bg)] p-2">
+            {paths.length > 0 ? (
+              <div className="max-h-[210px] divide-y divide-[var(--line)] overflow-auto">
+                {paths.map((p) => (
+                  <div
+                    className="flex items-center gap-2.5 px-2.5 py-2 text-[12px]"
+                    key={p}
+                  >
+                    <FolderOpen
+                      size={15}
+                      className="shrink-0 text-[var(--ink-secondary)]"
+                    />
+                    <span
+                      title={p}
+                      className="min-w-0 flex-1 font-mono text-[var(--fg)] [overflow-wrap:anywhere]"
+                    >
+                      {p}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={saved.current.has(p)}
+                      aria-label={`移除目录 ${p}`}
+                      onClick={() =>
+                        setPaths((old) => old.filter((v) => v !== p))
+                      }
+                    >
+                      <X size={14} />
+                    </Button>
+                  </div>
+                ))}
               </div>
-            ))}
-            {!paths.length && (
-              <>
-                <FolderPlus size={24} />
-                <p>在此电脑上添加文件夹</p>
-                <button
+            ) : (
+              <div className="flex min-h-[136px] flex-col items-center justify-center gap-2.5 p-4 text-center text-[var(--muted)]">
+                <FolderPlus size={24} strokeWidth={1.6} />
+                <p className="m-0 text-[12.5px]">在此电脑上添加文件夹</p>
+                <Button
                   type="button"
-                  className="project-add-folder"
+                  variant="outline"
+                  size="sm"
                   onClick={() => void pick()}
                 >
                   {picking ? (
-                    <LoaderCircle size={14} className="desktop-spin" />
+                    <LoaderCircle size={14} className="animate-spin" />
                   ) : (
                     <Plus size={14} />
                   )}
                   添加文件夹
-                </button>
-              </>
+                </Button>
+              </div>
             )}
           </div>
+
           {manual ? (
-            <div className="project-manual-path">
-              <input
+            <div className="flex items-center gap-2">
+              <Input
                 aria-label="文件夹路径"
                 placeholder="输入文件夹的绝对路径"
                 value={path}
+                className="font-mono text-[12px]"
                 onChange={(e) => setPath(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -163,17 +193,19 @@ export function CreateProjectDialog({
                   }
                 }}
               />
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 disabled={!path.trim() || paths.length >= 32}
                 onClick={() => add(path)}
               >
                 添加
-              </button>
+              </Button>
             </div>
           ) : (
             <button
-              className="project-path-toggle"
+              className="project-path-toggle cursor-pointer bg-transparent p-0 text-[12px] text-[var(--muted)] hover:text-[var(--fg)]"
               type="button"
               onClick={() => setManual(true)}
             >
@@ -181,29 +213,33 @@ export function CreateProjectDialog({
             </button>
           )}
         </fieldset>
+
         {error && (
-          <p role="alert" className="space-editor-error">
-            {error}
-          </p>
+          <div className="px-5">
+            <Alert variant="destructive" role="alert">
+              {error}
+            </Alert>
+          </div>
         )}
-        <footer>
-          <button
+
+        <footer className="flex items-center justify-end gap-2 border-t border-[var(--line)] px-5 py-3.5">
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={busy || picking}
             onClick={onClose}
           >
             取消
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            className="space-primary"
-            disabled={
-              busy || picking || !name.trim() || Boolean(path.trim())
-            }
+            size="sm"
+            disabled={busy || picking || !name.trim() || Boolean(path.trim())}
           >
-            {busy && <LoaderCircle size={14} className="desktop-spin" />}
+            {busy && <LoaderCircle size={14} className="animate-spin" />}
             创建项目
-          </button>
+          </Button>
         </footer>
       </form>
     </CompactDialog>

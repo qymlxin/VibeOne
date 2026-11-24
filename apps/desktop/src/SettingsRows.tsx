@@ -1,17 +1,21 @@
-import React, { Children, cloneElement, isValidElement } from "react";
+import React from "react";
+import { Button, type ButtonProps } from "./components/ui/button.tsx";
+import { SettingItem, SettingSection } from "./components/ui/setting-layout.tsx";
+import { Switch } from "./components/ui/switch.tsx";
 
 export function SettingsAction({
   children,
   primary = false,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) {
+}: ButtonProps & { primary?: boolean }) {
   return (
-    <button
-      className={`settings-action ${primary ? "primary" : ""}`}
+    <Button
+      variant={primary ? "default" : "outline"}
+      size="sm"
       {...props}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -25,11 +29,9 @@ export function SettingsGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="settings-group desktop-settings-section">
-      <h2>{title}</h2>
-      {description && <p className="group-description">{description}</p>}
-      <div className="settings-rows desktop-settings-card">{children}</div>
-    </section>
+    <SettingSection title={title} description={description}>
+      {children}
+    </SettingSection>
   );
 }
 
@@ -38,39 +40,14 @@ export function SettingsRow({
   description,
   children,
 }: {
-  title: string;
+  title: React.ReactNode;
   description?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   return (
-    <div className="settings-row desktop-settings-row">
-      <div>
-        <strong>{title}</strong>
-        {description && <p>{description}</p>}
-      </div>
-      <div className="settings-control">
-        {Children.map(children, (child) => {
-          if (
-            isValidElement<{ role?: string; className?: string }>(child) &&
-            child.type === "button" &&
-            child.props.role !== "switch"
-          ) {
-            return cloneElement(child, {
-              className: `settings-action ${child.props.className ?? ""}`,
-            });
-          }
-          if (
-            isValidElement<{ className?: string }>(child) &&
-            child.type === "span"
-          ) {
-            return cloneElement(child, {
-              className: `setting-value ${child.props.className ?? ""}`,
-            });
-          }
-          return child;
-        })}
-      </div>
-    </div>
+    <SettingItem title={title} description={description}>
+      {children}
+    </SettingItem>
   );
 }
 
@@ -86,16 +63,11 @@ export function SettingsSwitch({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <button
-      type="button"
-      className="settings-switch desktop-settings-switch"
-      role="switch"
+    <Switch
       aria-label={label}
-      aria-checked={checked}
+      checked={checked}
       disabled={disabled}
-      onClick={() => onChange(!checked)}
-    >
-      <span />
-    </button>
+      onCheckedChange={onChange}
+    />
   );
 }

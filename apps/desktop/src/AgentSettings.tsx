@@ -7,6 +7,17 @@ import {
   type ProfileRecord,
   type ProfileView,
 } from "@vibeone/client-contracts";
+import { Alert } from "./components/ui/alert.tsx";
+import { Badge } from "./components/ui/badge.tsx";
+import { Button } from "./components/ui/button.tsx";
+import { Input } from "./components/ui/input.tsx";
+import { Select } from "./components/ui/select.tsx";
+import {
+  SettingBlock,
+  SettingItem,
+  SettingSection,
+} from "./components/ui/setting-layout.tsx";
+import { Textarea } from "./components/ui/textarea.tsx";
 import { ProviderProbe } from "./ProviderProbe.tsx";
 import { SettingsGroup, SettingsRow } from "./SettingsRows.tsx";
 import { useProfileCommands } from "./use-profile-commands.ts";
@@ -201,44 +212,53 @@ export function AgentSettings({ workbench }: { workbench: WorkbenchLike }) {
   return (
     <>
       {(issues.length > 0 || issueError || issueNotice) && (
-        <section
-          className="desktop-settings-group"
+        <SettingSection
           aria-label="需要检查的配置"
+          title="需要检查的配置"
+          description="以下记录未加入可用配置。原始内容仍保留在本地，不影响其他配置和会话。"
         >
-          <h2>需要检查的配置</h2>
-          <p>
-            以下记录未加入可用配置。原始内容仍保留在本地，不影响其他配置和会话。
-          </p>
           {issues.map((issue) => (
-            <div key={issue.id} className="desktop-settings-row">
-              <div>
-                <code style={{ overflowWrap: "anywhere" }}>{issue.id}</code>
-                <p>{issue.error}</p>
-              </div>
-              <button
+            <SettingItem
+              key={issue.id}
+              title={<code className="font-mono text-[12px]">{issue.id}</code>}
+              description={issue.error}
+            >
+              <Button
+                variant="destructive"
+                size="sm"
                 disabled={busy || offline}
                 aria-label={`移除异常配置 ${issue.id}`}
                 onClick={() => void removeIssue(issue)}
               >
                 移除异常配置
-              </button>
-            </div>
+              </Button>
+            </SettingItem>
           ))}
           {issueError && (
-            <p role="alert">
-              {issueError}
-              {issueRetry && (
-                <button
-                  disabled={busy || offline}
-                  onClick={() => void removeIssue(issueRetry)}
-                >
-                  重试移除异常配置
-                </button>
-              )}
-            </p>
+            <SettingBlock>
+              <Alert variant="destructive" role="alert" className="items-center justify-between">
+                <span>{issueError}</span>
+                {issueRetry && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || offline}
+                    onClick={() => void removeIssue(issueRetry)}
+                  >
+                    重试移除异常配置
+                  </Button>
+                )}
+              </Alert>
+            </SettingBlock>
           )}
-          {issueNotice && <p role="status">{issueNotice}</p>}
-        </section>
+          {issueNotice && (
+            <SettingBlock>
+              <Alert variant="info" role="status">
+                {issueNotice}
+              </Alert>
+            </SettingBlock>
+          )}
+        </SettingSection>
       )}
       <div className="settings-master-detail desktop-settings-object-layout">
         <aside className="settings-object-list desktop-settings-object-list">
@@ -289,14 +309,18 @@ export function AgentSettings({ workbench }: { workbench: WorkbenchLike }) {
             </div>
           </header>
           <div className="settings-inline-status desktop-settings-inline-status">
-            <span className="settings-badge desktop-settings-badge">
+            <Badge variant={provider?.available ? "success" : "secondary"}>
               {provider?.available ? "启动入口可用" : "未找到启动入口"}
+            </Badge>
+            <span className="text-[12px] text-[var(--muted)]">
+              认证由本机工具管理
             </span>
-            <span>认证由本机工具管理</span>
           </div>
           <SettingsGroup title="连接信息">
             <SettingsRow title="通信协议">
-              <code>ACP v2</code>
+              <Badge variant="outline" className="font-mono">
+                ACP v2
+              </Badge>
             </SettingsRow>
             <SettingsRow
               title="认证状态"
@@ -318,24 +342,26 @@ export function AgentSettings({ workbench }: { workbench: WorkbenchLike }) {
             profileId={selected && selected !== "new" ? selected : undefined}
             dirty={probeDirty}
           />
-          <form className="desktop-profile-form" onSubmit={save}>
+          <form className="desktop-profile-form space-y-4" onSubmit={save}>
             <SettingsGroup
               title="启动配置"
               description="保存后创建新修订；已有会话继续使用创建时的配置。"
             >
               <SettingsRow title="配置名称">
-                <input
+                <Input
                   aria-label="配置名称"
                   required
                   maxLength={80}
                   value={draft.name}
+                  className="w-full sm:w-64"
                   onChange={(event) => change({ name: event.target.value })}
                 />
               </SettingsRow>
               <SettingsRow title="Agent 类型">
-                <select
+                <Select
                   aria-label="配置 Agent"
                   value={draft.provider}
+                  wrapperClassName="w-full sm:w-64"
                   onChange={(event) => change({ provider: event.target.value })}
                 >
                   {workbench.providers.map((item) => (
@@ -343,38 +369,53 @@ export function AgentSettings({ workbench }: { workbench: WorkbenchLike }) {
                       {item.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </SettingsRow>
               <SettingsRow
                 title="自定义 ACP 启动程序"
                 description="可选；留空使用内置入口。"
               >
-                <input
+                <Input
                   aria-label="自定义 ACP 启动程序"
                   value={draft.command}
                   placeholder="可执行程序的绝对路径"
+                  className="w-full font-mono text-[12px] sm:w-64"
                   onChange={(event) => change({ command: event.target.value })}
                 />
               </SettingsRow>
-              <SettingsRow title="完整启动参数" description="可选，覆盖默认值。">
-                <textarea
+              <SettingBlock className="space-y-2">
+                <div className="space-y-0.5">
+                  <div className="text-[13.5px] font-medium text-[var(--fg)]">
+                    完整启动参数
+                  </div>
+                  <p className="m-0 text-[12px] text-[var(--muted)]">
+                    可选 JSON 字符串数组；填写后将覆盖内置默认启动参数。
+                  </p>
+                </div>
+                <Textarea
                   aria-label="启动参数 JSON"
+                  rows={4}
                   value={draft.args}
                   placeholder={'["/path/to/adapter.js"]'}
+                  className="font-mono text-[12px]"
                   onChange={(event) => change({ args: event.target.value })}
                 />
-              </SettingsRow>
+              </SettingBlock>
             </SettingsGroup>
-            <div className="settings-form-actions desktop-settings-form-actions">
-              <button
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+              <Button
                 type="button"
+                variant="destructive"
+                size="sm"
                 disabled={busy || offline || !selected || selected === "new"}
                 onClick={() => void remove()}
               >
                 移除配置
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 disabled={busy}
                 onClick={() => {
                   change({ command: "", args: "" });
@@ -383,18 +424,30 @@ export function AgentSettings({ workbench }: { workbench: WorkbenchLike }) {
                 }}
               >
                 恢复默认入口
-              </button>
-              <button disabled={busy || offline || !draft.name.trim()}>
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={busy || offline || !draft.name.trim()}
+              >
                 {busy
                   ? "正在保存…"
                   : selected && selected !== "new"
                     ? "保存修订"
                     : "保存配置"}
-              </button>
+              </Button>
             </div>
           </form>
-          {error && <p role="alert">{error}</p>}
-          {notice && <p role="status">{notice}</p>}
+          {error && (
+            <Alert variant="destructive" role="alert" className="mt-4">
+              {error}
+            </Alert>
+          )}
+          {notice && (
+            <Alert variant="info" role="status" className="mt-4">
+              {notice}
+            </Alert>
+          )}
         </section>
       </div>
     </>

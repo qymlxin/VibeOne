@@ -17,6 +17,10 @@ import {
 } from "lucide-react";
 import { AgentSettings } from "./AgentSettings.tsx";
 import { BrandMark } from "./Brand.tsx";
+import { Alert } from "./components/ui/alert.tsx";
+import { Badge } from "./components/ui/badge.tsx";
+import { Button } from "./components/ui/button.tsx";
+import { Select } from "./components/ui/select.tsx";
 import { Management } from "./Management.tsx";
 import { NotificationSettings } from "./NotificationSettings.tsx";
 import { PluginManager } from "./plugins.tsx";
@@ -177,15 +181,17 @@ export function SettingsCenter({
                     title="工作主机"
                     description="桌面关闭后，独立主机继续保存会话并承载执行。"
                   >
-                    <span
-                      className={`settings-badge ${workbench.phase === "online" ? "success" : ""}`}
+                    <Badge
+                      variant={
+                        workbench.phase === "online" ? "success" : "secondary"
+                      }
                     >
                       {workbench.phase === "online"
                         ? "本机 · 已连接"
                         : workbench.phase}
-                    </span>
+                    </Badge>
                     <SettingsAction onClick={() => void workbench.reconnect()}>
-                      <RefreshCw size={12} />
+                      <RefreshCw size={13} />
                       重新连接
                     </SettingsAction>
                   </SettingsRow>
@@ -193,7 +199,7 @@ export function SettingsCenter({
                     title="Agent 接入"
                     description="已配置的启动入口。入口可用不等于工具已经认证。"
                   >
-                    <span>
+                    <span className="text-[12.5px] text-[var(--ink-secondary)]">
                       {workbench.providers
                         .map((provider) => provider.name)
                         .join("、")}
@@ -201,12 +207,14 @@ export function SettingsCenter({
                     {admin && (
                       <SettingsAction onClick={() => setPage("agents")}>
                         管理
-                        <ChevronRight size={12} />
+                        <ChevronRight size={13} />
                       </SettingsAction>
                     )}
                   </SettingsRow>
                   <SettingsRow title="界面语言">
-                    <span>简体中文</span>
+                    <span className="text-[12.5px] text-[var(--ink-secondary)]">
+                      简体中文
+                    </span>
                   </SettingsRow>
                 </SettingsGroup>
                 <SettingsGroup title="会话与执行">
@@ -214,7 +222,7 @@ export function SettingsCenter({
                     title="本地历史"
                     description="会话和配置统一持久保存，工程文件保留原路径。"
                   >
-                    <span>
+                    <span className="text-[12.5px] text-[var(--ink-secondary)]">
                       {workbench.persistent
                         ? "自动保存"
                         : "仅当前主机运行期间保留"}
@@ -224,53 +232,61 @@ export function SettingsCenter({
                     title="重启后的历史会话"
                     description="保留原消息；发送下一轮时默认续接原 Agent 上下文。"
                   >
-                    <span>不自动重放审批</span>
+                    <span className="text-[12.5px] text-[var(--ink-secondary)]">
+                      不自动重放审批
+                    </span>
                   </SettingsRow>
                   <SettingsRow
                     title="同一会话执行"
                     description="同一会话串行执行；可入队、撤回和暂停排队消息。"
                   >
-                    <span>最多 20 条排队消息</span>
+                    <span className="text-[12.5px] text-[var(--ink-secondary)]">
+                      最多 20 条排队消息
+                    </span>
                   </SettingsRow>
                   {admin && (
                     <SettingsRow
                       title="数据目录"
                       description="无法写入主目录时，使用可写的兼容目录。"
                     >
-                      <code>{workbench.dataDirectory ?? "由主机管理"}</code>
+                      <code className="rounded-md bg-[var(--hover)] px-2 py-1 font-mono text-[11.5px] text-[var(--ink-secondary)]">
+                        {workbench.dataDirectory ?? "由主机管理"}
+                      </code>
                       <SettingsAction onClick={() => setPage("data")}>
                         查看数据详情
-                        <ChevronRight size={12} />
+                        <ChevronRight size={13} />
                       </SettingsAction>
                     </SettingsRow>
                   )}
                 </SettingsGroup>
-                <p className="settings-note">
-                  <Info size={13} />
-                  会话保存在本机。修改连接或启动配置不会自动开始执行任务。
-                </p>
-                {!admin && <p>设备角色及工作区范围由电脑端管理。</p>}
+                <Alert className="mt-6">
+                  <Info size={15} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                  <span>
+                    会话保存在本机。修改连接或启动配置不会自动开始执行任务。
+                  </span>
+                </Alert>
+                {!admin && (
+                  <p className="mt-3 text-[12px] text-[var(--muted)]">
+                    设备角色及工作区范围由电脑端管理。
+                  </p>
+                )}
               </>
             )}
             {page === "appearance" &&
               (appearance ?? (
-                <section className="settings-group desktop-settings-group">
-                  <h2>视觉风格</h2>
-                  <div className="settings-rows">
-                    <div className="settings-row desktop-settings-row">
-                      <span>模式</span>
-                      <select
-                        aria-label="外观模式"
-                        value={theme}
-                        onChange={(event) => setTheme(event.target.value)}
-                      >
-                        <option value="system">跟随系统</option>
-                        <option value="light">亮色</option>
-                        <option value="dark">暗色</option>
-                      </select>
-                    </div>
-                  </div>
-                </section>
+                <SettingsGroup title="视觉风格">
+                  <SettingsRow title="模式">
+                    <Select
+                      aria-label="外观模式"
+                      value={theme}
+                      onChange={(event) => setTheme(event.target.value)}
+                    >
+                      <option value="system">跟随系统</option>
+                      <option value="light">亮色</option>
+                      <option value="dark">暗色</option>
+                    </Select>
+                  </SettingsRow>
+                </SettingsGroup>
               ))}
             {page === "notifications" && <NotificationSettings />}
             {page === "agents" && admin && (
@@ -294,66 +310,71 @@ export function SettingsCenter({
             )}
             {page === "data" && admin && (
               <>
-                <section className="settings-group desktop-settings-group">
-                  <h2>本地存储</h2>
-                  <div className="settings-rows">
-                    <div className="settings-row desktop-settings-row">
-                      <span>统一数据目录</span>
-                      <code>{workbench.dataDirectory ?? "由主机管理"}</code>
-                    </div>
-                    <p>
-                      {workbench.persistent
+                <SettingsGroup title="本地存储">
+                  <SettingsRow
+                    title="统一数据目录"
+                    description={
+                      workbench.persistent
                         ? "会话、配置和设备保存在本机 SQLite；工程文件保持原路径。"
-                        : "当前主机尚未启用持久历史。"}
-                    </p>
-                    {workbench.migrationPending && (
-                      <p>有任务使用旧目录，空闲重启后迁移。</p>
-                    )}
-                    {workbench.migrationWarning && (
-                      <p role="status">{workbench.migrationWarning}</p>
-                    )}
-                  </div>
-                </section>
-                <section className="settings-group desktop-settings-group">
-                  <h2>工作主机</h2>
-                  <div className="settings-rows">
-                    <div className="settings-row desktop-settings-row">
-                      <div>
-                        <strong>重启工作主机</strong>
-                        <p>
-                          先结束全部执行；重启后保留会话，未恢复的上下文需明确继续。
-                        </p>
-                      </div>
-                      <button
-                        disabled={workbench.phase !== "online" || busy}
-                        onClick={() => void run(workbench.restart)}
-                      >
-                        {workbench.phase === "upgrading"
-                          ? "正在重启…"
-                          : workbench.persistent
-                            ? "重启工作主机"
-                            : "保存会话并升级主机"}
-                      </button>
+                        : "当前主机尚未启用持久历史。"
+                    }
+                  >
+                    <code className="rounded-md bg-[var(--hover)] px-2.5 py-1 font-mono text-[11.5px] text-[var(--ink-secondary)] [overflow-wrap:anywhere]">
+                      {workbench.dataDirectory ?? "由主机管理"}
+                    </code>
+                  </SettingsRow>
+                  {workbench.migrationPending && (
+                    <div className="px-5 py-3 text-[12px] text-[var(--ink-secondary)]">
+                      有任务使用旧目录，空闲重启后迁移。
                     </div>
-                  </div>
-                </section>
+                  )}
+                  {workbench.migrationWarning && (
+                    <div className="px-5 py-3">
+                      <Alert variant="warning" role="status">
+                        {workbench.migrationWarning}
+                      </Alert>
+                    </div>
+                  )}
+                </SettingsGroup>
+                <SettingsGroup title="工作主机">
+                  <SettingsRow
+                    title="重启工作主机"
+                    description="先结束全部执行；重启后保留会话，未恢复的上下文需明确继续。"
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={workbench.phase !== "online" || busy}
+                      onClick={() => void run(workbench.restart)}
+                    >
+                      {workbench.phase === "upgrading"
+                        ? "正在重启…"
+                        : workbench.persistent
+                          ? "重启工作主机"
+                          : "保存会话并升级主机"}
+                    </Button>
+                  </SettingsRow>
+                </SettingsGroup>
                 <Management workbench={workbench} section="diagnostics" />
-                <section className="settings-group desktop-settings-group">
-                  <h2>通信信息</h2>
-                  <div className="settings-rows">
-                    <div className="settings-row desktop-settings-row">
-                      <span>Agent</span>
-                      <code>ACP v2</code>
-                    </div>
-                    <div className="settings-row desktop-settings-row">
-                      <span>插件</span>
-                      <code>Plugin RPC v1</code>
-                    </div>
-                  </div>
-                </section>
+                <SettingsGroup title="通信信息">
+                  <SettingsRow title="Agent">
+                    <Badge variant="outline" className="font-mono">
+                      ACP v2
+                    </Badge>
+                  </SettingsRow>
+                  <SettingsRow title="插件">
+                    <Badge variant="outline" className="font-mono">
+                      Plugin RPC v1
+                    </Badge>
+                  </SettingsRow>
+                </SettingsGroup>
               </>
             )}
-            {error && <p role="alert">{error}</p>}
+            {error && (
+              <Alert variant="destructive" role="alert" className="mt-4">
+                {error}
+              </Alert>
+            )}
           </div>
         </div>
       )}

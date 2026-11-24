@@ -271,6 +271,12 @@ export function ContextTabs({
         : s,
     );
 
+  const activeItem = state.items.find((t) => t.id === state.active);
+  // 工作区变更概览仅在变更或文件类标签页中显示，避免遮挡网页、终端或新建页
+  const showOverview = Boolean(
+    activeItem && ["changes", "run-changes", "files"].includes(activeItem.kind),
+  );
+
   return (
     <>
       <header className="panel-tabs desktop-right-panel-header">
@@ -337,7 +343,7 @@ export function ContextTabs({
           </button>
         </div>
       </header>
-      {overview}
+      {showOverview ? overview : null}
       {state.items.map((item) => (
         <div
           className="context-tabpane"

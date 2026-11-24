@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Folder, FolderOpen, Plus } from "lucide-react";
 import { chooseWorkspace } from "./api.ts";
+import { Alert } from "./components/ui/alert.tsx";
+import { Button } from "./components/ui/button.tsx";
+import { Input } from "./components/ui/input.tsx";
+import { Select } from "./components/ui/select.tsx";
+import {
+  SettingBlock,
+  SettingItem,
+  SettingSection,
+} from "./components/ui/setting-layout.tsx";
 import { CreateProjectDialog } from "./CreateProjectDialog.tsx";
 import type {
   DesktopSession,
@@ -127,56 +137,61 @@ export function ProjectSettings({
           onCreated={(value) => setSelected(value.id)}
         />
       )}
-      <section className="settings-group">
-        <h2>项目</h2>
-        <p className="group-description">
-          一个项目可引入多个工作目录，并创建多个会话。每个会话选择一个目录作为执行位置。
-        </p>
-        <div className="settings-rows">
-          <div className="settings-row">
-            <div>
-              <strong>新建项目</strong>
-              <small>设置名称并添加源文件夹。</small>
-            </div>
-            <button
-              className="settings-action"
-              onClick={() => setCreating(true)}
-            >
-              创建项目
-            </button>
-          </div>
-        </div>
-      </section>
-      <section className="settings-group">
-        <h2>引入工作目录</h2>
-        <div className="settings-rows">
-          {project ? (
-            <>
-              <div className="settings-row">
-                <div>
-                  <strong>项目</strong>
-                </div>
-                <div className="settings-control">
-                  <select
-                    aria-label="管理项目"
-                    value={project.id}
-                    onChange={(e) => setSelected(e.target.value)}
-                  >
-                    {projects.items.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+
+      <SettingSection
+        title="项目"
+        description="一个项目可引入多个工作目录，并创建多个会话。每个会话选择一个目录作为执行位置。"
+      >
+        <SettingItem
+          title="新建项目"
+          description="设置名称并添加源文件夹。"
+        >
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <Plus size={14} />
+            创建项目
+          </Button>
+        </SettingItem>
+      </SettingSection>
+
+      <SettingSection title="引入工作目录">
+        {project ? (
+          <>
+            <SettingItem title="项目" description="选择要绑定目录的目标项目。">
+              <Select
+                aria-label="管理项目"
+                value={project.id}
+                onChange={(e) => setSelected(e.target.value)}
+                wrapperClassName="w-full sm:w-56"
+              >
+                {projects.items.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+            </SettingItem>
+
+            {project.paths.map((p) => (
+              <div
+                className="flex items-center gap-3 px-5 py-3.5 text-[12.5px]"
+                key={p}
+              >
+                <Folder
+                  size={15}
+                  className="shrink-0 text-[var(--ink-secondary)]"
+                />
+                <code
+                  title={p}
+                  className="min-w-0 flex-1 font-mono text-[12px] text-[var(--ink-secondary)] [overflow-wrap:anywhere]"
+                >
+                  {p}
+                </code>
               </div>
-              {project.paths.map((p) => (
-                <div className="settings-row" key={p}>
-                  <code title={p}>{p}</code>
-                </div>
-              ))}
+            ))}
+
+            <SettingBlock>
               <form
-                className="settings-form"
+                className="flex flex-col gap-3"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void run(async () => {
@@ -185,14 +200,15 @@ export function ProjectSettings({
                   });
                 }}
               >
-                <label>
-                  工作目录
-                  <input
+                <label className="space-y-1.5 text-[12.5px] font-medium text-[var(--fg)]">
+                  <span>工作目录</span>
+                  <Input
                     aria-label="引入工作目录"
                     value={path}
                     onChange={(e) => setPath(e.target.value)}
                     placeholder="输入目录的绝对路径"
                     list="project-directory-options"
+                    className="font-mono text-[12px]"
                   />
                 </label>
                 <datalist id="project-directory-options">
@@ -202,36 +218,46 @@ export function ProjectSettings({
                     </option>
                   ))}
                 </datalist>
-                <button
-                  type="button"
-                  className="settings-action"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      const nextPath = await chooseWorkspace();
-                      if (nextPath) {
-                        setPath(nextPath);
-                      }
-                    })
-                  }
-                >
-                  选择目录
-                </button>
-                <button
-                  className="settings-action"
-                  disabled={busy || !path.trim()}
-                >
-                  引入目录
-                </button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        const nextPath = await chooseWorkspace();
+                        if (nextPath) {
+                          setPath(nextPath);
+                        }
+                      })
+                    }
+                  >
+                    <FolderOpen size={13} />
+                    选择目录
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={busy || !path.trim()}
+                  >
+                    引入目录
+                  </Button>
+                </div>
               </form>
-            </>
-          ) : (
-            <p>先创建一个项目，再引入工作目录。</p>
-          )}
-        </div>
-      </section>
+            </SettingBlock>
+          </>
+        ) : (
+          <SettingBlock className="text-[12.5px] text-[var(--muted)]">
+            先创建一个项目，再引入工作目录。
+          </SettingBlock>
+        )}
+      </SettingSection>
+
       {(error || projects.error) && (
-        <p role="alert">{error || projects.error}</p>
+        <Alert variant="destructive" role="alert" className="mt-4">
+          {error || projects.error}
+        </Alert>
       )}
     </>
   );
