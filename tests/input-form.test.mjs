@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {inputFields,initialInputValues,inputContent,valuesFromInput,initialInputJson} from '../apps/desktop/src/input-form.js';
+import {inputFields,initialInputValues,inputContent,valuesFromInput,initialInputJson} from '../apps/desktop/src/input-form.ts';
 const schema={type:'object',properties:{color:{type:'string',title:'颜色',oneOf:[{const:'blue',title:'蓝色',description:'深色主题'},{const:'',title:'不指定'}]},count:{type:'integer'},notes:{type:'string'},include:{type:'boolean'},confirmed:{type:'boolean'},tags:{type:'array',items:{type:'string',enum:['a','b']}},secret:{type:'string',_meta:{codex:{isSecret:true}}}},required:['color','count','confirmed']};
 test('Codex oneOf choices preserve exact values and do not preselect an answer',()=>{
  const fields=inputFields(schema),values=initialInputValues(fields);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {applySync,createWorkbenchSync,SyncProtocolError} from '../apps/desktop/src/workbench-sync.js';
+import {applySync,createWorkbenchSync,SyncProtocolError} from '../apps/desktop/src/workbench-sync.ts';
 const reset=(cursor=1,epoch='host-a')=>({version:1,epoch,cursor,reset:'initial',snapshot:{revision:cursor,sessions:[{id:'a',text:'one'},{id:'b',text:'two'}]}});
 const delta=(from=1,cursor=2)=>({version:1,epoch:'host-a',from,cursor,metadata:{revision:cursor,providers:[]},visibleSessionIds:['a','b'],events:[{id:'event-2',cursor:2,type:'session.projected',session:{id:'a',text:'updated'}}]});
 

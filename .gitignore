@@ -4,6 +4,7 @@ examples/plugins/*/dist/
 target/
 *.tsbuildinfo
 apps/desktop/dist/
+apps/desktop/dist-electron/
 prototype-dist/
 .impeccable/review/
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {composerToken,replaceToken,commandOptions,commandPanel,referenceOptions} from '../apps/desktop/src/composer.js';
+import {composerToken,replaceToken,commandOptions,commandPanel,referenceOptions} from '../apps/desktop/src/composer.ts';
 test('composer tokens respect caret, whitespace and preserve trailing text',()=>{
   assert.equal(composerToken('https://example.com',19),null);
   assert.equal(composerToken('mail@host',9),null);
@@ -44,7 +44,7 @@ test('direct send handles only exact local commands and respects upstream names'
   assert.equal(commandPanel('/not-advertised',[]),null);
 });
 
-import {codeLines} from '../apps/desktop/src/code-lines.js';
+import {codeLines} from '../apps/desktop/src/code-lines.ts';
 test('unified diff line numbers and counts exclude headers and follow hunk ranges',()=>{
   const parsed=codeLines('--- a/main.js\n+++ b/main.js\n@@ -3,2 +3,3 @@\n kept\n-old\n+new\n+extra\n',true);
   assert.equal(parsed.added,2);assert.equal(parsed.removed,1);
@@ -53,7 +53,7 @@ test('unified diff line numbers and counts exclude headers and follow hunk range
   assert.equal(codeLines('x\n'.repeat(5001)).clipped,true);
 });
 
-import {canConfigure,configChoices} from '../apps/desktop/src/agent-config.js';
+import {canConfigure,configChoices} from '../apps/desktop/src/agent-config.ts';
 test('ACP config supports grouped values and enforces UI execution/device states',()=>{
  assert.deepEqual(configChoices({type:'select',options:[{name:'Models',options:[{value:'m1',name:'Model one'},{value:42}]}]}),[{value:'m1',name:'Model one',group:'Models'}]);
  assert.equal(configChoices({type:'_future',options:[{value:'x'}]}).length,0);
@@ -63,7 +63,7 @@ test('ACP config supports grouped values and enforces UI execution/device states
  assert.equal(canConfigure({status:'idle',historyOnly:true},{phase:'online'}),false);
 });
 
-import {recentSessions,sessionGroups} from '../apps/desktop/src/session-groups.js';
+import {recentSessions,sessionGroups} from '../apps/desktop/src/session-groups.ts';
 test('project grouping uses authorized workspace paths and keeps every session exactly once',()=>{
  const sessions=[{id:'a',workspace:'/one'},{id:'b',workspace:'/two'},{id:'c',workspace:'/one'}];
  const groups=sessionGroups(sessions,[{path:'/one',name:'Project One'}]);
@@ -77,7 +77,7 @@ test('recent sessions sort by persisted activity and fall back to legacy Run tim
  assert.deepEqual(sessions.map(session=>session.id),['a','b','c']);
 });
 
-import {discoverComposerSkills} from '../apps/desktop/src/composer-skills.js';
+import {discoverComposerSkills} from '../apps/desktop/src/composer-skills.ts';
 test('project skill discovery uses authorized paths, ignores symlinks and preserves source identities',async()=>{
  const dir=(name,path=name)=>({name,path,kind:'directory'}), file=name=>({name,kind:'file'});
  const trees={'.':{entries:[dir('.agents'),dir('.claude')]},'.agents':{entries:[dir('skills')]},'.claude':{entries:[dir('skills')]},'.agents/skills':{entries:[dir('review','.agents/skills/review'),{name:'linked',kind:'symlink'}]},'.claude/skills':{entries:[dir('review','.claude/skills/review'),dir('empty','.claude/skills/empty')]},'.agents/skills/review':{entries:[file('SKILL.md')]},'.claude/skills/review':{entries:[file('SKILL.md')]},'.claude/skills/empty':{entries:[]}};
@@ -121,7 +121,7 @@ test('choosing inside a trigger replaces its complete suffix but preserves follo
  assert.equal(replaceToken(quoted,composerToken(quoted,10),''),'看  后文');
 });
 
-import {remotePreferences} from '../apps/desktop/src/remote-preferences.js';
+import {remotePreferences} from '../apps/desktop/src/remote-preferences.ts';
 test('remote settings hydrate saved intent, actual IP and legacy Host addresses separately',()=>{
  assert.deepEqual(remotePreferences({configuration:{enabled:false,ip:'127.0.0.2',port:0},suggestedIp:'192.168.1.2'}),{ip:'127.0.0.2',port:'0'});
  assert.deepEqual(remotePreferences({url:'https://127.0.0.3:1234',configuration:{ip:'127.0.0.2',port:0}}),{ip:'127.0.0.3',port:'0'});
@@ -131,7 +131,7 @@ test('remote settings hydrate saved intent, actual IP and legacy Host addresses 
 });
 
 
-import {devicePresentation} from '../apps/desktop/src/remote-preferences.js';
+import {devicePresentation} from '../apps/desktop/src/remote-preferences.ts';
 test('device display uses Host status, real scopes and legacy expiry without claiming invalid grants active',()=>{
  const grant={id:'phone',name:'Phone',role:'viewer',workspaces:['one','missing'],expiresAt:200,revoked:false};
  assert.equal(devicePresentation(grant,[],300).label,'已过期');
@@ -151,7 +151,7 @@ test('diff metadata stays hidden across files without dropping header-like sourc
  assert.deepEqual(parsed.rows.map(row=>row.text),['--- old','+++ new','-before','+after']);
 });
 
-import {groupReferenceText,configCategory} from '../apps/desktop/src/composer.js';
+import {groupReferenceText,configCategory} from '../apps/desktop/src/composer.ts';
 test('group references deliver authorized text and reject binary or oversized context',async()=>{
  const read=async url=>url.includes('/tree?')?{entries:[{path:'docs/a.md'}]}:{text:'source text'};
  const prompt=await groupReferenceText(read,'group id','review',['a.md','docs/']);
@@ -170,7 +170,7 @@ test('Agent advertised dollar skills belong to skills, keep their wire command a
  assert.equal(options.filter(o=>o.name==='local').length,1);assert.equal(options.find(o=>o.name==='local').path,'.agents/skills/local/SKILL.md');
 });
 
-import {referenceRequest} from '../apps/desktop/src/composer.js';
+import {referenceRequest} from '../apps/desktop/src/composer.ts';
 test('reference requests browse complete directories and search full relative paths',()=>{
  assert.equal(referenceRequest('session','').path,'/sessions/session/tree?path=.');
  assert.equal(referenceRequest('session','docs/guides/').path,'/sessions/session/tree?path=docs%2Fguides%2F');

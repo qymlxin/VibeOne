@@ -9,7 +9,7 @@ import {chromium} from '@playwright/test';
 test('reference candidates stay visible while loading and stale files cannot be attached',{timeout:15000},async t=>{
  const dir=await mkdtemp(resolve('node_modules/.cache/composer-loading-'));t.after(()=>rm(dir,{recursive:true,force:true}));
  const entry=join(dir,'entry.jsx');
- await writeFile(entry,`import React,{useState}from'react';import{createRoot}from'react-dom/client';import{ComposerInput}from'${resolve('apps/desktop/src/ComposerInput.jsx')}';
+ await writeFile(entry,`import React,{useState}from'react';import{createRoot}from'react-dom/client';import{ComposerInput}from'${resolve('apps/desktop/src/ComposerInput.tsx')}';
  window.requests=[];window.attachments=[];window.submissions=0;
  const workbench={features:[],read:(path)=>new Promise((resolve,reject)=>{window.requests.push({path,resolve,reject})})};
  const session={id:'s',status:'idle',agentState:{}};

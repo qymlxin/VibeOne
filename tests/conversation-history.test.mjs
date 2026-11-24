@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {snapshotRecords,mergeHistory,historyBounds} from '../apps/desktop/src/conversation-history.js';
-import {buildTurns} from '../apps/desktop/src/chat-timeline.js';
+import {snapshotRecords,mergeHistory,historyBounds} from '../apps/desktop/src/conversation-history.ts';
+import {buildTurns} from '../apps/desktop/src/chat-timeline.ts';
 const message=(order,revision,fields={})=>({kind:'message',item:{id:`m${order}`,role:'assistant',text:'new',historyOrder:order,historyRevision:revision,...fields}});
 test('archive merge preserves newer stream content and replaces pending identity at the same order',()=>{
  const pending=message(1,1,{id:'pending:r',role:'user',runId:'r',pending:true});

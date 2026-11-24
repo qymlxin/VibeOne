@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildTurns,activityTail,groupProcess,formatDuration} from '../apps/desktop/src/chat-timeline.js';
+import {buildTurns,activityTail,groupProcess,formatDuration} from '../apps/desktop/src/chat-timeline.ts';
 
 test('activity is grouped by Run, preserves intermediate replies in order, and never reassigns legacy tools',()=>{
  const session={status:'running',runs:[{id:'a',status:'completed'},{id:'b',status:'running'}],messages:[

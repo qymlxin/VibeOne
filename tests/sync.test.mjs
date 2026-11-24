@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {host} from './helpers/host.mjs';
-import {applySync} from '../apps/desktop/src/workbench-sync.js';
+import {applySync} from '../apps/desktop/src/workbench-sync.ts';
 
 test('cursor sync coalesces changed sessions and resets invalid cursors', {timeout:20000}, async t=>{
   const {directory,call,connection,wait}=await host(t);

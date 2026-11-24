@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {describeTool,parseToolValue,safeToolUrl} from '../apps/desktop/src/tool-presentation.js';
+import {describeTool,parseToolValue,safeToolUrl} from '../apps/desktop/src/tool-presentation.ts';
 
 test('Codex web actions show complete queries and distinguish page opens without leaking transport ids into presentation',()=>{
  const search=describeTool({rawInput:{type:'webSearch',id:'transport',query:'truncated...',action:{type:'search',queries:['first query','second query']}}});
@@ -28,7 +28,7 @@ test('only HTTP and HTTPS tool links are clickable',()=>{
  for (const value of ['javascript:alert(1)','data:text/html,x','file:///etc/passwd','not a URL']) assert.equal(safeToolUrl(value),null);
 });
 
-import {remarkSoftBreaks} from '../apps/desktop/src/markdown-layout.js';
+import {remarkSoftBreaks} from '../apps/desktop/src/markdown-layout.ts';
 test('soft line breaks stay inside paragraphs without touching code indentation or inventing block spacing',()=>{
  const tree={type:'root',children:[{type:'paragraph',children:[{type:'text',value:'title\ndescription'}]},{type:'code',value:'  first\n    second'}]};
  remarkSoftBreaks()(tree);
@@ -37,7 +37,7 @@ test('soft line breaks stay inside paragraphs without touching code indentation 
  assert.equal(tree.children[1].value,'  first\n    second');
 });
 
-import {describeAction} from '../apps/desktop/src/tool-presentation.js';
+import {describeAction} from '../apps/desktop/src/tool-presentation.ts';
 test('semantic reads use explicit ACP file paths, never infer reads from arbitrary shell',()=>{
  assert.deepEqual(describeAction({kind:'read',status:'completed',locations:[{path:'/project/a.ts'},{path:'/project/a.ts'}]}),{paths:['/project/a.ts'],operation:'read',label:'已读取'});
  assert.deepEqual(describeAction({kind:'read',title:"Read file '/project/b.ts'"}).paths,['/project/b.ts']);
@@ -45,7 +45,7 @@ test('semantic reads use explicit ACP file paths, never infer reads from arbitra
  assert.equal(describeAction({kind:'read',title:"List files in '/project'"}).operation,null);
 });
 
-import {previewUrl,workspacePath} from '../apps/desktop/src/preview-links.js';
+import {previewUrl,workspacePath} from '../apps/desktop/src/preview-links.ts';
 test('preview links separate web URLs and workspace paths, rejecting traversal and embedded credentials',()=>{
  assert.equal(previewUrl('https://example.com/docs'),'https://example.com/docs');
  for(const value of ['javascript:alert(1)','https://name:secret@example.com','file:///tmp/a'])assert.equal(previewUrl(value),null);
@@ -54,7 +54,7 @@ test('preview links separate web URLs and workspace paths, rejecting traversal a
  for(const value of ['../secret','%2e%2e/secret','/other/a','file://remote/workspace/a','https://example.com/a','C:\\private'])assert.equal(workspacePath(value,'/workspace'),null);
 });
 
-import {normalizeAppearance,contrastRatio} from '../apps/desktop/src/appearance.js';
+import {normalizeAppearance,contrastRatio} from '../apps/desktop/src/appearance.ts';
 test('appearance storage accepts only six-digit colors and isolates light and dark values',()=>{
  const value=normalizeAppearance({accent:'url(javascript:x)',light:{background:'#f4f1eb',foreground:'red'},dark:{foreground:'#FFFFFF'}});
  assert.equal(value.accent,'#3564F5');assert.deepEqual(value.light,{background:'#f4f1eb'});assert.deepEqual(value.dark,{foreground:'#FFFFFF'});

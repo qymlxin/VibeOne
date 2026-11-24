@@ -6,11 +6,13 @@
   "scripts": {
     "web": "vite --host 127.0.0.1 --port 5174 --strictPort",
     "build:web": "vite build",
-    "electron": "electron .",
+    "build:electron": "node ../../scripts/build-electron.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "electron": "npm run build:electron && electron .",
     "bundle:electron": "node ../../scripts/bundle-electron.mjs"
   },
   "dependencies": {
     "@pierre/diffs": "1.6.4"
   },
-  "main": "electron/main.cjs"
+  "main": "dist-electron/main.cjs"
 }

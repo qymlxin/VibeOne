@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {host} from './helpers/host.mjs';
-import {savedModelOption,modelOptions} from '../apps/desktop/src/session-models.js';
+import {savedModelOption,modelOptions} from '../apps/desktop/src/session-models.ts';
 
 test('model menu uses actual grouped options and isolates profiles',()=>{
  const option={type:'select',category:'model',configId:'selected_model',options:[{name:'Models',options:[{value:'actual',name:'Actual model'}]}]};

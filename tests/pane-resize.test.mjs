@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {paneDrag,paneRelease} from '../apps/desktop/src/pane-resize.js';
+import {paneDrag,paneRelease} from '../apps/desktop/src/pane-resize.ts';
 
 test('one continuous gesture collapses and restores at half the minimum',()=>{
  for(const minimum of [200,280]){
