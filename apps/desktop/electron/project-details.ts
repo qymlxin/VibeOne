@@ -21,7 +21,7 @@ export async function projectDetails(
   if (
     !Array.isArray(ids) ||
     ids.length > 64 ||
-    ids.some((id): id is string => typeof id !== "string") === false
+    ids.some((id) => typeof id !== "string")
   ) {
     throw new Error("项目列表无效");
   }

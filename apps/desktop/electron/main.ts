@@ -7,6 +7,7 @@ import {
   ipcMain,
   net,
   protocol,
+  screen,
   session,
   shell,
 } from "electron";
@@ -538,15 +539,26 @@ app
     );
     browsing.setPermissionCheckHandler(() => false);
 
+    const { workArea } = screen.getPrimaryDisplay();
+    // 根据主显示器可用工作区比例自适应初始窗口大小，兼顾小屏笔记本与大屏显示器
+    const initialWidth = Math.min(
+      1480,
+      Math.max(960, Math.floor(workArea.width * 0.9)),
+    );
+    const initialHeight = Math.min(
+      940,
+      Math.max(660, Math.floor(workArea.height * 0.9)),
+    );
+
     mainWindow = new BrowserWindow({
-      width: 1480,
-      height: 940,
-      minWidth: 900,
-      minHeight: 620,
+      width: initialWidth,
+      height: initialHeight,
+      minWidth: 760,
+      minHeight: 560,
       title: "VibeOne",
       titleBarStyle: "hiddenInset",
-      trafficLightPosition: { x: 14, y: 12 },
-      backgroundColor: "#181818",
+      trafficLightPosition: { x: 14, y: 16 },
+      backgroundColor: "#0E1116",
       webPreferences: {
         preload: path.join(__dirname, "preload.cjs"),
         nodeIntegration: false,

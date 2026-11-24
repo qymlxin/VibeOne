@@ -8,9 +8,11 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 if(!existsSync(join(root,'target/desktop-resources/bin/vibeone-host'))){
   execFileSync(process.execPath,[join(root,'scripts/prepare-desktop.mjs')],{cwd:root,stdio:'inherit'});
 }
+const launchEnv={...process.env};
+delete launchEnv.ELECTRON_RUN_AS_NODE;
 execFileSync('npm',['run','build:electron','-w','@vibeone/desktop'],{cwd:root,stdio:'inherit'});
 if(process.platform!=='darwin'){
-  execFileSync(join(root,'node_modules/.bin/electron'),[join(root,'apps/desktop/dist-electron/dev-bootstrap.cjs')],{cwd:root,stdio:'inherit'});
+  execFileSync(join(root,'node_modules/.bin/electron'),[join(root,'apps/desktop/dist-electron/dev-bootstrap.cjs')],{cwd:root,stdio:'inherit',env:launchEnv});
 }else{
   const destination=join(homedir(),'Applications/VibeOne.app');
   if(!existsSync(destination)){
@@ -29,5 +31,5 @@ if(process.platform!=='darwin'){
   writeFileSync(join(resources,'electron/dev-source.cjs'),`require(${JSON.stringify(join(root,'apps/desktop/dist-electron/dev-bootstrap.cjs'))});\n`);
   writeFileSync(manifest,JSON.stringify(pkg));
   console.log(`固定开发应用：${destination}`);
-  if(!process.argv.includes('--setup-only'))execFileSync('open',[destination]);
+  if(!process.argv.includes('--setup-only'))execFileSync('open',[destination],{env:launchEnv});
 }
