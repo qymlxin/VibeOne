@@ -1,17 +1,17 @@
 /* Keep the resize surface alive across collapse so the same gesture can reopen it. */
 .split-handle[hidden],.context-panel[hidden],.sidebar-resize-slot[hidden]{display:none!important}
 @media(min-width:801px){
- .review-app{position:relative;--sidebar-track:var(--sidebar-drag-width,var(--sidebar-width,224px));--right-rest-width:var(--panel-width,38vw)}
+ .review-app{position:relative;--sidebar-track:var(--sidebar-drag-width,var(--sidebar-width,248px));--right-rest-width:var(--panel-width,38vw)}
  .review-app.no-sidebar{--sidebar-track:0px}
  .review-app.wide-panel{--right-rest-width:min(70vw,1100px)}
  .review-app.desktop-app:not(.settings-open){grid-template-columns:var(--sidebar-track) minmax(0,1fr)}
  .review-app.desktop-app.no-sidebar:not(.settings-open){grid-template-columns:minmax(0,1fr)}
- .review-app.desktop-app.has-panel:not(.settings-open){grid-template-columns:var(--sidebar-track) minmax(0,1fr) 4px minmax(0,min(var(--panel-drag-width,var(--right-rest-width)),max(0px,calc(100% - var(--sidebar-track) - 328px))))}
- .review-app.desktop-app.no-sidebar.has-panel:not(.settings-open){grid-template-columns:minmax(0,1fr) 4px minmax(0,min(var(--panel-drag-width,var(--right-rest-width)),max(0px,calc(100% - 328px))))}
+ .review-app.desktop-app.has-panel:not(.settings-open){grid-template-columns:var(--sidebar-track) minmax(0,1fr) 4px minmax(0,min(var(--panel-drag-width,var(--right-rest-width)),max(0px,calc(100% - var(--sidebar-track) - 320px))))}
+ .review-app.desktop-app.no-sidebar.has-panel:not(.settings-open){grid-template-columns:minmax(0,1fr) 4px minmax(0,min(var(--panel-drag-width,var(--right-rest-width)),max(0px,calc(100% - 320px))))}
  .sidebar-resize-slot{grid-column:1;grid-row:2;display:flex;min-width:0;min-height:0;overflow:clip;opacity:var(--sidebar-drag-opacity,1)}
- .sidebar-resize-slot>.session-sidebar{box-sizing:border-box;min-width:200px;width:100%;height:100%;flex:1}
- .review-app .sidebar-resize{position:absolute;top:40px;bottom:0;left:max(0px,calc(var(--sidebar-track) - 3px));width:6px;background:transparent;z-index:8}
- .review-app .panel-resize.is-collapsed{position:absolute;right:0;top:40px;bottom:0;width:6px;background:transparent;z-index:8}
+ .sidebar-resize-slot>.session-sidebar{box-sizing:border-box;min-width:0;width:100%;height:100%;flex:1}
+ .review-app .sidebar-resize{position:absolute;top:var(--windowbar-h,48px);bottom:0;left:max(0px,calc(var(--sidebar-track) - 3px));width:6px;background:transparent;z-index:8}
+ .review-app .panel-resize.is-collapsed{position:absolute;right:0;top:var(--windowbar-h,48px);bottom:0;width:6px;background:transparent;z-index:8}
  .review-app .sidebar-resize:hover,.review-app .sidebar-resize:focus-visible,.review-app .panel-resize.is-collapsed:hover,.review-app .panel-resize.is-collapsed:focus-visible{background:color-mix(in srgb,var(--accent) 65%,transparent)}
  .review-app .context-panel{min-width:0;max-width:100%;opacity:var(--panel-drag-opacity,1)}
  .review-app[data-pane-drag] .context-panel,.review-app[data-pane-drag] .sidebar-resize-slot{transition:none;animation:none}

@@ -1,0 +1,2357 @@
+<!doctype html>
+<html lang="zh-CN" data-scheme="precision" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VibeOne 全站视觉与自适应重构样图</title>
+  <style>
+    /* =========================================================
+       全局重置与浏览器原生表面定制（滚动条、选区、焦点环）
+       ========================================================= */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    }
+
+    /* =========================================================
+       方案 A：极简精密工作台 (precision)
+       冷调中性灰阶 + 清澈钴蓝 + 细锐边框 + 平衡信息密度
+       ========================================================= */
+    html[data-scheme="precision"][data-theme="dark"] {
+      --bg-canvas: #0E1116;
+      --bg-sidebar: #131720;
+      --bg-surface: #151A23;
+      --bg-elevated: #191F2B;
+      --bg-hover: rgba(255, 255, 255, 0.055);
+      --bg-selected: rgba(91, 130, 255, 0.14);
+      --bg-input: #10141C;
+      --bg-code: #0B0E13;
+      --ink-primary: #EDF1F7;
+      --ink-secondary: #A6B0C2;
+      --ink-muted: #727E93;
+      --accent: #5B82FF;
+      --accent-soft: rgba(91, 130, 255, 0.16);
+      --accent-ink: #FFFFFF;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --status-green: #38C677;
+      --status-green-bg: rgba(56, 198, 119, 0.14);
+      --status-amber: #E5A93B;
+      --status-amber-bg: rgba(229, 169, 59, 0.14);
+      --status-red: #F06262;
+      --status-red-bg: rgba(240, 98, 98, 0.14);
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 10px;
+      --card-shadow: none;
+      --card-border: 1px solid var(--border-subtle);
+      --elevated-shadow: 0 12px 32px rgba(0, 0, 0, 0.48);
+      --space-unit: 16px;
+      --sidebar-w: 236px;
+      --panel-w: 390px;
+      --windowbar-h: 44px;
+      --reading-max: 780px;
+      --overview-max: 1160px;
+    }
+
+    html[data-scheme="precision"][data-theme="light"] {
+      --bg-canvas: #F6F7F9;
+      --bg-sidebar: #ECEFF4;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #FFFFFF;
+      --bg-hover: rgba(15, 23, 42, 0.05);
+      --bg-selected: rgba(53, 100, 245, 0.10);
+      --bg-input: #FFFFFF;
+      --bg-code: #F8FAFC;
+      --ink-primary: #141821;
+      --ink-secondary: #485366;
+      --ink-muted: #6C788C;
+      --accent: #3564F5;
+      --accent-soft: rgba(53, 100, 245, 0.10);
+      --accent-ink: #FFFFFF;
+      --border-subtle: rgba(15, 23, 42, 0.09);
+      --border-strong: rgba(15, 23, 42, 0.18);
+      --status-green: #168049;
+      --status-green-bg: rgba(22, 128, 73, 0.10);
+      --status-amber: #B26A00;
+      --status-amber-bg: rgba(178, 106, 0, 0.10);
+      --status-red: #C73333;
+      --status-red-bg: rgba(199, 51, 51, 0.10);
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 10px;
+      --card-shadow: none;
+      --card-border: 1px solid var(--border-subtle);
+      --elevated-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+      --space-unit: 16px;
+      --sidebar-w: 236px;
+      --panel-w: 390px;
+      --windowbar-h: 44px;
+      --reading-max: 780px;
+      --overview-max: 1160px;
+    }
+
+    /* =========================================================
+       方案 B：温润编辑感工作室 (editorial)
+       暖纸白 / 暖炭灰 + 赤陶琥珀 + 柔和阴影层级 + 宽裕阅读呼吸感
+       ========================================================= */
+    html[data-scheme="editorial"][data-theme="light"] {
+      --bg-canvas: #FAF7F2;
+      --bg-sidebar: #F1EBE1;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #FFFFFF;
+      --bg-hover: rgba(48, 37, 25, 0.055);
+      --bg-selected: rgba(196, 91, 44, 0.11);
+      --bg-input: #FFFFFF;
+      --bg-code: #F7F3EC;
+      --ink-primary: #211C17;
+      --ink-secondary: #5C5145;
+      --ink-muted: #827567;
+      --accent: #C45B2C;
+      --accent-soft: rgba(196, 91, 44, 0.11);
+      --accent-ink: #FFFDF9;
+      --border-subtle: rgba(54, 42, 28, 0.09);
+      --border-strong: rgba(54, 42, 28, 0.18);
+      --status-green: #22734A;
+      --status-green-bg: rgba(34, 115, 74, 0.10);
+      --status-amber: #A85D14;
+      --status-amber-bg: rgba(168, 93, 20, 0.11);
+      --status-red: #B83A32;
+      --status-red-bg: rgba(184, 58, 50, 0.10);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --card-shadow: 0 2px 10px rgba(45, 32, 18, 0.055), 0 1px 2px rgba(45, 32, 18, 0.04);
+      --card-border: 0 solid transparent;
+      --elevated-shadow: 0 18px 42px rgba(45, 32, 18, 0.14);
+      --space-unit: 20px;
+      --sidebar-w: 248px;
+      --panel-w: 400px;
+      --windowbar-h: 48px;
+      --reading-max: 740px;
+      --overview-max: 1120px;
+    }
+
+    html[data-scheme="editorial"][data-theme="dark"] {
+      --bg-canvas: #161412;
+      --bg-sidebar: #1D1A17;
+      --bg-surface: #231F1B;
+      --bg-elevated: #2A2520;
+      --bg-hover: rgba(255, 240, 224, 0.06);
+      --bg-selected: rgba(227, 124, 77, 0.15);
+      --bg-input: #1E1B18;
+      --bg-code: #12100E;
+      --ink-primary: #F4EDE4;
+      --ink-secondary: #BFB2A2;
+      --ink-muted: #8C7F70;
+      --accent: #E37C4D;
+      --accent-soft: rgba(227, 124, 77, 0.16);
+      --accent-ink: #1B130E;
+      --border-subtle: rgba(255, 240, 224, 0.08);
+      --border-strong: rgba(255, 240, 224, 0.17);
+      --status-green: #4EBE82;
+      --status-green-bg: rgba(78, 190, 130, 0.14);
+      --status-amber: #E8A64E;
+      --status-amber-bg: rgba(232, 166, 78, 0.14);
+      --status-red: #E86F66;
+      --status-red-bg: rgba(232, 111, 102, 0.14);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+      --card-border: 0 solid transparent;
+      --elevated-shadow: 0 20px 44px rgba(0, 0, 0, 0.52);
+      --space-unit: 20px;
+      --sidebar-w: 248px;
+      --panel-w: 400px;
+      --windowbar-h: 48px;
+      --reading-max: 740px;
+      --overview-max: 1120px;
+    }
+
+    /* =========================================================
+       方案 C：紧凑工程钴蓝风 (engineering)
+       复用方案 A 冷调灰阶与清澈钴蓝配色 + 紧凑高密度工程排版
+       ========================================================= */
+    html[data-scheme="engineering"][data-theme="dark"] {
+      --bg-canvas: #0E1116;
+      --bg-sidebar: #131720;
+      --bg-surface: #151A23;
+      --bg-elevated: #191F2B;
+      --bg-hover: rgba(255, 255, 255, 0.055);
+      --bg-selected: rgba(91, 130, 255, 0.14);
+      --bg-input: #10141C;
+      --bg-code: #0B0E13;
+      --ink-primary: #EDF1F7;
+      --ink-secondary: #A6B0C2;
+      --ink-muted: #727E93;
+      --accent: #5B82FF;
+      --accent-soft: rgba(91, 130, 255, 0.16);
+      --accent-ink: #FFFFFF;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --status-green: #38C677;
+      --status-green-bg: rgba(56, 198, 119, 0.14);
+      --status-amber: #E5A93B;
+      --status-amber-bg: rgba(229, 169, 59, 0.14);
+      --status-red: #F06262;
+      --status-red-bg: rgba(240, 98, 98, 0.14);
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --card-shadow: none;
+      --card-border: 1px solid var(--border-subtle);
+      --elevated-shadow: 0 12px 32px rgba(0, 0, 0, 0.48);
+      --space-unit: 12px;
+      --sidebar-w: 222px;
+      --panel-w: 410px;
+      --windowbar-h: 40px;
+      --reading-max: 840px;
+      --overview-max: 1240px;
+    }
+
+    html[data-scheme="engineering"][data-theme="light"] {
+      --bg-canvas: #F6F7F9;
+      --bg-sidebar: #ECEFF4;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #FFFFFF;
+      --bg-hover: rgba(15, 23, 42, 0.05);
+      --bg-selected: rgba(53, 100, 245, 0.10);
+      --bg-input: #FFFFFF;
+      --bg-code: #F8FAFC;
+      --ink-primary: #141821;
+      --ink-secondary: #485366;
+      --ink-muted: #6C788C;
+      --accent: #3564F5;
+      --accent-soft: rgba(53, 100, 245, 0.10);
+      --accent-ink: #FFFFFF;
+      --border-subtle: rgba(15, 23, 42, 0.09);
+      --border-strong: rgba(15, 23, 42, 0.18);
+      --status-green: #168049;
+      --status-green-bg: rgba(22, 128, 73, 0.10);
+      --status-amber: #B26A00;
+      --status-amber-bg: rgba(178, 106, 0, 0.10);
+      --status-red: #C73333;
+      --status-red-bg: rgba(199, 51, 51, 0.10);
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --card-shadow: none;
+      --card-border: 1px solid var(--border-subtle);
+      --elevated-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+      --space-unit: 12px;
+      --sidebar-w: 222px;
+      --panel-w: 410px;
+      --windowbar-h: 40px;
+      --reading-max: 840px;
+      --overview-max: 1240px;
+    }
+
+    /* =========================================================
+       方案 D：舒展编辑钴蓝风 (editorial-cobalt)
+       复用方案 A 冷调灰阶与清澈钴蓝配色 + 方案 B 宽裕排版与悬浮阴影层级
+       ========================================================= */
+    html[data-scheme="editorial-cobalt"][data-theme="dark"] {
+      --bg-canvas: #0E1116;
+      --bg-sidebar: #131720;
+      --bg-surface: #151A23;
+      --bg-elevated: #191F2B;
+      --bg-hover: rgba(255, 255, 255, 0.055);
+      --bg-selected: rgba(91, 130, 255, 0.14);
+      --bg-input: #10141C;
+      --bg-code: #0B0E13;
+      --ink-primary: #EDF1F7;
+      --ink-secondary: #A6B0C2;
+      --ink-muted: #727E93;
+      --accent: #5B82FF;
+      --accent-soft: rgba(91, 130, 255, 0.16);
+      --accent-ink: #FFFFFF;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --status-green: #38C677;
+      --status-green-bg: rgba(56, 198, 119, 0.14);
+      --status-amber: #E5A93B;
+      --status-amber-bg: rgba(229, 169, 59, 0.14);
+      --status-red: #F06262;
+      --status-red-bg: rgba(240, 98, 98, 0.14);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.30);
+      --card-border: 0 solid transparent;
+      --elevated-shadow: 0 20px 44px rgba(0, 0, 0, 0.52);
+      --space-unit: 20px;
+      --sidebar-w: 248px;
+      --panel-w: 400px;
+      --windowbar-h: 48px;
+      --reading-max: 740px;
+      --overview-max: 1120px;
+    }
+
+    html[data-scheme="editorial-cobalt"][data-theme="light"] {
+      --bg-canvas: #F6F7F9;
+      --bg-sidebar: #ECEFF4;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #FFFFFF;
+      --bg-hover: rgba(15, 23, 42, 0.05);
+      --bg-selected: rgba(53, 100, 245, 0.10);
+      --bg-input: #FFFFFF;
+      --bg-code: #F8FAFC;
+      --ink-primary: #141821;
+      --ink-secondary: #485366;
+      --ink-muted: #6C788C;
+      --accent: #3564F5;
+      --accent-soft: rgba(53, 100, 245, 0.10);
+      --accent-ink: #FFFFFF;
+      --border-subtle: rgba(15, 23, 42, 0.09);
+      --border-strong: rgba(15, 23, 42, 0.18);
+      --status-green: #168049;
+      --status-green-bg: rgba(22, 128, 73, 0.10);
+      --status-amber: #B26A00;
+      --status-amber-bg: rgba(178, 106, 0, 0.10);
+      --status-red: #C73333;
+      --status-red-bg: rgba(199, 51, 51, 0.10);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --card-shadow: 0 2px 10px rgba(15, 23, 42, 0.055), 0 1px 2px rgba(15, 23, 42, 0.04);
+      --card-border: 0 solid transparent;
+      --elevated-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+      --space-unit: 20px;
+      --sidebar-w: 248px;
+      --panel-w: 400px;
+      --windowbar-h: 48px;
+      --reading-max: 740px;
+      --overview-max: 1120px;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--ink-primary);
+      background: var(--bg-canvas);
+      display: flex;
+      flex-direction: column;
+      font-variant-numeric: tabular-nums;
+    }
+
+    ::selection {
+      background: var(--accent-soft);
+      color: var(--ink-primary);
+    }
+
+    /* 统一焦点与滚动条样式 */
+    button, input, select, textarea, a {
+      font: inherit;
+      color: inherit;
+    }
+
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--ink-muted);
+    }
+
+    /* =========================================================
+       顶部演示控制条（embed=1 时隐藏）
+       ========================================================= */
+    .demo-toolbar {
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 14px;
+      background: #0B0D12;
+      color: #E2E8F0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 12px;
+      z-index: 100;
+      flex-wrap: wrap;
+    }
+
+    html[data-embed="1"] .demo-toolbar {
+      display: none;
+    }
+
+    .demo-toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .demo-toolbar-label {
+      color: #8A96AA;
+      font-size: 11px;
+      margin-right: 2px;
+      white-space: nowrap;
+    }
+
+    .demo-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: #CBD5E1;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+    }
+    .demo-pill:hover {
+      background: rgba(255, 255, 255, 0.09);
+      color: #FFFFFF;
+    }
+    .demo-pill.active {
+      background: #3564F5;
+      border-color: #5B82FF;
+      color: #FFFFFF;
+      font-weight: 500;
+    }
+
+    .overflow-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: rgba(16, 185, 129, 0.14);
+      color: #6EE7B7;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      white-space: nowrap;
+    }
+    .overflow-badge.has-overflow {
+      background: rgba(239, 68, 68, 0.18);
+      color: #FCA5A5;
+      border-color: rgba(239, 68, 68, 0.45);
+    }
+
+    /* =========================================================
+       视口模拟器外框（支持大屏 / 笔记本 / 分屏模拟与完全自适应）
+       ========================================================= */
+    .stage-wrapper {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      background: #06080B;
+      overflow: hidden;
+    }
+
+    .app-viewport {
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      max-width: 100%;
+      background: var(--bg-canvas);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 180ms ease;
+    }
+
+    .app-viewport.framed {
+      margin: 12px;
+      height: calc(100% - 24px);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    }
+
+    /* =========================================================
+       应用顶栏 (Windowbar) - 彻底消除标题裁剪与按钮挤压
+       ========================================================= */
+    .windowbar {
+      flex: none;
+      height: var(--windowbar-h);
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 0 14px;
+      background: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border-subtle);
+      user-select: none;
+    }
+
+    .windowbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .traffic-lights {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding-right: 4px;
+    }
+    .traffic-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .traffic-dot.close { background: #FF5F57; }
+    .traffic-dot.min { background: #FEBC2E; }
+    .traffic-dot.max { background: #28C840; }
+
+    .brand-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: -0.01em;
+      color: var(--ink-primary);
+      white-space: nowrap;
+    }
+
+    .windowbar-center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .project-switcher {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      min-width: 0;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      font-size: 12.5px;
+      color: var(--ink-primary);
+    }
+    .project-switcher:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-strong);
+    }
+    .project-switcher-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .branch-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+      padding-left: 6px;
+      border-left: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    .windowbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: none;
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 30px;
+      min-width: 30px;
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--ink-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .icon-btn:hover {
+      background: var(--bg-hover);
+      color: var(--ink-primary);
+    }
+    .icon-btn.active {
+      background: var(--bg-selected);
+      color: var(--accent);
+    }
+    .icon-btn .btn-label {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* =========================================================
+       公共语义组件：按钮、徽章、卡片
+       ========================================================= */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--ink-primary);
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-strong);
+    }
+    .btn-primary {
+      background: var(--accent);
+      border-color: transparent;
+      color: var(--accent-ink);
+    }
+    .btn-primary:hover {
+      filter: brightness(1.06);
+      background: var(--accent);
+    }
+    .btn-sm {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .status-badge.running {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .status-badge.success {
+      background: var(--status-green-bg);
+      color: var(--status-green);
+    }
+    .status-badge.warning {
+      background: var(--status-amber-bg);
+      color: var(--status-amber);
+    }
+    .status-badge.danger {
+      background: var(--status-red-bg);
+      color: var(--status-red);
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex: none;
+    }
+
+    /* =========================================================
+       页面容器切换
+       ========================================================= */
+    .app-body {
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .view-pane {
+      display: none;
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .view-pane.active {
+      display: flex;
+    }
+
+    /* =========================================================
+       1. 对话工作台 (Workbench)
+       ========================================================= */
+    .workbench-grid {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* 左侧会话边栏 */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex: none;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 12px 12px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .sidebar-nav-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 9px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--ink-muted);
+      font-size: 12px;
+    }
+    .search-box input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      background: transparent;
+      outline: none;
+      color: var(--ink-primary);
+    }
+
+    .sidebar-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 4px 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .project-group-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--ink-muted);
+    }
+
+    .session-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      width: 100%;
+      min-width: 0;
+    }
+    .session-item:hover {
+      background: var(--bg-hover);
+    }
+    .session-item.active {
+      background: var(--bg-selected);
+      border-color: var(--border-subtle);
+    }
+    .session-item-top {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .session-item-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--ink-primary);
+    }
+    .session-item-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-left: 13px;
+      font-size: 11px;
+      color: var(--ink-muted);
+    }
+
+    .sidebar-footer {
+      padding: 10px 12px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    /* 中央主对话区 */
+    .chat-column {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-canvas);
+      overflow: hidden;
+    }
+
+    .chat-header {
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-canvas);
+      min-width: 0;
+    }
+    .chat-header-info {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .chat-header-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .chat-header h1 {
+      margin: 0;
+      font-size: 14.5px;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .chat-header-sub {
+      font-size: 11.5px;
+      color: var(--ink-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chat-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: var(--space-unit) 20px;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: var(--reading-max);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* 用户消息 */
+    .msg-user {
+      align-self: flex-end;
+      max-width: min(82%, 620px);
+      padding: 11px 15px;
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+      border: var(--card-border);
+      box-shadow: var(--card-shadow);
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--ink-primary);
+    }
+
+    /* 智能体回复与活动流 */
+    .msg-agent {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+    .agent-identity {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-secondary);
+    }
+    .agent-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .activity-card {
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      border: var(--card-border);
+      box-shadow: var(--card-shadow);
+      overflow: hidden;
+    }
+    .activity-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 13px;
+      font-size: 12px;
+      color: var(--ink-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-hover);
+    }
+    .activity-list {
+      padding: 8px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .activity-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: var(--ink-secondary);
+    }
+    .activity-row code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--ink-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .agent-prose {
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: var(--ink-primary);
+    }
+    .agent-prose p {
+      margin: 0 0 10px;
+    }
+    .agent-prose ul {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    /* 变更摘要与待审批卡 */
+    .change-summary-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 14px;
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      border: var(--card-border);
+      box-shadow: var(--card-shadow);
+      flex-wrap: wrap;
+    }
+    .diff-nums {
+      display: inline-flex;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .diff-add { color: var(--status-green); }
+    .diff-del { color: var(--status-red); }
+
+    .approval-banner {
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: var(--status-amber-bg);
+      border: 1px solid color-mix(in srgb, var(--status-amber) 32%, transparent);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .approval-banner-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .approval-banner-text strong {
+      font-size: 12.5px;
+      color: var(--ink-primary);
+    }
+    .approval-banner-text span {
+      font-size: 12px;
+      color: var(--ink-secondary);
+    }
+
+    /* 底部输入区 (Composer) */
+    .composer-dock {
+      flex: none;
+      padding: 10px 20px 14px;
+      background: var(--bg-canvas);
+    }
+    .composer-box {
+      max-width: var(--reading-max);
+      margin: 0 auto;
+      border-radius: var(--radius-lg);
+      background: var(--bg-input);
+      border: 1px solid var(--border-strong);
+      box-shadow: var(--card-shadow);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .composer-attachments {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .attachment-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-hover);
+      border: 1px solid var(--border-subtle);
+      font-size: 11.5px;
+      color: var(--ink-secondary);
+    }
+    .composer-textarea {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      resize: none;
+      outline: none;
+      font-size: 13.5px;
+      line-height: 1.5;
+      min-height: 40px;
+      color: var(--ink-primary);
+    }
+    .composer-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .composer-tools {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .model-select {
+      height: 28px;
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--ink-secondary);
+      font-size: 12px;
+    }
+
+    /* 右侧上下文面板 */
+    .context-panel {
+      width: var(--panel-w);
+      flex: none;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .context-tabs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-sidebar);
+      overflow-x: auto;
+    }
+    .context-tab {
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      border: 0;
+      background: transparent;
+      color: var(--ink-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .context-tab.active {
+      background: var(--bg-surface);
+      color: var(--ink-primary);
+      border: 1px solid var(--border-subtle);
+    }
+    .context-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .file-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+      min-width: 0;
+    }
+    .file-row-path {
+      font-family: var(--font-mono);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .diff-block {
+      background: var(--bg-code);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.65;
+      padding: 10px 0;
+      overflow-x: auto;
+    }
+    .diff-line {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      padding: 0 12px;
+      gap: 8px;
+      white-space: pre;
+    }
+    .diff-line.add { background: var(--status-green-bg); }
+    .diff-line.del { background: var(--status-red-bg); }
+    .diff-ln {
+      color: var(--ink-muted);
+      text-align: right;
+      user-select: none;
+    }
+
+    /* =========================================================
+       2. 项目空间概览 (Overview) - 大屏多列居中，小屏自动降列
+       ========================================================= */
+    .overview-scroll {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      padding: 28px 24px;
+    }
+    .overview-container {
+      width: 100%;
+      max-width: var(--overview-max);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .overview-hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .overview-hero h2 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .overview-hero p {
+      margin: 0;
+      color: var(--ink-secondary);
+      font-size: 13px;
+    }
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .board-col {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+    .board-col-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--ink-secondary);
+      padding: 2px 4px;
+    }
+    .task-card {
+      background: var(--bg-surface);
+      border: var(--card-border);
+      box-shadow: var(--card-shadow);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+    .task-card h3 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+    .task-card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11.5px;
+      color: var(--ink-muted);
+      flex-wrap: wrap;
+    }
+
+    /* =========================================================
+       3 & 4. 设置中心 (Settings) & 插件中心 (Plugins)
+       ========================================================= */
+    .split-center {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .sub-nav {
+      width: 220px;
+      flex: none;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-subtle);
+      padding: 16px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .sub-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 0;
+      background: transparent;
+      color: var(--ink-secondary);
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .sub-nav-item:hover { background: var(--bg-hover); color: var(--ink-primary); }
+    .sub-nav-item.active { background: var(--bg-selected); color: var(--accent); font-weight: 500; }
+
+    .detail-scroll {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      padding: 28px 32px;
+    }
+    .detail-container {
+      max-width: 820px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .detail-container h2 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .settings-group {
+      background: var(--bg-surface);
+      border: var(--card-border);
+      box-shadow: var(--card-shadow);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+    }
+    .settings-row:last-child { border-bottom: 0; }
+    .settings-row-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+      flex: 1;
+    }
+    .settings-row-copy strong { font-size: 13.5px; font-weight: 500; }
+    .settings-row-copy span { font-size: 12px; color: var(--ink-muted); }
+
+    .swatch-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+    }
+    .swatch.active {
+      border-color: var(--ink-primary);
+      transform: scale(1.08);
+    }
+
+    .plugin-master-detail {
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .plugin-list-col {
+      border-right: 1px solid var(--border-subtle);
+      background: var(--bg-sidebar);
+      padding: 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .plugin-card {
+      padding: 12px;
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      border: var(--card-border);
+      box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .plugin-card.selected {
+      border: 1px solid var(--accent);
+    }
+
+    /* =========================================================
+       5. 弹窗示例 (Modals)
+       ========================================================= */
+    .modals-stage {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+    .modals-grid {
+      width: 100%;
+      max-width: 1040px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+      align-items: start;
+    }
+    .dialog-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      box-shadow: var(--elevated-shadow);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .dialog-header h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .field-label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--ink-secondary);
+    }
+    .field-input {
+      padding: 9px 11px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--bg-input);
+      color: var(--ink-primary);
+      font-size: 13px;
+      width: 100%;
+      min-width: 0;
+    }
+    .dialog-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* =========================================================
+       响应式适配规则（既响应真实窗口宽度，也响应演示模拟宽度）
+       小屏笔记本 (<= 1180px) 与紧凑分屏 (<= 960px)
+       ========================================================= */
+    @media (max-width: 1200px) {
+      .context-panel { width: 330px; }
+      .sidebar { width: 210px; }
+    }
+    @media (max-width: 980px) {
+      .context-panel { display: none; }
+      .board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .modals-grid { grid-template-columns: minmax(0, 1fr); }
+      .plugin-master-detail { grid-template-columns: 240px minmax(0, 1fr); }
+    }
+    @media (max-width: 760px) {
+      .sidebar, .sub-nav { display: none; }
+      .board-grid { grid-template-columns: minmax(0, 1fr); }
+      .plugin-master-detail { grid-template-columns: minmax(0, 1fr); }
+      .branch-pill { display: none; }
+    }
+
+    /* 演示框架宽度档位控制（模拟小屏笔记本与紧凑分屏时同样触发对应重排） */
+    .app-viewport[data-sim="1180"] .context-panel { width: 330px; }
+    .app-viewport[data-sim="1180"] .sidebar { width: 210px; }
+
+    .app-viewport[data-sim="920"] .context-panel { display: none; }
+    .app-viewport[data-sim="920"] .sidebar { width: 204px; }
+    .app-viewport[data-sim="920"] .board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .app-viewport[data-sim="920"] .modals-grid { grid-template-columns: minmax(0, 1fr); }
+    .app-viewport[data-sim="920"] .plugin-master-detail { grid-template-columns: 240px minmax(0, 1fr); }
+  </style>
+</head>
+<body>
+  <!-- 顶部演示控制栏 -->
+  <header class="demo-toolbar" id="demoToolbar">
+    <div class="demo-toolbar-group">
+      <span class="demo-toolbar-label">视觉方案</span>
+      <button class="demo-pill active" data-set-scheme="precision">方案 A · 极简精密</button>
+      <button class="demo-pill" data-set-scheme="editorial">方案 B · 温润编辑</button>
+      <button class="demo-pill" data-set-scheme="engineering">方案 C · 工程钴蓝</button>
+      <button class="demo-pill" data-set-scheme="editorial-cobalt">方案 D · 舒展钴蓝</button>
+    </div>
+
+    <div class="demo-toolbar-group">
+      <span class="demo-toolbar-label">页面</span>
+      <button class="demo-pill active" data-set-view="workbench">对话工作台</button>
+      <button class="demo-pill" data-set-view="overview">项目概览</button>
+      <button class="demo-pill" data-set-view="settings">设置中心</button>
+      <button class="demo-pill" data-set-view="plugins">插件中心</button>
+      <button class="demo-pill" data-set-view="modals">弹窗示例</button>
+    </div>
+
+    <div class="demo-toolbar-group">
+      <button class="demo-pill" id="themeToggleBtn">切换浅色模式</button>
+      <span class="demo-toolbar-label">屏幕尺寸</span>
+      <button class="demo-pill active" data-set-vp="full">自适应全宽</button>
+      <button class="demo-pill" data-set-vp="1440">大屏 1440</button>
+      <button class="demo-pill" data-set-vp="1180">笔记本 1180</button>
+      <button class="demo-pill" data-set-vp="920">紧凑 920</button>
+      <span class="overflow-badge" id="overflowStatus">横向溢出检测: 0px (无拖动)</span>
+    </div>
+  </header>
+
+  <!-- 应用窗口演示舞台 -->
+  <div class="stage-wrapper">
+    <main class="app-viewport" id="appViewport" data-sim="full">
+      <!-- 顶部窗口栏 -->
+      <div class="windowbar">
+        <div class="windowbar-left">
+          <div class="traffic-lights" aria-hidden="true">
+            <span class="traffic-dot close"></span>
+            <span class="traffic-dot min"></span>
+            <span class="traffic-dot max"></span>
+          </div>
+          <div class="brand-chip">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
+              <path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" />
+            </svg>
+            <span>VibeOne</span>
+          </div>
+        </div>
+
+        <div class="windowbar-center">
+          <button class="project-switcher" type="button" title="切换工作区项目">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            <span class="project-switcher-name">VibeOne Desktop · 桌面客户端</span>
+            <span class="branch-pill">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="6" y1="3" x2="6" y2="15" />
+                <circle cx="18" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <path d="M18 9a9 9 0 0 1-9 9" />
+              </svg>
+              main
+            </span>
+          </button>
+        </div>
+
+        <div class="windowbar-actions">
+          <button class="icon-btn" type="button" data-jump-view="overview" title="项目概览">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+            <span class="btn-label">概览</span>
+          </button>
+          <button class="icon-btn" type="button" data-jump-view="plugins" title="插件中心">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+              <path d="M12 2v6m0 8v6M4.93 4.93l4.24 4.24m5.66 5.66l4.24 4.24M2 12h6m8 0h6" />
+            </svg>
+          </button>
+          <button class="icon-btn" type="button" data-jump-view="settings" title="设置">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+          <button class="icon-btn active" type="button" id="togglePanelBtn" title="显示或隐藏上下文面板">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="15" y1="3" x2="15" y2="21" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 主体内容区 -->
+      <div class="app-body">
+        <!-- =======================================================
+             页面 1：对话工作台
+             ======================================================= -->
+        <section class="view-pane active" data-view="workbench">
+          <div class="workbench-grid">
+            <aside class="sidebar">
+              <div class="sidebar-header">
+                <div class="sidebar-nav-row">
+                  <button class="btn btn-primary btn-sm" style="flex:1" type="button" data-jump-view="modals">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    新建会话
+                  </button>
+                  <button class="icon-btn" type="button" data-jump-view="overview" title="项目空间概览">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    </svg>
+                  </button>
+                </div>
+                <label class="search-box">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input type="text" placeholder="搜索会话或分支…" aria-label="搜索会话" />
+                </label>
+              </div>
+
+              <div class="sidebar-list">
+                <div>
+                  <div class="project-group-title">
+                    <span>VibeOne</span>
+                    <span>3</span>
+                  </div>
+                  <button class="session-item active" type="button">
+                    <span class="session-item-top">
+                      <span class="dot" style="color:var(--status-green)"></span>
+                      <span class="session-item-title">全站视觉重构与自适应排查</span>
+                    </span>
+                    <span class="session-item-meta">
+                      <span>运行中 · Claude</span>
+                      <span>刚刚</span>
+                    </span>
+                  </button>
+                  <button class="session-item" type="button">
+                    <span class="session-item-top">
+                      <span class="dot" style="color:var(--ink-muted)"></span>
+                      <span class="session-item-title">Electron 主进程 TypeScript 迁移</span>
+                    </span>
+                    <span class="session-item-meta">
+                      <span>已就绪</span>
+                      <span>2小时前</span>
+                    </span>
+                  </button>
+                  <button class="session-item" type="button">
+                    <span class="session-item-top">
+                      <span class="dot" style="color:var(--status-amber)"></span>
+                      <span class="session-item-title">远程插件仓库校验与签名</span>
+                    </span>
+                    <span class="session-item-meta">
+                      <span>待审批</span>
+                      <span>昨天</span>
+                    </span>
+                  </button>
+                </div>
+
+                <div>
+                  <div class="project-group-title">
+                    <span>API Gateway</span>
+                    <span>2</span>
+                  </div>
+                  <button class="session-item" type="button">
+                    <span class="session-item-top">
+                      <span class="dot" style="color:var(--ink-muted)"></span>
+                      <span class="session-item-title">WebSocket 心跳保活重构</span>
+                    </span>
+                    <span class="session-item-meta">
+                      <span>已就绪</span>
+                      <span>3天前</span>
+                    </span>
+                  </button>
+                  <button class="session-item" type="button">
+                    <span class="session-item-top">
+                      <span class="dot" style="color:var(--ink-muted)"></span>
+                      <span class="session-item-title">限流中间件压测报告</span>
+                    </span>
+                    <span class="session-item-meta">
+                      <span>已归档</span>
+                      <span>上周</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="sidebar-footer">
+                <span class="status-badge success"><span class="dot"></span>宿主服务已连接</span>
+                <button class="icon-btn" type="button" data-jump-view="settings" title="外观与系统设置">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                  </svg>
+                </button>
+              </div>
+            </aside>
+
+            <section class="chat-column">
+              <div class="chat-header">
+                <div class="chat-header-info">
+                  <div class="chat-header-title-row">
+                    <h1>全站视觉重构与自适应排查</h1>
+                    <span class="status-badge running"><span class="dot"></span>运行中</span>
+                  </div>
+                  <div class="chat-header-sub">分支 main · 工作目录 /Users/qymlxin/myself/vibecoding/VibeOne</div>
+                </div>
+                <div style="display:flex;gap:6px;flex:none">
+                  <button class="btn btn-sm" type="button">提交变更</button>
+                </div>
+              </div>
+
+              <div class="chat-scroll">
+                <div class="chat-container">
+                  <div class="msg-user">
+                    当前项目打开的时候我发现还能横向拖动，页面也很粗糙。帮我重新设计一下整体布局，支持小屏笔记本与大屏幕自适应。
+                  </div>
+
+                  <div class="msg-agent">
+                    <div class="agent-identity">
+                      <span class="agent-avatar">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                      </span>
+                      <span>VibeOne Agent · UI 架构分析</span>
+                    </div>
+
+                    <div class="activity-card">
+                      <div class="activity-header">
+                        <span>已完成 3 项代码诊断与视口测量</span>
+                        <span style="font-family:var(--font-mono);font-size:11px">1.8s</span>
+                      </div>
+                      <div class="activity-list">
+                        <div class="activity-row">
+                          <span class="status-badge success">已读取</span>
+                          <code>apps/desktop/src/approved/review.css (定位 min-width: 960px 溢出源)</code>
+                        </div>
+                        <div class="activity-row">
+                          <span class="status-badge success">已读取</span>
+                          <code>apps/desktop/electron/main.ts (窗口默认尺寸 1480×940 超出 13 寸笔记本)</code>
+                        </div>
+                        <div class="activity-row">
+                          <span class="status-badge running">校验中</span>
+                          <code>全视口断点测试：920px / 1180px / 1440px 横向溢出为 0px</code>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="agent-prose">
+                      <p>我已经定位到页面可横向拖动的根因，并为你重构了全站设计语言与响应式栅格体系：</p>
+                      <ul>
+                        <li><strong>根除横向溢出</strong>：移除固定 <code>min-width: 960px</code>，所有弹性列与代码面板强制约束 <code>min-width: 0</code>。</li>
+                        <li><strong>笔记本与大屏双态适配</strong>：1180px 以下自动收紧侧栏与上下文面板；920px 紧凑分屏下自动收起右侧栏；1920px 以上通过阅读容器限宽保持舒适视线。</li>
+                        <li><strong>统一语义色彩阶调</strong>：废除混杂的微型 9px 字号，正文字号提升至 13.5px 并支持深浅双色无缝切换。</li>
+                      </ul>
+                    </div>
+
+                    <div class="change-summary-card">
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        <div>
+                          <div style="font-weight:600;font-size:13px">本轮共修改 4 个核心样式与布局文件</div>
+                          <div style="font-size:11.5px;color:var(--ink-muted)">点击右侧差异面板逐行审阅</div>
+                        </div>
+                      </div>
+                      <span class="diff-nums">
+                        <span class="diff-add">+184</span>
+                        <span class="diff-del">-92</span>
+                      </span>
+                    </div>
+
+                    <div class="approval-banner">
+                      <div class="approval-banner-text">
+                        <strong>待审批命令：运行桌面端视觉回归与溢出口径检查</strong>
+                        <span>将在无头浏览器中检验 920px / 1180px / 1440px 视口表现</span>
+                      </div>
+                      <div style="display:flex;gap:8px;flex:none">
+                        <button class="btn btn-sm" type="button">拒绝</button>
+                        <button class="btn btn-primary btn-sm" type="button">允许执行</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="composer-dock">
+                <div class="composer-box">
+                  <div class="composer-attachments">
+                    <span class="attachment-chip">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                      </svg>
+                      review.css · 12KB
+                    </span>
+                    <span class="attachment-chip">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
+                      屏幕截屏_1440.png
+                    </span>
+                  </div>
+                  <textarea class="composer-textarea" rows="2" placeholder="输入后续指令，按 Enter 发送，Shift + Enter 换行，/ 唤起快捷命令…"></textarea>
+                  <div class="composer-footer">
+                    <div class="composer-tools">
+                      <button class="icon-btn" type="button" title="附加文件">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        </svg>
+                      </button>
+                      <select class="model-select" aria-label="选择推理模型">
+                        <option>Claude Sonnet · 均衡</option>
+                        <option>Gemini Pro · 深度推理</option>
+                        <option>Codex High · 代码专项</option>
+                      </select>
+                      <span class="status-badge success">自动审批已开启</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" type="button">
+                      发送指令
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <aside class="context-panel" id="contextPanel">
+              <div class="context-tabs">
+                <button class="context-tab active" type="button">变更差异 (4)</button>
+                <button class="context-tab" type="button">文件浏览</button>
+                <button class="context-tab" type="button">内嵌终端</button>
+              </div>
+              <div class="context-body">
+                <div class="file-row">
+                  <span class="file-row-path">apps/desktop/src/approved/review.css</span>
+                  <span class="diff-nums"><span class="diff-add">+62</span><span class="diff-del">-41</span></span>
+                </div>
+                <div class="file-row">
+                  <span class="file-row-path">apps/desktop/electron/main.ts</span>
+                  <span class="diff-nums"><span class="diff-add">+18</span><span class="diff-del">-5</span></span>
+                </div>
+                <div class="diff-block">
+                  <div class="diff-line"><span class="diff-ln">14</span><span>html, body {</span></div>
+                  <div class="diff-line add"><span class="diff-ln">15</span><span>+  width: 100%; height: 100%;</span></div>
+                  <div class="diff-line add"><span class="diff-ln">16</span><span>+  overflow: hidden; overscroll-behavior: none;</span></div>
+                  <div class="diff-line"><span class="diff-ln">17</span><span>}</span></div>
+                  <div class="diff-line del"><span class="diff-ln">24</span><span>- .review-app { min-width: 960px; }</span></div>
+                  <div class="diff-line add"><span class="diff-ln">24</span><span>+ .review-app { min-width: 0; width: 100%; }</span></div>
+                  <div class="diff-line add"><span class="diff-ln">25</span><span>+ .chat-container { max-width: min(780px, 100%); }</span></div>
+                </div>
+                <div class="file-row">
+                  <span class="file-row-path">apps/desktop/src/project-spaces.css</span>
+                  <span class="diff-nums"><span class="diff-add">+74</span><span class="diff-del">-32</span></span>
+                </div>
+                <div class="file-row">
+                  <span class="file-row-path">apps/desktop/src/runtime-states.css</span>
+                  <span class="diff-nums"><span class="diff-add">+30</span><span class="diff-del">-14</span></span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <!-- =======================================================
+             页面 2：项目空间概览
+             ======================================================= -->
+        <section class="view-pane" data-view="overview">
+          <aside class="sidebar">
+            <div class="sidebar-header">
+              <strong style="font-size:13px;padding:2px 4px">工作空间列表</strong>
+            </div>
+            <div class="sidebar-list">
+              <button class="session-item active" type="button">
+                <span class="session-item-top"><span class="dot" style="color:var(--accent)"></span><span class="session-item-title">核心研发空间 · VibeOne</span></span>
+                <span class="session-item-meta"><span>3 个关联仓库</span><span>活跃</span></span>
+              </button>
+              <button class="session-item" type="button">
+                <span class="session-item-top"><span class="dot" style="color:var(--ink-muted)"></span><span class="session-item-title">插件生态与 SDK</span></span>
+                <span class="session-item-meta"><span>2 个关联仓库</span><span>待命</span></span>
+              </button>
+            </div>
+          </aside>
+          <div class="overview-scroll">
+            <div class="overview-container">
+              <div class="overview-hero">
+                <div>
+                  <h2>核心研发空间 · VibeOne</h2>
+                  <p>统一调度多智能体会话、追踪分支变更状态，并在不同尺寸屏幕下自适应排布任务看板。</p>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn" type="button" data-jump-view="modals">新建项目</button>
+                  <button class="btn btn-primary" type="button" data-jump-view="workbench">发起新会话</button>
+                </div>
+              </div>
+
+              <div class="board-grid">
+                <div class="board-col">
+                  <div class="board-col-header">
+                    <span>进行中任务</span>
+                    <span class="status-badge running">2</span>
+                  </div>
+                  <div class="task-card">
+                    <h3>全站 UI 重设计与响应式适配</h3>
+                    <div class="task-card-meta">
+                      <span>VibeOne · main</span>
+                      <span>Claude Sonnet</span>
+                    </div>
+                  </div>
+                  <div class="task-card">
+                    <h3>WebSocket 多端同步队列优化</h3>
+                    <div class="task-card-meta">
+                      <span>API Gateway · feat/ws</span>
+                      <span>Gemini Pro</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="board-col">
+                  <div class="board-col-header">
+                    <span>待人工审批</span>
+                    <span class="status-badge warning">2</span>
+                  </div>
+                  <div class="task-card">
+                    <h3>执行 npm run build:electron 打包校验</h3>
+                    <div class="task-card-meta">
+                      <span>需确认脚本权限</span>
+                      <span>等待操作</span>
+                    </div>
+                  </div>
+                  <div class="task-card">
+                    <h3>安装本地插件 @vibeone/git-helper</h3>
+                    <div class="task-card-meta">
+                      <span>Workspace Scope</span>
+                      <span>等待操作</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="board-col">
+                  <div class="board-col-header">
+                    <span>已完成交付</span>
+                    <span class="status-badge success">2</span>
+                  </div>
+                  <div class="task-card">
+                    <h3>Electron 主进程与渲染层 TypeScript 迁移</h3>
+                    <div class="task-card-meta">
+                      <span>68/68 单元测试通过</span>
+                      <span>已推送</span>
+                    </div>
+                  </div>
+                  <div class="task-card">
+                    <h3>修复 ELECTRON_RUN_AS_NODE 启动异常</h3>
+                    <div class="task-card-meta">
+                      <span>desktop-dev.mjs</span>
+                      <span>已验证</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =======================================================
+             页面 3：设置中心
+             ======================================================= -->
+        <section class="view-pane" data-view="settings">
+          <div class="split-center">
+            <nav class="sub-nav" aria-label="设置分类">
+              <button class="sub-nav-item active" type="button">外观与主题</button>
+              <button class="sub-nav-item" type="button">智能体与模型</button>
+              <button class="sub-nav-item" type="button">权限与审批策略</button>
+              <button class="sub-nav-item" type="button">远程设备配对</button>
+              <button class="sub-nav-item" type="button">通知与快捷键</button>
+            </nav>
+            <div class="detail-scroll">
+              <div class="detail-container">
+                <div>
+                  <h2>外观与自适应排版</h2>
+                  <p style="margin:0;color:var(--ink-secondary);font-size:13px">管理深浅色模式、品牌强调色与对比度合规检测。</p>
+                </div>
+
+                <div class="settings-group">
+                  <div class="settings-row">
+                    <div class="settings-row-copy">
+                      <strong>色彩主题模式</strong>
+                      <span>支持随 macOS 系统自动切换，或锁定为深色/浅色工作台。</span>
+                    </div>
+                    <div style="display:flex;gap:6px">
+                      <button class="btn btn-sm" type="button" onclick="setTheme('light')">浅色</button>
+                      <button class="btn btn-sm btn-primary" type="button" onclick="setTheme('dark')">深色</button>
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-row-copy">
+                      <strong>强调色偏好</strong>
+                      <span>同时应用于主按钮、选中状态与焦点高亮边框。</span>
+                    </div>
+                    <div class="swatch-row">
+                      <button class="swatch active" type="button" style="background:#3564F5" title="钴蓝"></button>
+                      <button class="swatch" type="button" style="background:#C45B2C" title="赤陶"></button>
+                      <button class="swatch" type="button" style="background:#10B981" title="翡翠"></button>
+                      <button class="swatch" type="button" style="background:#7C3AED" title="靛紫"></button>
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-row-copy">
+                      <strong>文字对比度校验</strong>
+                      <span>当前前景与背景对比度满足 WCAG AA 标准，确保长时间阅读舒适。</span>
+                    </div>
+                    <span class="status-badge success">对比度 11.4 : 1 · 通过</span>
+                  </div>
+                </div>
+
+                <div class="settings-group">
+                  <div class="settings-row">
+                    <div class="settings-row-copy">
+                      <strong>默认窗口与断点适应</strong>
+                      <span>根据主显示器可用工作区自动缩放初始窗口，禁止水平溢出滚动。</span>
+                    </div>
+                    <span class="status-badge running">已启用自适应布局</span>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-row-copy">
+                      <strong>本地宿主引擎探针 (vibeone-host)</strong>
+                      <span>监听端口 127.0.0.1:55503，运行时延 4ms。</span>
+                    </div>
+                    <button class="btn btn-sm" type="button">重新检测</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =======================================================
+             页面 4：插件中心
+             ======================================================= -->
+        <section class="view-pane" data-view="plugins">
+          <div class="plugin-master-detail">
+            <div class="plugin-list-col">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <strong style="font-size:13px">已安装插件 (3)</strong>
+                <button class="btn btn-sm btn-primary" type="button">从仓库安装</button>
+              </div>
+              <div class="plugin-card selected">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <strong style="font-size:13px">Git 智能工作流</strong>
+                  <span class="status-badge success">已启用</span>
+                </div>
+                <span style="font-size:12px;color:var(--ink-muted)">自动分析 diff、生成英文 Conventional Commits 并检查冲突。</span>
+              </div>
+              <div class="plugin-card">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <strong style="font-size:13px">浏览器视觉调试器</strong>
+                  <span class="status-badge success">已启用</span>
+                </div>
+                <span style="font-size:12px;color:var(--ink-muted)">内嵌 Chrome DevTools 抓取视口截图并检查无障碍树。</span>
+              </div>
+              <div class="plugin-card">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <strong style="font-size:13px">数据库结构探针</strong>
+                  <span class="status-badge warning">待配置</span>
+                </div>
+                <span style="font-size:12px;color:var(--ink-muted)">只读检索本地 SQLite 与 PostgreSQL Schema。</span>
+              </div>
+            </div>
+
+            <div class="detail-scroll">
+              <div class="detail-container">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                  <div>
+                    <h2>Git 智能工作流 · @vibeone/git-workflow</h2>
+                    <p style="margin:0;color:var(--ink-secondary);font-size:13px">版本 v1.4.2 · 作用域：全局桌面端与当前项目工作区</p>
+                  </div>
+                  <div style="display:flex;gap:8px">
+                    <button class="btn btn-sm" type="button">停用插件</button>
+                    <button class="btn btn-sm btn-primary" type="button">检查更新</button>
+                  </div>
+                </div>
+
+                <div class="settings-group">
+                  <div class="settings-row">
+                    <div class="settings-row-copy">
+                      <strong>暴露工具能力</strong>
+                      <span>向对话中的 Agent 注入 <code>git_diff_summary</code> 与 <code>git_commit_prepare</code></span>
+                    </div>
+                    <span class="status-badge success">2 个 MCP 工具在线</span>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-row-copy">
+                      <strong>权限与安全沙箱</strong>
+                      <span>禁止未经显式审批直接执行 <code>git push --force</code> 或重置历史记录。</span>
+                    </div>
+                    <span class="status-badge running">沙箱保护中</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =======================================================
+             页面 5：弹窗示例 (新建会话 / 创建项目)
+             ======================================================= -->
+        <section class="view-pane" data-view="modals">
+          <div class="modals-stage">
+            <div style="width:100%;max-width:1040px">
+              <h2 style="margin:0 0 6px;font-size:18px">高频核心弹窗设计规范</h2>
+              <p style="margin:0;color:var(--ink-secondary);font-size:13px">支持键盘 Tab 焦点导航、明确的主次按钮层级以及小屏自动单列堆叠。</p>
+            </div>
+            <div class="modals-grid">
+              <div class="dialog-card" role="dialog" aria-label="新建会话弹窗">
+                <div class="dialog-header">
+                  <h3>新建智能体会话</h3>
+                  <button class="icon-btn" type="button" data-jump-view="workbench" title="关闭并返回">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+                <label class="field-label">
+                  会话标题
+                  <input class="field-input" type="text" value="优化移动端与小屏笔记本适配" />
+                </label>
+                <label class="field-label">
+                  关联项目工作区
+                  <select class="field-input">
+                    <option>VibeOne (/Users/qymlxin/myself/vibecoding/VibeOne)</option>
+                    <option>API Gateway (/Users/qymlxin/myself/gateway)</option>
+                  </select>
+                </label>
+                <label class="field-label">
+                  初始任务说明
+                  <textarea class="field-input" rows="3" placeholder="描述希望 Agent 完成的目标或参考文档…"></textarea>
+                </label>
+                <div class="dialog-footer">
+                  <button class="btn" type="button" data-jump-view="workbench">取消</button>
+                  <button class="btn btn-primary" type="button" data-jump-view="workbench">创建并开始对话</button>
+                </div>
+              </div>
+
+              <div class="dialog-card" role="dialog" aria-label="创建项目弹窗">
+                <div class="dialog-header">
+                  <h3>添加本地项目目录</h3>
+                  <button class="icon-btn" type="button" data-jump-view="overview" title="关闭并返回">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+                <label class="field-label">
+                  项目显示名称
+                  <input class="field-input" type="text" value="VibeOne Desktop" />
+                </label>
+                <label class="field-label">
+                  本地根目录路径
+                  <div style="display:flex;gap:8px">
+                    <input class="field-input" type="text" value="/Users/qymlxin/myself/vibecoding/VibeOne" />
+                    <button class="btn" type="button">浏览…</button>
+                  </div>
+                </label>
+                <label class="field-label">
+                  所属空间分组
+                  <select class="field-input">
+                    <option>核心研发空间 · VibeOne</option>
+                    <option>插件生态与 SDK</option>
+                  </select>
+                </label>
+                <div class="dialog-footer">
+                  <button class="btn" type="button" data-jump-view="overview">取消</button>
+                  <button class="btn btn-primary" type="button" data-jump-view="overview">确认导入项目</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const root = document.documentElement;
+      const viewport = document.getElementById("appViewport");
+      const themeBtn = document.getElementById("themeToggleBtn");
+      const overflowBadge = document.getElementById("overflowStatus");
+      const panelBtn = document.getElementById("togglePanelBtn");
+      const contextPanel = document.getElementById("contextPanel");
+
+      const params = new URLSearchParams(window.location.search);
+      const state = {
+        scheme: params.get("scheme") || "precision",
+        view: params.get("view") || "workbench",
+        theme: params.get("theme") || "dark",
+        viewport: params.get("viewport") || "full",
+        embed: params.get("embed") || "0"
+      };
+
+      function syncUI() {
+        root.setAttribute("data-scheme", state.scheme);
+        root.setAttribute("data-theme", state.theme);
+        if (state.embed === "1") {
+          root.setAttribute("data-embed", "1");
+        } else {
+          root.removeAttribute("data-embed");
+        }
+
+        // 切换页面视图
+        document.querySelectorAll(".view-pane").forEach((el) => {
+          el.classList.toggle("active", el.getAttribute("data-view") === state.view);
+        });
+
+        // 同步控制条高亮状态
+        document.querySelectorAll("[data-set-scheme]").forEach((btn) => {
+          btn.classList.toggle("active", btn.getAttribute("data-set-scheme") === state.scheme);
+        });
+        document.querySelectorAll("[data-set-view]").forEach((btn) => {
+          btn.classList.toggle("active", btn.getAttribute("data-set-view") === state.view);
+        });
+        document.querySelectorAll("[data-set-vp]").forEach((btn) => {
+          btn.classList.toggle("active", btn.getAttribute("data-set-vp") === state.viewport);
+        });
+
+        themeBtn.textContent = state.theme === "dark" ? "切换浅色模式" : "切换深色模式";
+
+        // 模拟视口宽度
+        viewport.setAttribute("data-sim", state.viewport);
+        if (state.viewport === "full") {
+          viewport.style.width = "100%";
+          viewport.classList.remove("framed");
+        } else {
+          viewport.style.width = state.viewport + "px";
+          viewport.classList.add("framed");
+        }
+
+        requestAnimationFrame(checkOverflow);
+      }
+
+      function checkOverflow() {
+        const docDiff = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+        const vpDiff = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+        const total = Math.max(docDiff, vpDiff);
+        overflowBadge.textContent = "横向溢出检测: " + total + "px" + (total === 0 ? " (无拖动)" : " (存在溢出!)");
+        overflowBadge.classList.toggle("has-overflow", total > 0);
+      }
+
+      window.setTheme = function (theme) {
+        state.theme = theme;
+        syncUI();
+      };
+
+      document.querySelectorAll("[data-set-scheme]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.scheme = btn.getAttribute("data-set-scheme");
+          syncUI();
+        });
+      });
+
+      document.querySelectorAll("[data-set-view]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.view = btn.getAttribute("data-set-view");
+          syncUI();
+        });
+      });
+
+      document.querySelectorAll("[data-jump-view]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.view = btn.getAttribute("data-jump-view");
+          syncUI();
+        });
+      });
+
+      document.querySelectorAll("[data-set-vp]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.viewport = btn.getAttribute("data-set-vp");
+          syncUI();
+        });
+      });
+
+      themeBtn.addEventListener("click", () => {
+        state.theme = state.theme === "dark" ? "light" : "dark";
+        syncUI();
+      });
+
+      panelBtn.addEventListener("click", () => {
+        const hidden = contextPanel.style.display === "none";
+        contextPanel.style.display = hidden ? "" : "none";
+        panelBtn.classList.toggle("active", hidden);
+        requestAnimationFrame(checkOverflow);
+      });
+
+      window.addEventListener("resize", checkOverflow);
+      syncUI();
+    })();
+  </script>
+</body>
+</html>

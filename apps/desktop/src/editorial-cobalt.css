@@ -1,0 +1,1258 @@
+/* ==========================================================================
+   VibeOne 方案 D · 舒展编辑钴蓝风 (Editorial Cobalt) 全站样式系统
+   特点：冷调中性灰阶 + 清澈钴蓝 + 柔和圆角与悬浮投影层级 + 全视口无溢出自适应
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. 主题色板、阴影层级与版式尺度变量
+   -------------------------------------------------------------------------- */
+.review-app {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
+    monospace;
+
+  /* 暗色默认：深空冷调灰 + 高对比度文字 + 浅钴蓝主色 */
+  --bg: #0e1116;
+  --canvas: #0e1116;
+  --sidebar: #131720;
+  --bar: #131720;
+  --panel: #151a23;
+  --surface: #151a23;
+  --soft: #131720;
+  --raised: #191f2b;
+  --hover: rgba(255, 255, 255, 0.055);
+  --selected: rgba(91, 130, 255, 0.14);
+  --fg: #edf1f7;
+  --ink: #edf1f7;
+  --ink-secondary: #a6b0c2;
+  --muted: #727e93;
+  --line: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.16);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --scroll: rgba(255, 255, 255, 0.18);
+
+  --accent: var(--ui-accent, #5b82ff);
+  --primary: var(--accent);
+  --primary-hover: color-mix(in srgb, var(--accent) 88%, #ffffff);
+  --on-primary: #ffffff;
+  --accent-soft: rgba(91, 130, 255, 0.16);
+  --brand-accent: #7f9dff;
+  --link: #85a5ff;
+
+  --green: #38c677;
+  --success: #38c677;
+  --red: #f06262;
+  --danger: #f06262;
+  --warning: #e5a93b;
+  --warning-bg: rgba(229, 169, 59, 0.14);
+  --add: rgba(56, 198, 119, 0.14);
+  --remove: rgba(240, 98, 98, 0.14);
+
+  --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --elevated-shadow: 0 20px 44px rgba(0, 0, 0, 0.52);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --windowbar-h: 48px;
+  --sidebar-width: 248px;
+  --reading-max: 740px;
+  --overview-max: 1120px;
+
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+  color-scheme: dark;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  grid-template-rows: var(--windowbar-h) minmax(0, 1fr);
+}
+
+/* 浅色模式：冷白灰画布 + 纯白浮起阴影卡片 + 深钴蓝主色 */
+.review-app.light {
+  color-scheme: light;
+  --bg: #f6f7f9;
+  --canvas: #f6f7f9;
+  --sidebar: #eceff4;
+  --bar: #eceff4;
+  --panel: #ffffff;
+  --surface: #ffffff;
+  --soft: #eceff4;
+  --raised: #ffffff;
+  --hover: rgba(15, 23, 42, 0.05);
+  --selected: rgba(53, 100, 245, 0.1);
+  --fg: #141821;
+  --ink: #141821;
+  --ink-secondary: #485366;
+  --muted: #6c788c;
+  --line: rgba(15, 23, 42, 0.09);
+  --border: rgba(15, 23, 42, 0.18);
+  --line-strong: rgba(15, 23, 42, 0.18);
+  --scroll: rgba(15, 23, 42, 0.22);
+
+  --accent: var(--ui-accent, #3564f5);
+  --primary: var(--accent);
+  --primary-hover: color-mix(in srgb, var(--accent) 88%, #000000);
+  --on-primary: #ffffff;
+  --accent-soft: rgba(53, 100, 245, 0.1);
+  --brand-accent: #3564f5;
+  --link: #2954d9;
+
+  --green: #168049;
+  --success: #168049;
+  --red: #c73333;
+  --danger: #c73333;
+  --warning: #b26a00;
+  --warning-bg: rgba(178, 106, 0, 0.11);
+  --add: rgba(22, 128, 73, 0.1);
+  --remove: rgba(199, 51, 51, 0.1);
+
+  --card-shadow: 0 2px 10px rgba(15, 23, 42, 0.055),
+    0 1px 2px rgba(15, 23, 42, 0.04);
+  --elevated-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+}
+
+/* 原生浏览器表面与键盘焦点定制 */
+.review-app ::selection {
+  background: var(--accent-soft);
+  color: var(--fg);
+}
+
+.review-app ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.review-app ::-webkit-scrollbar-thumb {
+  background: var(--scroll);
+  border-radius: 999px;
+}
+
+.review-app ::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* --------------------------------------------------------------------------
+   1.5 统一无死角圆角聚焦环与复合输入框（彻底消除双层方框套叠）
+   -------------------------------------------------------------------------- */
+/* 所有普通按钮、链接、摘要与标签均使用贴合自身圆角的柔和光环，告别生硬直角 outline */
+.review-app button:not([data-slot]):focus-visible,
+.review-app summary:not([data-slot]):focus-visible,
+.review-app a:not([data-slot]):focus-visible,
+.review-app select:not([data-slot]):focus-visible,
+.review-app [role="button"]:not([data-slot]):focus-visible,
+.review-app [tabindex]:not([data-slot]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 58%, transparent);
+}
+
+/* 主按钮（钴蓝填充）聚焦时使用“画布间隙 + 外圈钴蓝”双层呼吸环 */
+.review-app .send-button:focus-visible,
+.review-app .desktop-button.primary:focus-visible,
+.review-app button.settings-action.primary:focus-visible,
+.review-app .plugin-center .plugin-primary:focus-visible,
+.review-app .plugin-center .remote-plugin-fields > button:focus-visible,
+.review-app .new-session-page .new-session-create:focus-visible,
+.review-app .new-session-dialog .new-session-create:focus-visible,
+.review-app .space-editor .space-primary:focus-visible,
+.review-app .session-avatar-dialog > footer button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+
+/* 复合容器内部的裸输入框绝对不画内框（由外层容器 :focus-within 统一承担） */
+.review-app .composer textarea,
+.review-app .composer textarea:focus,
+.review-app .composer textarea:focus-visible,
+.review-app .composer .space-group-input,
+.review-app .composer .space-group-input:focus-visible,
+.review-app .session-search input,
+.review-app .session-search input:focus-visible,
+.review-app .settings-search input,
+.review-app .settings-search input:focus-visible,
+.review-app .project-space-sidebar .desktop-search input,
+.review-app .project-space-sidebar .desktop-search input:focus-visible,
+.review-app .project-switcher-search input,
+.review-app .project-switcher-search input:focus-visible,
+.review-app .plugin-list-search input,
+.review-app .plugin-list-search input:focus-visible,
+.review-app .repository-plugin-search input,
+.review-app .repository-plugin-search input:focus-visible,
+.review-app .file-tree input,
+.review-app .file-tree input:focus-visible,
+.review-app .pierre-tree-panel input,
+.review-app .pierre-tree-panel input:focus-visible,
+.review-app .file-toolbar input,
+.review-app .file-toolbar input:focus-visible,
+.review-app .browser-toolbar input,
+.review-app .browser-toolbar input:focus-visible,
+.review-app .desktop-browser input,
+.review-app .desktop-browser input:focus-visible,
+.review-app .project-name-input input,
+.review-app .project-name-input input:focus-visible,
+.review-app .new-directory-input input,
+.review-app .new-directory-input input:focus-visible,
+.review-app .archive-search input,
+.review-app .archive-search input:focus-visible,
+.review-app .desktop-path input,
+.review-app .desktop-path input:focus-visible {
+  outline: none;
+  box-shadow: none;
+  caret-color: var(--accent);
+}
+
+/* 复合容器统一的平滑聚焦晕染 */
+.review-app .session-search:focus-within,
+.review-app .settings-search:focus-within,
+.review-app .project-space-sidebar .desktop-search:focus-within,
+.review-app .plugin-list-search:focus-within,
+.review-app .repository-plugin-search:focus-within,
+.review-app .archive-search:focus-within,
+.review-app .desktop-path:focus-within,
+.review-app .new-directory-input:focus-within,
+.review-app .project-name-input:focus-within,
+.review-app .browser-toolbar label:focus-within,
+.review-app .file-tree > label:focus-within,
+.review-app .pierre-tree-panel > label:focus-within {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.review-app .project-switcher-search:focus-within {
+  border-bottom-color: var(--accent);
+}
+
+/* 独立输入框、文本域与下拉框的统一聚焦晕染 */
+.review-app .settings-form label > input,
+.review-app .settings-form textarea,
+.review-app .settings-control input:not([type="checkbox"]),
+.review-app .settings-control select,
+.review-app .space-field input,
+.review-app .space-field textarea,
+.review-app .space-field select,
+.review-app .request-field > input,
+.review-app .request-field > select,
+.review-app .request-field textarea,
+.review-app .remote-plugin-fields input,
+.review-app .plugin-local-form input:not([type="checkbox"]),
+.review-app .plugin-local-form textarea,
+.review-app .new-agent-name,
+.review-app .desktop-management-form input,
+.review-app .desktop-management-form select {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.review-app .settings-form label > input:focus,
+.review-app .settings-form textarea:focus,
+.review-app .settings-control input:not([type="checkbox"]):focus,
+.review-app .settings-control select:focus,
+.review-app .space-field input:focus,
+.review-app .space-field textarea:focus,
+.review-app .space-field select:focus,
+.review-app .request-field > input:focus,
+.review-app .request-field > select:focus,
+.review-app .request-field textarea:focus,
+.review-app .remote-plugin-fields input:focus,
+.review-app .plugin-local-form input:not([type="checkbox"]):focus,
+.review-app .plugin-local-form textarea:focus,
+.review-app .new-agent-name:focus,
+.review-app .desktop-management-form input:focus,
+.review-app .desktop-management-form select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.review-app .custom-accent:focus-within,
+.review-app .color-pill:focus-within {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* 顶部按钮条与面板分割拖拽条 */
+.review-app .workspace-change-overview:focus-visible,
+.review-app .context-tab button:focus-visible,
+.review-app .context-new-tab button:focus-visible,
+.review-app .change-file-heading:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+
+.review-app .desktop-turn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  border-radius: var(--radius-md);
+}
+
+/* --------------------------------------------------------------------------
+   2. 顶栏与全局壳层
+   -------------------------------------------------------------------------- */
+.review-app .windowbar {
+  height: var(--windowbar-h);
+  padding: 0 16px;
+  gap: 12px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.review-app.native-desktop > .windowbar {
+  padding-left: 84px;
+}
+
+.review-app .window-title {
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+}
+
+.review-app .windowbar:has(.project-switcher) .window-title {
+  max-width: clamp(120px, calc(50% - 220px), 380px);
+}
+
+.review-app.native-desktop .windowbar:has(.project-switcher) .window-title {
+  max-width: clamp(110px, calc(50% - 265px), 340px);
+}
+
+.review-app .review-badge {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--ink-secondary);
+}
+
+.review-app .window-actions {
+  border-left: 1px solid var(--line);
+  padding-left: 10px;
+  gap: 4px;
+}
+
+.review-app .icon-button {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-secondary);
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.review-app .icon-button:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.review-app .icon-button.active {
+  background: var(--selected);
+  color: var(--accent);
+}
+
+.review-app .project-switcher-trigger {
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  font-size: 12.5px;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.review-app .project-switcher-trigger:hover,
+.review-app .project-switcher-trigger[aria-expanded="true"] {
+  background: var(--raised);
+  border-color: var(--border);
+}
+
+.review-app .project-switcher-popup {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  box-shadow: var(--elevated-shadow);
+  padding: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   3. 左侧边栏（会话列表与项目空间边栏）
+   -------------------------------------------------------------------------- */
+.review-app .session-sidebar,
+.review-app .project-space-sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--line);
+  min-width: 0;
+}
+
+.review-app .session-sidebar {
+  padding: 16px 12px 12px;
+  gap: 6px;
+}
+
+.review-app .brand {
+  padding: 0 6px 14px;
+}
+
+.review-app .brand strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.review-app .session-search,
+.review-app .project-space-sidebar .desktop-search {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 7px 10px;
+  color: var(--muted);
+}
+
+.review-app .session-search input,
+.review-app .project-space-sidebar .desktop-search input {
+  font-size: 12.5px;
+  color: var(--fg);
+}
+
+.review-app .sidebar-home {
+  min-height: 38px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-secondary);
+}
+
+.review-app .sidebar-home.selected {
+  background: var(--selected);
+  color: var(--accent);
+}
+
+.review-app .sidebar-action {
+  border-radius: var(--radius-sm);
+  margin: 6px 0 12px;
+  padding: 9px 10px;
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+}
+
+.review-app .section-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0 8px;
+}
+
+.review-app .desktop-project-heading {
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+}
+
+.review-app .session-row {
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.review-app .session-entry .session-row {
+  padding-right: 30px;
+}
+
+.review-app .session-entry .session-copy {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.review-app .session-row.selected {
+  background: var(--selected);
+  color: var(--fg);
+}
+
+.review-app .session-copy strong {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.review-app .session-copy small,
+.review-app .session-copy > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.review-app .sidebar-footer {
+  border-top: 1px solid var(--line);
+  padding: 12px 6px 0;
+}
+
+.review-app .sidebar-footer > div:first-child {
+  font-size: 12px;
+}
+
+.review-app .sidebar-footer small {
+  font-size: 11px;
+}
+
+.review-app .theme-select select {
+  background: transparent;
+  border-radius: 6px;
+  padding: 3px 6px;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.review-app .theme-select select:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.review-app .avatar-edit,
+.review-app .space-edit {
+  border-radius: 6px;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.review-app .avatar-edit:hover,
+.review-app .space-edit:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+/* --------------------------------------------------------------------------
+   4. 中央对话区与悬浮阴影卡片层级
+   -------------------------------------------------------------------------- */
+.review-app .chat-column {
+  min-width: 0;
+  background: var(--bg);
+}
+
+.review-app .chat-header {
+  height: auto;
+  min-height: 68px;
+  padding: 12px 26px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.review-app .chat-header h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 3px;
+}
+
+.review-app .chat-header > div > span {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.review-app .conversation {
+  max-width: var(--reading-max);
+  padding: 28px 32px 28px;
+}
+
+.review-app .chat-reading .conversation {
+  padding-left: 48px;
+}
+
+.review-app .user-message {
+  background: var(--surface);
+  border: 0;
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-md);
+  padding: 13px 18px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--fg);
+}
+
+.review-app .assistant-message,
+.review-app .desktop-process-note .desktop-message-text,
+.review-app .desktop-process-thought .desktop-message-text {
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+/* 无边框柔和阴影卡片组：工具流、命令输出、变更摘要、审批、补充输入 */
+.review-app .desktop-change-summary,
+.review-app .change-summary,
+.review-app .desktop-approval,
+.review-app .desktop-input-request,
+.review-app .shell-card,
+.review-app .desktop-tool-detail.command,
+.review-app .desktop-tools details {
+  background: var(--surface);
+  border: 0;
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-md);
+}
+
+.review-app .change-summary,
+.review-app .desktop-change-summary {
+  padding: 13px 16px;
+  margin: 18px 0;
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.review-app .change-summary:hover,
+.review-app .desktop-change-summary:hover {
+  background: var(--raised);
+}
+
+.review-app .change-summary div > span,
+.review-app .desktop-change-summary small {
+  font-size: 11.5px;
+}
+
+.review-app .desktop-approval {
+  margin: 16px 0 22px;
+  padding: 18px 20px;
+}
+
+.review-app .desktop-approval h2 {
+  font-size: 14px;
+}
+
+.review-app .desktop-approval p {
+  font-size: 13px;
+  color: var(--ink-secondary);
+}
+
+.review-app .desktop-input-request {
+  padding: 18px 20px;
+}
+
+.review-app .desktop-button {
+  min-height: 32px;
+  padding: 6px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--raised);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.review-app .desktop-button:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--border);
+}
+
+.review-app .desktop-button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--on-primary);
+}
+
+.review-app .desktop-button.primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.review-app .desktop-activity-toggle.turn-status {
+  font-size: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.review-app .desktop-tool-group.event-group > summary {
+  font-size: 12.5px;
+}
+
+.review-app .message-actions,
+.review-app .desktop-answer-actions {
+  font-size: 11.5px;
+}
+
+/* --------------------------------------------------------------------------
+   5. 底部输入区与命令选择器
+   -------------------------------------------------------------------------- */
+.review-app .composer-area {
+  padding: 8px 24px 16px;
+}
+
+.review-app .composer {
+  max-width: var(--reading-max);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px 10px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.review-app .composer:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--card-shadow);
+}
+
+.review-app .composer textarea {
+  font-size: 13.5px;
+  line-height: 1.6;
+  padding: 2px 4px;
+  border-radius: 0;
+  caret-color: var(--accent);
+}
+
+.review-app .composer-toolbar {
+  padding-top: 4px;
+}
+
+.review-app .composer-toolbar .icon-button,
+.review-app .composer .permission,
+.review-app .composer .model,
+.review-app .composer .desktop-agent-config > summary {
+  font-size: 12px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-secondary);
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.review-app .composer-toolbar .icon-button {
+  width: auto;
+  min-width: 30px;
+  padding: 0 7px;
+}
+
+.review-app .composer .permission:hover,
+.review-app .composer .model:hover,
+.review-app .composer .desktop-agent-config > summary:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.review-app .composer .desktop-agent-config {
+  font-size: 12px;
+}
+
+.review-app .send-button {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--on-primary);
+  transition: background 140ms ease, transform 100ms ease, color 140ms ease;
+}
+
+.review-app .send-button:disabled {
+  background: var(--hover);
+  color: var(--muted);
+  opacity: 1;
+}
+
+.review-app .send-button:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.review-app .send-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.review-app .composer-caption {
+  max-width: var(--reading-max);
+  font-size: 11px;
+}
+
+.review-app .composer-picker {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevated-shadow);
+}
+
+/* --------------------------------------------------------------------------
+   6. 右侧上下文面板（差异、文件、终端、浏览）
+   -------------------------------------------------------------------------- */
+.review-app .context-panel {
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.review-app .panel-tabs {
+  height: 46px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+  padding: 0 10px;
+}
+
+.review-app .context-tab {
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.review-app .context-tab.active {
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: var(--card-shadow);
+}
+
+.review-app .panel-tabs > button.active {
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.review-app .file-tabbar {
+  background: var(--bar);
+  font-size: 12px;
+}
+
+.review-app .code-view,
+.review-app .patch-preview {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.review-app .change-file-heading {
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.review-app .context-start button,
+.review-app .context-new-tab > button {
+  background: var(--raised);
+  border: 0;
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-md);
+}
+
+.review-app .context-start button:hover,
+.review-app .context-new-tab > button:hover {
+  background: var(--hover);
+}
+
+/* --------------------------------------------------------------------------
+   7. 项目空间概览 (Space Overview / Board / Projects)
+   -------------------------------------------------------------------------- */
+.review-app .space-overview {
+  padding: 32px clamp(20px, 3vw, 40px) 48px;
+}
+
+.review-app .space-overview > header,
+.review-app .space-projects,
+.review-app .space-board {
+  max-width: var(--overview-max);
+  margin-inline: auto;
+}
+
+.review-app .space-overview h1 {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.review-app .space-overview > header p {
+  font-size: 13px;
+  color: var(--ink-secondary);
+}
+
+.review-app .space-overview-actions button {
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  padding: 8px 13px;
+}
+
+.review-app .space-projects {
+  background: transparent;
+  border: 0;
+  gap: 14px;
+  overflow: visible;
+  margin-bottom: 32px;
+}
+
+.review-app .space-projects > button {
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  padding: 18px 20px;
+}
+
+.review-app .space-projects > button:hover {
+  background: var(--raised);
+}
+
+.review-app .space-projects strong {
+  font-size: 14px;
+}
+
+.review-app .space-projects small {
+  font-size: 11.5px;
+}
+
+.review-app .space-board {
+  gap: 20px;
+}
+
+.review-app .space-board > section {
+  background: var(--sidebar);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.review-app .space-board > section > header {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+}
+
+.review-app .space-board h2 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.review-app .space-board-item {
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--card-shadow);
+  padding: 14px 15px;
+  margin-bottom: 10px;
+}
+
+.review-app .space-board-item:hover {
+  background: var(--raised);
+}
+
+.review-app .space-board-identity strong {
+  font-size: 13px;
+}
+
+.review-app .space-board-item p {
+  font-size: 12px;
+  color: var(--ink-secondary);
+}
+
+.review-app .space-board-item > small {
+  font-size: 11px;
+}
+
+/* --------------------------------------------------------------------------
+   8. 设置中心与外观设置
+   -------------------------------------------------------------------------- */
+.review-app .settings-navigation {
+  background: var(--sidebar);
+  border-right: 1px solid var(--line);
+  padding: 18px 14px;
+}
+
+.review-app .settings-navigation h3 {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.review-app .settings-search {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 7px 10px;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.review-app .settings-search input {
+  font-size: 12.5px;
+  color: var(--fg);
+}
+
+.review-app .settings-switch {
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  padding: 2px;
+  background: var(--border) !important;
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+
+.review-app .settings-switch > span {
+  width: 16px;
+  height: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+}
+
+.review-app .settings-switch[aria-checked="true"] > span {
+  transform: translateX(16px);
+}
+
+.review-app .settings-navigation nav button {
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--ink-secondary);
+}
+
+.review-app .settings-navigation nav button[aria-current] {
+  background: var(--selected);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.review-app .settings-content,
+.review-app .appearance-content {
+  width: min(820px, calc(100% - 64px));
+  margin: 28px auto 64px;
+}
+
+.review-app .settings-content-wide {
+  width: min(1040px, calc(100% - 64px));
+}
+
+.review-app .settings-content > h1,
+.review-app .appearance-content > h1 {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.review-app .settings-description,
+.review-app .appearance-intro {
+  font-size: 13px;
+  color: var(--ink-secondary);
+}
+
+.review-app .settings-rows,
+.review-app .appearance-box,
+.review-app .diagnostic-preview {
+  background: var(--surface);
+  border: 0;
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-md);
+}
+
+.review-app .settings-row strong {
+  font-size: 13.5px;
+}
+
+.review-app .settings-row p {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.review-app .settings-badge {
+  font-size: 11.5px;
+  border-radius: 999px;
+  padding: 3px 10px;
+  border: 0;
+  background: var(--hover);
+}
+
+.review-app .settings-badge.success {
+  background: var(--add);
+  color: var(--green);
+}
+
+.review-app .settings-action {
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--raised);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.review-app button.settings-action.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--on-primary);
+}
+
+.review-app button.settings-action.primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+/* --------------------------------------------------------------------------
+   9. 插件中心
+   -------------------------------------------------------------------------- */
+.review-app .plugin-center {
+  font-size: 13px;
+}
+
+.review-app .plugin-center-toolbar nav > button[aria-current="page"]::after {
+  background: var(--accent);
+  height: 2px;
+  border-radius: 2px;
+}
+
+.review-app .plugin-installed-layout {
+  background: var(--surface);
+  border: 0;
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-md);
+}
+
+.review-app .plugin-installed-list {
+  background: var(--sidebar);
+  border-right: 1px solid var(--line);
+}
+
+.review-app .plugin-installed-items > button {
+  border-radius: var(--radius-sm);
+}
+
+.review-app .plugin-installed-items > button.selected {
+  background: var(--selected);
+}
+
+.review-app .plugin-center .plugin-primary,
+.review-app .plugin-center .remote-plugin-fields > button {
+  background: var(--accent);
+  color: var(--on-primary);
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  padding: 8px 14px;
+}
+
+.review-app .plugin-center .remote-plugin-fields,
+.review-app .plugin-center .remote-plugin-candidate,
+.review-app .plugin-local-editor {
+  background: var(--surface);
+  border: 0;
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-md);
+}
+
+/* --------------------------------------------------------------------------
+   10. 弹窗对话框与引导配置页
+   -------------------------------------------------------------------------- */
+.review-app .new-session-dialog,
+.review-app .space-editor,
+.review-app .session-avatar-dialog,
+.review-app .avatar-editor,
+.review-app .sidebar-context-menu {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevated-shadow);
+}
+
+.review-app .new-session-dialog::backdrop,
+.review-app .session-avatar-dialog::backdrop {
+  background: rgba(7, 10, 16, 0.54);
+  backdrop-filter: blur(6px);
+}
+
+.review-app.light .new-session-dialog::backdrop,
+.review-app.light .session-avatar-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.review-app .new-session-form {
+  background: var(--surface);
+  border: 0;
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-lg);
+}
+
+.review-app .new-session-page .new-session-create,
+.review-app .new-session-dialog .new-session-create,
+.review-app .space-editor .space-primary,
+.review-app .session-avatar-dialog > footer button {
+  background: var(--accent);
+  color: var(--on-primary);
+  border-radius: var(--radius-sm);
+}
+
+.review-app .desktop-setup {
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-lg);
+  padding: 36px 32px;
+  margin: auto;
+  width: min(500px, calc(100vw - 32px));
+}
+
+/* --------------------------------------------------------------------------
+   11. 笔记本小屏与外接大屏全尺寸响应式断点（零横向拖动）
+   -------------------------------------------------------------------------- */
+@media (min-width: 1800px) {
+  .review-app {
+    --reading-max: 780px;
+    --overview-max: 1220px;
+  }
+  .review-app .settings-content {
+    width: min(880px, calc(100% - 80px));
+  }
+  .review-app .settings-content-wide {
+    width: min(1120px, calc(100% - 80px));
+  }
+}
+
+@media (max-width: 1280px) {
+  .review-app {
+    --sidebar-width: 214px;
+  }
+  .review-app .conversation {
+    padding: 24px 24px;
+  }
+  .review-app .chat-reading .conversation {
+    padding-left: 42px;
+  }
+  .review-app .space-overview {
+    padding: 24px 24px 36px;
+  }
+  .review-app .space-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .review-app .settings-content,
+  .review-app .settings-content-wide,
+  .review-app .appearance-content {
+    width: calc(100% - 48px);
+  }
+}
+
+@media (max-width: 1000px) {
+  .review-app {
+    --sidebar-width: 192px;
+    min-width: 0;
+  }
+  .review-app .review-badge {
+    display: none;
+  }
+  .review-app .chat-header {
+    padding: 10px 16px;
+  }
+  .review-app .composer-area {
+    padding: 6px 16px 12px;
+  }
+  .review-app .settings-master-detail {
+    grid-template-columns: 160px minmax(0, 1fr);
+  }
+  .review-app .plugin-installed-layout {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 800px) {
+  .review-app {
+    min-width: 0;
+  }
+  .review-app .windowbar {
+    height: auto;
+    min-height: 48px;
+  }
+  .review-app .space-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .review-app .settings-content,
+  .review-app .settings-content-wide,
+  .review-app .appearance-content {
+    width: calc(100% - 32px);
+    margin: 20px auto 40px;
+  }
+  .review-app .settings-master-detail,
+  .review-app .plugin-installed-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .review-app .desktop-setup {
+    padding: 24px 18px;
+  }
+}

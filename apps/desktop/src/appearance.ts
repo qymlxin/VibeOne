@@ -17,8 +17,8 @@ export const baseColors: Record<
   ThemeMode,
   { background: string; foreground: string }
 > = {
-  light: { background: "#FFFFFF", foreground: "#1A1C1F" },
-  dark: { background: "#181818", foreground: "#FFFFFF" },
+  light: { background: "#F6F7F9", foreground: "#141821" },
+  dark: { background: "#0E1116", foreground: "#EDF1F7" },
 };
 
 const isHexColor = (value: unknown): value is string =>
@@ -87,7 +87,12 @@ export function applyAppearance(
   ]) {
     root.style.removeProperty(`--${name}`);
   }
-  root.style.setProperty("--ui-accent", value.accent);
+  // 默认钴蓝在暗色背景下自动使用高可读性浅钴蓝 #5B82FF
+  const resolvedAccent =
+    value.accent.toUpperCase() === "#3564F5" && mode === "dark"
+      ? "#5B82FF"
+      : value.accent;
+  root.style.setProperty("--ui-accent", resolvedAccent);
   const colors = value[mode];
   if (!colors.background && !colors.foreground) {
     return;

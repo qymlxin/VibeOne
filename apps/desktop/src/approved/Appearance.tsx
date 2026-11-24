@@ -25,8 +25,8 @@ export function BrandMark() {
 }
 
 export const defaults = {
-  light: { bg: "#FFFFFF", fg: "#1A1C1F" },
-  dark: { bg: "#181818", fg: "#FFFFFF" },
+  light: { bg: "#F6F7F9", fg: "#141821" },
+  dark: { bg: "#0E1116", fg: "#EDF1F7" },
 } as const;
 
 export function contrastRatio(bg: string, fg: string): number {
