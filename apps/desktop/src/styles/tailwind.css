@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* 依据 .review-app.dark / .review-app.light 切换暗色变体 */
+@custom-variant dark (&:where(.review-app.dark, .review-app.dark *));
+
+/* 将 Tailwind v4 设计令牌直接绑定到方案 D（舒展钴蓝）CSS 变量 */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--fg);
+  --color-popover: var(--raised);
+  --color-popover-foreground: var(--fg);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--on-primary);
+  --color-secondary: var(--raised);
+  --color-secondary-foreground: var(--fg);
+  --color-muted: var(--hover);
+  --color-muted-foreground: var(--ink-secondary);
+  --color-subtle: var(--muted);
+  --color-accent: var(--selected);
+  --color-accent-foreground: var(--fg);
+  --color-destructive: var(--red);
+  --color-destructive-foreground: #ffffff;
+  --color-success: var(--green);
+  --color-warning: var(--warning);
+  --color-border: var(--line);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+
+  --shadow-card: var(--card-shadow);
+  --shadow-elevated: var(--elevated-shadow);
+}
