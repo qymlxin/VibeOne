@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vibeone.dev/schemas/plugin.schema.json",
+  "title": "VibeOne Plugin Manifest",
+  "description": "VibeOne 插件清单（plugin.json）规范，与 Rust 宿主校验器保持严格一致。",
+  "type": "object",
+  "required": [
+    "manifestVersion",
+    "id",
+    "name",
+    "version",
+    "engines",
+    "contributions"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema 地址"
+    },
+    "manifestVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "清单格式版本，当前固定为 1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "description": "全局唯一插件 ID，建议使用反向域名形式（如 dev.vibeone.example）"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "插件显示名称"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "语义化版本号（如 0.1.0）"
+    },
+    "description": {
+      "type": "string",
+      "description": "插件功能简介（显示在插件中心详情与安装卡片）"
+    },
+    "author": {
+      "type": "string",
+      "description": "作者或维护组织名称"
+    },
+    "engines": {
+      "type": "object",
+      "required": ["pluginApi"],
+      "properties": {
+        "pluginApi": {
+          "type": "string",
+          "const": ">=0.1 <0.2",
+          "description": "兼容的 VibeOne 插件 API 范围"
+        }
+      },
+      "additionalProperties": true
+    },
+    "hostRequirements": {
+      "type": "array",
+      "description": "插件运行所需的宿主能力权限声明",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "workspace.read",
+          "artifact.write",
+          "desktop.terminal",
+          "desktop.browser",
+          "agent.spawn",
+          "notifications.send"
+        ]
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "maxProperties": 0,
+      "description": "当前版本要求插件自包含运行（必须将第三方依赖打包进 dist），不可声明外部 npm 依赖"
+    },
+    "entrypoints": {
+      "type": "object",
+      "description": "插件前后端入口声明",
+      "properties": {
+        "worker": {
+          "type": "object",
+          "required": ["path", "runtime", "protocolVersion"],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "相对包根目录的 Node Worker 脚本路径（如 dist/worker.mjs）"
+            },
+            "runtime": {
+              "type": "string",
+              "const": "node"
+            },
+            "protocolVersion": {
+              "type": "integer",
+              "const": 1
+            }
+          }
+        },
+        "app": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "相对包根目录的前端 ESM 入口路径（如 dist/app.mjs，体积上限 16 MiB）"
+            },
+            "runtime": {
+              "type": "string",
+              "enum": ["react", "esm"]
+            }
+          }
+        }
+      }
+    },
+    "contributions": {
+      "type": "array",
+      "description": "插件向工作台注册的扩展点清单",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "kindVersion", "binding"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "贡献点在插件内的唯一标识"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "app.panel",
+              "app.command",
+              "settings.section",
+              "agent.provider",
+              "notification.channel"
+            ]
+          },
+          "kindVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "surface": {
+            "type": "string",
+            "description": "UI 挂载位置，常用 workspace.tool（右侧工作区工具栏）"
+          },
+          "title": {
+            "type": "string",
+            "description": "标签页或入口展示标题"
+          },
+          "description": {
+            "type": "string",
+            "description": "扩展点功能说明"
+          },
+          "icon": {
+            "type": "string",
+            "description": "内置图标标识（folder / changes / terminal / browser / blocks）"
+          },
+          "binding": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["app", "worker", "declarative"]
+              },
+              "handler": {
+                "type": "string",
+                "description": "binding.type 为 worker 时的 Worker Handler 名称"
+              },
+              "descriptor": {
+                "type": "object",
+                "required": ["command"],
+                "properties": {
+                  "command": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "可执行程序路径或 $node"
+                  },
+                  "args": {
+                    "type": "array",
+                    "maxItems": 64,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 4096
+                    }
+                  },
+                  "env": {
+                    "type": "object",
+                    "additionalProperties": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "configSchema": {
+      "type": "object",
+      "description": "插件安装配置表单 Schema；声明后插件中心会自动渲染可视化配置控件",
+      "required": ["properties"],
+      "properties": {
+        "type": { "type": "string", "const": "object" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["string", "number", "integer", "boolean"]
+              },
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "default": {},
+              "enum": { "type": "array" },
+              "placeholder": { "type": "string" },
+              "minimum": { "type": "number" },
+              "maximum": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

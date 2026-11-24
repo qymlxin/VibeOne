@@ -19,7 +19,12 @@
     "./app": {
       "types": "./dist/app.d.ts",
       "default": "./dist/app.js"
-    }
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "default": "./dist/manifest.js"
+    },
+    "./schema/plugin.schema.json": "./schema/plugin.schema.json"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"

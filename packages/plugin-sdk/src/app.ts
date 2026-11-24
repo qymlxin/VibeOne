@@ -1,8 +1,44 @@
 import {Scope,type Disposer} from './scope.js';
 import type {Json} from './protocol.js';
 
+export type PluginThemeMode = 'dark' | 'light';
+export type PluginPanelParams = Readonly<Record<string, Json>>;
+
+export interface PluginUiServices {
+  /** 在宿主界面的右下角或操作条展示轻量提示 */
+  notify?(message: string, tone?: 'info' | 'success' | 'warning' | 'error'): void;
+  /** 请求宿主打开指定扩展面板（可附带自定义参数） */
+  openPanel?(panelId: string, params?: Record<string, Json>): void;
+  /** 关闭当前已打开的扩展面板 */
+  closePanel?(panelId?: string): void;
+  /** 读取当前工作台外观主题（暗色 / 亮色） */
+  getTheme?(): PluginThemeMode;
+}
+
+export interface PluginComposerServices {
+  /** 将引用片段或模板文本插入当前会话输入框 */
+  insertText(text: string): void;
+  /** 以编程方式向当前会话发送消息 */
+  submit?(text?: string): void | Promise<void>;
+}
+
 export interface AppIdentity {pluginId:string; generation:number; version:string}
-export interface AppPanelProps {workspaceId?:string; sessionId?:string; visible?:boolean; initialUrl?:string; fileTarget?:{path:string}; onTitle?:(title:string)=>void; onNavigate?:(url:string)=>void; emptyState?:unknown}
+export interface AppPanelProps {
+  workspaceId?:string;
+  sessionId?:string;
+  visible?:boolean;
+  /** 当前渲染的面板贡献点 id */
+  panelId?:string;
+  /** 当前宿主分辨率与外观模式 */
+  theme?:PluginThemeMode;
+  /** 宿主或其他插件传入的通用上下文参数 */
+  params?:PluginPanelParams;
+  initialUrl?:string;
+  fileTarget?:{path:string};
+  onTitle?:(title:string)=>void;
+  onNavigate?:(url:string)=>void;
+  emptyState?:unknown;
+}
 export interface DesktopServices {readonly available:boolean;invoke(command:string,args?:Record<string,unknown>):Promise<unknown>;streamChannel():{events:{id:string;onmessage?:(event:any)=>void};dispose():void}}
 export type AppComponent=(props:AppPanelProps)=>unknown;
 export interface AppContext {
@@ -12,7 +48,15 @@ export interface AppContext {
   readonly panels:{register(id:string,component:AppComponent):void};
   readonly commands:{register(id:string,run:()=>void|Promise<void>):void};
   readonly settings:{register(id:string,component:AppComponent):void};
-  readonly services:{workbench:{snapshot():Json; subscribe(listener:()=>void):Disposer;request?(endpoint:string,body?:Json):Promise<Json>}; desktop?:DesktopServices; invokeWorker(handler:string,input?:Json,workspaceId?:string):Promise<Json>};
+  readonly services:{
+    workbench:{snapshot():Json; subscribe(listener:()=>void):Disposer;request?(endpoint:string,body?:Json):Promise<Json>};
+    desktop?:DesktopServices;
+    /** 通用宿主界面交互桥接（通知、面板切换、主题查询） */
+    ui?:PluginUiServices;
+    /** 与当前对话输入框交互的能力 */
+    composer?:PluginComposerServices;
+    invokeWorker(handler:string,input?:Json,workspaceId?:string):Promise<Json>;
+  };
   readonly hooks:{on(event:string,listener:(payload:Json)=>void|Promise<void>):void};
 }
 export interface AppDefinition {readonly apiVersion:'0.1';activate(ctx:AppContext):void|Disposer|Promise<void|Disposer>}

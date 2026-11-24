@@ -22,3 +22,47 @@ test('asynchronous App hook errors are reported without rejecting the host event
   runtime.publish(app);runtime.emit('changed',null);await Promise.resolve();await Promise.resolve();
   assert.equal(failures.length,1);assert.ok(failures[0].includes('async hook failed'));await runtime.unload('async');
 });
+
+test('generalized ui, composer services and panel theme/params props pass through',async()=>{
+  const inserted=[];const opened=[];const noticed=[];
+  const runtime=new AppRuntime();
+  const extendedServices={
+    ...services,
+    ui:{
+      notify:(message,tone)=>noticed.push({message,tone}),
+      openPanel:(panelId,params)=>opened.push({panelId,params}),
+      getTheme:()=>'dark',
+    },
+    composer:{
+      insertText:(text)=>inserted.push(text),
+    },
+  };
+  const app=await runtime.prepare(
+    {pluginId:'generalized',generation:1,version:'1'},
+    defineApp(ctx=>{
+      ctx.services.ui?.notify?.('已连接','success');
+      ctx.services.composer?.insertText('hello');
+      ctx.services.ui?.openPanel?.('ext-panel',{path:'src/app.ts'});
+      ctx.panels.register('ext-panel',props=>({
+        theme:props.theme,
+        panelId:props.panelId,
+        params:props.params,
+        computedTheme:ctx.services.ui?.getTheme?.(),
+      }));
+    }),
+    extendedServices,
+    [{id:'ext-panel',kind:'app.panel'}],
+  );
+  runtime.publish(app);
+  const Panel=app.panels.get('ext-panel');
+  assert.deepEqual(Panel({panelId:'ext-panel',theme:'dark',params:{path:'src/app.ts'}}),{
+    theme:'dark',
+    panelId:'ext-panel',
+    params:{path:'src/app.ts'},
+    computedTheme:'dark',
+  });
+  assert.deepEqual(noticed,[{message:'已连接',tone:'success'}]);
+  assert.deepEqual(inserted,['hello']);
+  assert.deepEqual(opened,[{panelId:'ext-panel',params:{path:'src/app.ts'}}]);
+  await runtime.unload('generalized');
+});
